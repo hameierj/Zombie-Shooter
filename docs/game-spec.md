@@ -96,6 +96,8 @@ should win; can be switched off on the Hordes tab). Every DNA purchase is yours 
 with the same economy and summarised: zombies, DNA of each colour, items found.
 
 ## 7. Screens and sound
+**Hold to repeat:** press and hold any buy button (DNA +, Spawn +, Hire, Damage, unit-tree upgrades) for 1 second, shown by a ring filling around your finger; it then keeps buying, faster and faster, until you let go or run out of DNA.
+
 Soldiers stand at random spots along the wall, mixed together (up to 6 shown per unit type; the rest fire through them).
 
 The zombie map fills the screen between the HUD (a counter for each DNA colour, keep-up status, sound, settings) and four big

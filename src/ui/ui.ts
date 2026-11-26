@@ -32,7 +32,15 @@ const view = { x: 0, y: 0, s: 0.6, dragged: false };
 
 // ---------- init ----------
 export function initUI() {
-  document.addEventListener('click', onClick);
+  document.addEventListener('click', onClick, true);
+  document.addEventListener('pointerdown', startHold, { passive: true });
+  document.addEventListener('pointerup', endHold, { passive: true });
+  document.addEventListener('pointercancel', endHold, { passive: true });
+  document.addEventListener('touchend', endHold, { passive: true, capture: true });
+  document.addEventListener('touchcancel', endHold, { passive: true, capture: true });
+  document.addEventListener('pointermove', (e) => { if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 14) endHold(); }, { passive: true });
+  window.addEventListener('blur', endHold);
+  document.addEventListener('contextmenu', (e) => { if ((e.target as Element).closest('button[data-action]')) e.preventDefault(); });
   document.addEventListener('pointerdown', () => { lastPointer = performance.now(); pointerDown++; }, { passive: true });
   const release = () => { lastPointer = performance.now(); pointerDown = Math.max(0, pointerDown - 1); };
   document.addEventListener('pointerup', release, { passive: true });
@@ -76,12 +84,19 @@ function soft() {
 }
 
 // ---------- clicks ----------
+type ActionData = { action: string; arg?: string; n?: string; cls?: string; strain?: string; slot?: string };
 function onClick(e: Event) {
+  if (suppressClick) { suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
   const el = (e.target as Element).closest<HTMLElement | SVGElement>('[data-action]');
   if (!el || (el as HTMLButtonElement).disabled) return;
-  const a = el.dataset.action!, arg = el.dataset.arg ?? '', n = Number(el.dataset.n ?? 0);
-  const cls = el.dataset.cls as ClassId, sid = el.dataset.strain as StrainId;
+  act({ ...el.dataset } as ActionData);
+}
+/** Run one UI action. Returns true if it bought something (used by hold-to-repeat). */
+function act(d: ActionData, quiet = false): boolean {
+  const a = d.action, arg = d.arg ?? '', n = Number(d.n ?? 0);
+  const cls = d.cls as ClassId, sid = d.strain as StrainId;
   const spent = M.STRAIN_IDS.reduce((x, c) => x + Math.exp(Math.min(700, game.dna(c))), 0);
+  const tier0 = sid ? game.s.strains[sid]?.tier : 0;
   switch (a) {
     case 'tab':
       // from a sub-screen (a unit type's tree), the tab button goes back to that tab's overview;
@@ -104,7 +119,7 @@ function onClick(e: Event) {
     case 'item': openItem(Number(arg)); break;
     case 'pick': openPicker(cls, arg as 'gun' | 'attach' | 'charm'); break;
     case 'equip-gun': closeModal(); game.equipGun(cls, Number(arg)); break;
-    case 'equip-gear': closeModal(); game.equipGear(cls, el.dataset.slot as 'attach' | 'charm', arg === 'none' ? null : Number(arg)); break;
+    case 'equip-gear': closeModal(); game.equipGear(cls, d.slot as 'attach' | 'charm', arg === 'none' ? null : Number(arg)); break;
     case 'sell': closeModal(); { const v = game.sell(Number(arg)); if (v) toast(`<b>Sold</b><span>+${fmtLn(v.ln)} ${M.strainById(v.colour).dna} DNA</span>`, M.strainById(v.colour).color); } break;
     case 'autosell': game.setAutoSell(arg === 'off' ? null : (arg as AutoSell)); break;
     case 'sell-matching': { const n = game.sellMatching(); if (n) toast(`<b>Sold ${n} item${n > 1 ? 's' : ''}</b><span>DNA added</span>`, '#6fdc7a'); } break;
@@ -126,16 +141,72 @@ function onClick(e: Event) {
   }
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
   const after = M.STRAIN_IDS.reduce((x, c) => x + Math.exp(Math.min(700, game.dna(c))), 0);
-  const paid = after < spent;
-  if (a === 'tier-up') sfx.tierUp();
+  const paid = after < spent || (a === 'tier-up' && game.s.strains[sid].tier > tier0);
+  if (quiet) { /* hold-to-repeat plays its own sounds */ }
+  else if (a === 'tier-up') sfx.tierUp();
   else if (a === 'allocate') { if (paid) sfx.allocate(); }
   else if (a === 'sell' || a === 'sell-matching') sfx.buy();
   else if (['buy-node', 'hire', 'spawn', 'release'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
   else if (a.startsWith('equip')) sfx.equip();
   else if (a !== 'horde') sfx.click();
   // the tap is finished, so a re-render the action asked for can happen right now (no waiting)
-  if (softTimer) { clearTimeout(softTimer); softTimer = 0; render(); }
+  // (not while holding: the held button must stay in the page so the release is seen)
+  if (!quiet && softTimer) { clearTimeout(softTimer); softTimer = 0; render(); }
   refresh();
+  return paid;
+}
+
+// ---------- hold to repeat: press and hold a buy button for 1 s, then it buys again and again ----------
+const REPEATABLE = new Set(['tier-up', 'spawn', 'buy-node', 'hire']);
+const HOLD_MS = 1000;
+let suppressClick = false;
+let hold: { d: ActionData; timer: number; x: number; y: number; count: number } | null = null;
+function holdRing() {
+  let r = document.getElementById('hold-ring');
+  if (!r) {
+    r = document.createElement('div');
+    r.id = 'hold-ring';
+    r.innerHTML = '<svg viewBox="0 0 44 44"><circle class="bg" cx="22" cy="22" r="18"/><circle class="fg" cx="22" cy="22" r="18"/></svg><b></b>';
+    document.body.appendChild(r);
+  }
+  return r;
+}
+function startHold(e: PointerEvent) {
+  if (e.button > 0) return;
+  const el = (e.target as Element).closest<HTMLElement>('button[data-action]');
+  if (!el || (el as HTMLButtonElement).disabled || !REPEATABLE.has(el.dataset.action!)) return;
+  stopHold();
+  const ring = holdRing();
+  ring.style.left = `${e.clientX}px`;
+  ring.style.top = `${e.clientY}px`;
+  ring.className = 'filling';
+  ring.querySelector('b')!.textContent = '';
+  hold = { d: { ...el.dataset } as ActionData, x: e.clientX, y: e.clientY, count: 0, timer: window.setTimeout(() => repeat(150), HOLD_MS) };
+}
+function repeat(delay: number) {
+  if (!hold) return;
+  suppressClick = true; // the release after a hold must not buy one more
+  const ring = holdRing();
+  ring.className = 'spinning';
+  if (!act(hold.d, true)) { sfx.denied(); stopHold(); return; }
+  hold.count++;
+  ring.querySelector('b')!.textContent = `×${hold.count}`;
+  if (hold.count % 2 === 1) sfx.buy();
+  hold.timer = window.setTimeout(() => repeat(Math.max(45, delay * 0.88)), delay);
+}
+function stopHold() {
+  if (hold) clearTimeout(hold.timer);
+  hold = null;
+  const r = document.getElementById('hold-ring');
+  if (r) r.className = '';
+}
+function endHold() {
+  const wasRepeating = suppressClick;
+  const bought = hold?.count ?? 0;
+  stopHold();
+  if (bought) { if (softTimer) { clearTimeout(softTimer); softTimer = 0; } render(); }
+  // a click normally follows the release; if it doesn't (the button was redrawn), stop suppressing soon after
+  if (wasRepeating) setTimeout(() => { suppressClick = false; }, 60);
 }
 
 // ---------- HUD (refreshed in place) ----------

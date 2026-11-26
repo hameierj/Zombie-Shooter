@@ -413,3 +413,17 @@ button, [data-action] { touch-action: manipulation; }
 .ucard::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(var(--c1) 0 50%, var(--c2) 50% 100%); }
 .ucard.locked::before { display: none; }
 @media (max-width: 480px) { .ucard .u-main b { font-size: 11px; letter-spacing: 0; } .ucard .count { font-size: 12px; margin-left: 4px; } .ucard { gap: 8px; } }
+/* hold-to-repeat ring around the finger */
+#hold-ring { position: fixed; z-index: 60; width: 84px; height: 84px; margin: -42px 0 0 -42px; pointer-events: none; display: none; }
+#hold-ring.filling, #hold-ring.spinning { display: grid; place-items: center; }
+#hold-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+#hold-ring circle { fill: rgba(13, 15, 12, .55); stroke-width: 5; }
+#hold-ring .bg { stroke: rgba(255, 255, 255, .15); }
+#hold-ring .fg { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 113.1; stroke-dashoffset: 113.1; }
+#hold-ring.filling .fg { animation: hold-fill 1s linear forwards; }
+#hold-ring.spinning .fg { stroke: var(--good); stroke-dasharray: 30 83.1; stroke-dashoffset: 0; }
+#hold-ring.spinning svg { animation: hold-spin .6s linear infinite; }
+#hold-ring b { position: relative; font: 400 12px var(--pixel); color: #fff; text-shadow: 0 1px 0 #000; }
+@keyframes hold-fill { to { stroke-dashoffset: 0; } }
+@keyframes hold-spin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
+button[data-action] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
