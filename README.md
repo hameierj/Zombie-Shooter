@@ -10,7 +10,8 @@ switches live when you rotate or fold.
 - Balance math: [`docs/scaling-model.md`](docs/scaling-model.md)
 
 ## Play it on your phone
-The game is published to GitHub Pages on every push to `main` (see `.github/workflows/deploy.yml`).
+The game is published to GitHub Pages at https://hameierj.github.io/Zombie-Shooter/ on every push to `main`
+(see `.github/workflows/deploy.yml`).
 Open the Pages address in Safari on iPhone, then **Share → Add to Home Screen**. It runs full-screen, works offline,
 and saves progress on the device. Use ⚙ → Export / Import save to move progress between devices.
 
