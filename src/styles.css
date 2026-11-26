@@ -339,3 +339,14 @@ img.dim { opacity: .35; }
   #hud-dna .vial { height: 14px; }
   #hud .icon-btn { min-width: 40px; min-height: 40px; font-size: 18px; }
 }
+#combo { position: fixed; z-index: 9; pointer-events: none; top: calc(var(--hud-h) + var(--sat) + 8px); right: calc(var(--sar) + 10px);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding: 6px 10px; border-radius: 8px;
+  background: rgba(13, 15, 12, .72); border: 2px solid #2b3029; font: 12px var(--pixel); }
+#combo b { font-weight: 400; font-size: 14px; color: var(--accent); }
+#combo span#combo-x { color: var(--good); }
+#combo i { display: block; width: 96px; height: 4px; background: #2b3029; border-radius: 2px; overflow: hidden; }
+#combo em { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+#combo.max em { background: var(--good); }
+#combo.pop b { animation: combo-pop .25s; }
+@keyframes combo-pop { 50% { transform: scale(1.25); } }
+#app.menu-open ~ #combo, .menu-open #combo { display: none; }

@@ -3,7 +3,8 @@
 // or an iPhone Duo folded or unfolded. Resizing (rotate/fold) re-maps every unit mid-fight.
 //
 // Zombies walk in endlessly at the current DNA Count tier and Spawn Rate. A horde is an optional challenge: the
-// stream pauses and 60 zombies of the horde's tier rush in; kill them all before the timer runs out to win.
+// stream pauses, 60 zombies of the horde's tier rush in and a boss follows. Kill them all before the timer runs out;
+// if the boss reaches the shredder, or 10 horde zombies break through, the horde is lost.
 import Phaser from 'phaser';
 import * as M from '../core/model.ts';
 import type { ClassId, Gun, StrainId } from '../core/model.ts';
@@ -21,7 +22,7 @@ const INTRO_SEC = 1.4;
 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
-  strain: StrainId; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; slow: number; burn: number;
+  strain: StrainId; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
 }
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
@@ -55,7 +56,8 @@ export class BattleScene extends Phaser.Scene {
   private phaseT = 0;
   private zombies: Zombie[] = [];
   private spawnTimers = new Map<StrainId, number>();
-  private horde = { k: 0, queue: [] as Zombie[], t: 0, spawnT: 0 };
+  private horde = { k: 0, queue: [] as Zombie[], t: 0, spawnT: 0, breaches: 0, bossThrough: false };
+  private hordeText!: Phaser.GameObjects.Text;
   private ready = false;
 
   constructor() { super('battle'); }
@@ -74,6 +76,7 @@ export class BattleScene extends Phaser.Scene {
     const tx = { fontFamily: FONT, color: '#ffffff', stroke: '#140c1c' };
     this.banner = this.add.text(0, 0, '', tx).setOrigin(0.5).setDepth(9500).setAlpha(0);
     this.sub = this.add.text(0, 0, '', tx).setOrigin(0.5).setDepth(9500).setAlpha(0);
+    this.hordeText = this.add.text(0, 0, '', { fontFamily: FONT, color: '#ffd34d', stroke: '#140c1c' }).setOrigin(0, 0).setDepth(9500).setVisible(false);
     game.on((evt) => {
       if (evt === 'horde-start' && this.phase === 'stream') this.startHorde();
       if (evt === 'reset') { this.clearZombies(); this.setPhase('stream'); }
@@ -128,11 +131,11 @@ export class BattleScene extends Phaser.Scene {
     for (const z of this.zombies) if (!onlyHorde || z.horde) z.sprite?.destroy();
     this.zombies = onlyHorde ? this.zombies.filter((z) => !z.horde) : [];
   }
-  private makeZombie(strain: StrainId, tier: number, spawnLv: number, horde: boolean): Zombie {
+  private makeZombie(strain: StrainId, tier: number, spawnLv: number, horde: boolean, boss = false): Zombie {
     return {
-      strain, tier, horde, lnHp: M.lnZombieHp(strain, tier, spawnLv), hp: 1, slow: 0, burn: 0,
-      p: -0.02 - Math.random() * 0.05, l: Math.random() * 2 - 1,
-      speed: (M.strainById(strain).speed * (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1)) / C.walkSec,
+      strain, tier, horde, boss, atWall: false, lnHp: M.lnZombieHp(strain, tier, spawnLv) + (boss ? Math.log(C.bossHpMult) : 0), hp: 1, slow: 0, burn: 0,
+      p: -0.02 - Math.random() * 0.05, l: boss ? 0 : Math.random() * 2 - 1,
+      speed: (M.strainById(strain).speed * (boss ? C.bossSpeed : (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1))) / C.walkSec,
       flash: -1, phase: Math.random() * 4, alive: true,
     };
   }
@@ -141,7 +144,10 @@ export class BattleScene extends Phaser.Scene {
     const k = game.nextHorde;
     const h = M.hordeDef(k);
     const mix = M.hordeMix(k);
-    this.horde = { k, t: 0, spawnT: 0, queue: Array.from({ length: C.hordeZombies }, () => this.makeZombie(mix[Math.floor(Math.random() * mix.length)], h.tier, 0, true)) };
+    const queue = Array.from({ length: C.hordeZombies }, () => this.makeZombie(mix[Math.floor(Math.random() * mix.length)], h.tier, 0, true));
+    // the boss joins two-thirds of the way in, so its slow walk doesn't decide the fight on its own
+    queue.splice(Math.round(queue.length * 2 / 3), 0, this.makeZombie(M.hordeBoss(k), h.tier, 0, true, true));
+    this.horde = { k, t: 0, spawnT: 0, queue, breaches: 0, bossThrough: false };
     this.showBanner(h.name.toUpperCase(), `HORDE ${k} · TIER ${h.tier}`);
     sfx.hordeStart();
     this.setPhase('intro');
@@ -182,14 +188,20 @@ export class BattleScene extends Phaser.Scene {
       const h = this.horde;
       h.t += dt;
       h.spawnT -= dt;
-      while (h.queue.length && h.spawnT <= 0) { h.spawnT += 1 / C.hordeSpawnPerSec; this.zombies.push(h.queue.shift()!); }
-      if (!h.queue.length && !this.zombies.some((z) => z.alive && z.horde)) {
+      while (h.queue.length && h.spawnT <= 0) {
+        h.spawnT += 1 / C.hordeSpawnPerSec;
+        const z = h.queue.shift()!;
+        if (z.boss) { this.showBanner('BOSS INCOMING', M.strainById(z.strain).name.toUpperCase()); sfx.hordeStart(); }
+        this.zombies.push(z);
+      }
+      const lost = h.t >= C.hordeTimerSec ? 'TIME RAN OUT' : h.bossThrough ? 'THE BOSS BROKE THROUGH' : h.breaches >= C.breachLimit ? 'THE WALL WAS OVERRUN' : '';
+      if (!lost && !h.queue.length && !this.zombies.some((z) => z.alive && z.horde)) {
         this.showBanner('HORDE BEATEN!', M.hordeDef(h.k).unlocks.toUpperCase());
         sfx.hordeWon();
         game.hordeWon(h.k);
         this.setPhase('end');
-      } else if (h.t >= C.hordeTimerSec) {
-        this.showBanner('TOO STRONG', 'THE HORDE PULLS BACK');
+      } else if (lost) {
+        this.showBanner('HORDE LOST', lost);
         sfx.hordeLost();
         this.clearZombies(true);
         h.queue = [];
@@ -197,6 +209,7 @@ export class BattleScene extends Phaser.Scene {
         this.setPhase('end');
       }
     }
+    game.comboTick(dt);
     this.tickZombies(dt);
     this.tickShooters(dt);
     this.tickEffects(dt);
@@ -215,7 +228,19 @@ export class BattleScene extends Phaser.Scene {
         if (z.burn > 0) { z.burn -= dt; if (Math.random() < dt * 8) { const [bx, by] = this.zombieCenter(z); this.burst(bx, by + 8 * this.px, 0xff7a2a, 1); } }
         if (z.p > 0.6 && Math.random() < dt * 0.15) sfx.groan();
       }
+      else if (z.horde) {
+        // a horde zombie broke through: the wall takes a breach (the boss breaking through loses the horde)
+        if (z.boss) this.horde.bossThrough = true;
+        else this.horde.breaches++;
+        z.alive = false;
+        const [x, y] = this.toScreen(1, z.l);
+        this.burst(x - 6 * this.px, y - 10 * this.px, 0xff4a4a, 10);
+        z.sprite?.destroy(); z.sprite = undefined;
+        game.comboBreak();
+        sfx.grind();
+      }
       else {
+        if (!z.atWall) { z.atWall = true; game.comboBreak(); }
         // in the blades: the shredder grinds it slowly while it claws at the machine
         z.phase += dt * 3;
         z.hp -= 0.08 * dt;
@@ -226,17 +251,18 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  // ---------- squad: each unit type is a group of up to 3 visible soldiers firing for the whole group ----------
-  private static readonly VISIBLE_PER_TYPE = 3;
-  private labels = new Map<ClassId, Phaser.GameObjects.Text>();
+  // ---------- squad: soldiers stand at random spots along the wall, each firing for a share of its unit type ----------
+  private static readonly VISIBLE_PER_TYPE = 6;
+  private spots = new Map<string, number>();   // soldier key → random sort key (where along the wall it stands)
 
   private syncShooters() {
     const want = new Set<string>();
     for (const u of game.owned) for (let k = 0; k < Math.min(u.count, BattleScene.VISIBLE_PER_TYPE); k++) want.add(`${u.cls}-${k}`);
-    for (const [key, s] of this.shooters) if (!want.has(key)) { s.body.destroy(); s.gun.destroy(); s.flash.destroy(); this.shooters.delete(key); }
+    for (const [key, s] of this.shooters) if (!want.has(key)) { s.body.destroy(); s.gun.destroy(); s.flash.destroy(); this.shooters.delete(key); this.spots.delete(key); }
     for (const key of want) {
       if (this.shooters.has(key)) continue;
       const cls = key.split('-')[0] as ClassId;
+      this.spots.set(key, Math.random());
       this.shooters.set(key, {
         body: this.add.sprite(0, 0, `hero-${cls}-0`).setOrigin(0.5, 1).setScale(this.px),
         gun: this.add.image(0, 0, `gun-${cls}`).setOrigin(3 / GUN_W, 6 / GUN_H).setScale(this.px),
@@ -244,29 +270,34 @@ export class BattleScene extends Phaser.Scene {
         cls, cd: Math.random() * 0.5, recoil: 0, flashT: 0, aim: 0,
       });
     }
-    for (const [cls, t] of this.labels) if (!game.owned.some((u) => u.cls === cls)) { t.destroy(); this.labels.delete(cls); }
   }
 
-  /** Where soldier k of the g-th unit type stands: one row per type, staggered across the bunker. */
-  private groupFeet(g: number, groups: number, k: number): [number, number] {
-    const l = groups === 1 ? 0 : -0.92 + (1.84 * g) / (groups - 1);
-    const ax = Math.round(this.lay.bunkerRight * (0.78 - 0.26 * k));
-    const ay = this.lay.laneTop + (this.lay.laneBot - this.lay.laneTop) * ((l + 1) / 2) + (k % 2) * 3;
+  /** Feet of the i-th of n soldiers (in random order): spread evenly down the wall, staggered in two ranks. */
+  private wallFeet(i: number, n: number, key: string): [number, number] {
+    const r = this.spots.get(key) ?? 0.5;
+    const ay = this.lay.laneTop + (this.lay.laneBot - this.lay.laneTop) * ((i + 0.5) / Math.max(1, n));
+    const ax = Math.round(this.lay.bunkerRight * (0.3 + 0.48 * ((r * 7919) % 1)));
     return [ax * this.px, Math.round(ay) * this.px];
   }
-  private shooterFeet(i: number, _n: number): [number, number] { return this.groupFeet(i, Math.max(1, game.owned.length), 0); }
+  private shooterFeet(_i: number, _n: number): [number, number] {
+    const [first] = this.shooters.values();
+    return first ? [first.body.x, first.body.y] : [this.lay.bunkerRight * this.px * 0.5, ((this.lay.laneTop + this.lay.laneBot) / 2) * this.px];
+  }
 
   private tickShooters(dt: number) {
     this.syncShooters();
     const px = this.px;
-    const owned = game.owned;
-    owned.forEach((u, gi) => {
+    const order = [...this.spots.entries()].sort((a, b) => a[1] - b[1]).map(([key]) => key);
+    const n = order.length;
+    for (const u of game.owned) {
       const gun = game.gun(u.gun);
       const visible = Math.min(u.count, BattleScene.VISIBLE_PER_TYPE);
       for (let k = 0; k < visible; k++) {
-        const s = this.shooters.get(`${u.cls}-${k}`)!;
-        const [fx, fy] = this.groupFeet(gi, owned.length, k);
-        const bob = Math.floor(this.time.now / 450 + gi + k) % 2;
+        const key = `${u.cls}-${k}`;
+        const s = this.shooters.get(key)!;
+        const i = order.indexOf(key);
+        const [fx, fy] = this.wallFeet(i, n, key);
+        const bob = Math.floor(this.time.now / 450 + i) % 2;
         s.body.setTexture(`hero-${u.cls}-${bob}`).setPosition(fx, fy).setDepth(fy);
         s.recoil = Math.max(0, s.recoil - dt * 30);
         const gx = fx + (HERO_GRIP.x - HERO_W / 2) * px - Math.cos(s.aim) * s.recoil * px;
@@ -277,12 +308,7 @@ export class BattleScene extends Phaser.Scene {
         if (s.flashT > 0) { const [mx, my] = this.muzzle(s); s.flash.setPosition(mx, my).setDepth(fy + 2); }
         if (gun && this.phase !== 'intro') this.fire(u, gun, s, visible, dt);
       }
-      // "×12" count label above the group
-      let t = this.labels.get(u.cls);
-      if (!t) { t = this.add.text(0, 0, '', { fontFamily: FONT, color: '#ffd34d', stroke: '#140c1c' }).setOrigin(0.5, 1).setDepth(9300); this.labels.set(u.cls, t); }
-      const [lx, ly] = this.groupFeet(gi, owned.length, 0);
-      t.setText(`×${u.count}`).setFontSize(Math.round(px * 6)).setStroke('#140c1c', Math.max(2, px * 1.2)).setPosition(lx, ly - (HERO_H + 2) * px);
-    });
+    }
   }
 
   private muzzle(s: Shooter): [number, number] {
@@ -468,8 +494,9 @@ export class BattleScene extends Phaser.Scene {
       const [x, y] = this.toScreen(z.p, z.l);
       if (!z.sprite) z.sprite = this.add.sprite(x, y, `z-${z.strain}-0`).setOrigin(0.5, 1);
       const frame = z.p >= 1 ? (Math.floor(z.phase) % 2) * 2 : Math.floor(z.phase) % ZOMBIE_FRAMES;
-      z.sprite.setTexture(`z-${z.strain}-${frame}`).setPosition(x, y).setScale(px).setDepth(y);
+      z.sprite.setTexture(`z-${z.strain}-${frame}`).setPosition(x, y).setScale(z.boss ? px * 2 : px).setDepth(y);
       if (z.flash > 0) z.sprite.setTintFill(0xffffff);
+      else if (z.boss) z.sprite.setTint(0xff9a9a);
       else if (z.horde) z.sprite.setTint(0xffc0c0);
       else z.sprite.clearTint();
     }
@@ -488,9 +515,20 @@ export class BattleScene extends Phaser.Scene {
     for (const z of this.zombies) {
       if (!z.alive || z.hp >= 1 || !z.sprite) continue;
       const [x, y] = this.toScreen(z.p, z.l);
-      const bw = 14 * px, top = y - 30 * px;
+      const bw = (z.boss ? 30 : 14) * px, top = y - (z.boss ? 58 : 30) * px;
       g.fillStyle(0x140c1c, 1).fillRect(x - bw / 2 - px, top - px, bw + 2 * px, 3 * px);
-      g.fillStyle(z.horde ? 0xff4a4a : 0xe04848, 1).fillRect(x - bw / 2, top, Math.ceil((bw * Math.max(0, z.hp)) / px) * px, px);
+      g.fillStyle(z.horde ? 0xff4a4a : 0xe04848, 1).fillRect(x - bw / 2, top, Math.ceil((bw * Math.max(0, z.hp)) / px) * px, z.boss ? 2 * px : px);
+    }
+    const h = this.horde;
+    const show = this.phase === 'horde' || this.phase === 'intro';
+    this.hordeText.setVisible(show);
+    if (show) {
+      const left = h.queue.length + this.zombies.filter((z) => z.alive && z.horde).length;
+      const boss = h.queue.length ? 'BOSS COMING' : this.zombies.some((z) => z.alive && z.boss) ? 'BOSS ON THE FIELD' : 'BOSS DOWN';
+      this.hordeText.setText(`HORDE ${h.k}  ${Math.max(0, Math.ceil(C.hordeTimerSec - h.t))}S\n${left} LEFT · ${boss}\nBREACHES ${h.breaches}/${C.breachLimit}`)
+        .setFontSize(Math.max(12, Math.round(px * 6))).setStroke('#140c1c', Math.max(3, px * 1.4)).setLineSpacing(2)
+        .setPosition(Math.round(this.lay.shredX * px + 8 * px), Math.round(this.lay.roadTop * px + 6 * px))
+        .setColor(h.breaches >= C.breachLimit * 0.7 ? '#ff6b6b' : '#ffd34d');
     }
     if (this.phase === 'horde') {
       const f = Math.min(1, this.horde.t / C.hordeTimerSec);

@@ -47,6 +47,22 @@ export function initUI() {
   render();
   refresh();
   setInterval(refresh, 300);
+  setInterval(tickCombo, 100);
+}
+
+/** The combo meter over the battlefield (hidden while a menu covers the map or the combo is small). */
+let lastCombo = 0;
+function tickCombo() {
+  const el = $('#combo');
+  const n = game.combo, max = C.combo.max;
+  el.hidden = !!tab || n < 5;
+  if (el.hidden) { lastCombo = n; return; }
+  $('#combo-n').textContent = fmtInt(n);
+  $('#combo-x').textContent = `×${game.comboMult.toFixed(2)} DNA`;
+  $('#combo-bar').style.width = `${Math.min(100, (n / max) * 100)}%`;
+  el.classList.toggle('max', n >= max);
+  if (Math.floor(n / 50) > Math.floor(lastCombo / 50)) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+  lastCombo = n;
 }
 
 /** Re-render soon, but never while a finger is down (iOS drops taps on replaced nodes). */
@@ -388,7 +404,7 @@ function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()];
-  return `<p class="sub">Hordes are optional challenges: ${C.hordeZombies} zombies in ${C.hordeTimerSec} seconds. The stream pauses while you fight. Beat one to unlock a new unit type and tree region.</p>
+  return `<p class="sub">Hordes are optional fights: ${C.hordeZombies} zombies and a <b>boss</b> in ${C.hordeTimerSec} seconds. The stream pauses while you fight. You lose if time runs out, the boss reaches the shredder, or ${C.breachLimit} horde zombies break through. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
   ${game.fx.autoHorde ? `<label class="switch"><input type="checkbox" data-action="toggle" ${game.s.autoHordeOn ? 'checked' : ''}> War Drums: start the next horde automatically when your squad should win</label>` : ''}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);
@@ -398,6 +414,7 @@ function hordesHtml() {
     return `<div class="horde ${beaten ? 'beaten' : isNext ? 'next' : 'locked'}">
       <div class="h-head"><b>${k}. ${esc(h.name)}</b><span class="tier">Tier ${h.tier}</span></div>
       <div class="h-faces">${mix.map((id) => `<img class="px" src="${zombieIcon(id)}" alt="${M.strainById(id).name}">`).join('')}</div>
+      <p class="sub small">Boss: a giant ${M.strainById(M.hordeBoss(k)).name} with ×${C.bossHpMult} HP</p>
       <p class="sub">Reward: <b>${esc(h.unlocks)}</b>${h.cls ? ` · a rare+ ${M.classById(h.cls).gun}` : ''}</p>
       ${beaten ? '<p class="good">✓ Beaten</p>' : isNext ? `
         <div class="meter small"><i style="width:${Math.min(100, (odds / 2) * 100)}%"></i><span class="mark"></span></div>

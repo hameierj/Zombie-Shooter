@@ -304,8 +304,19 @@ export class Game {
 
   // ---------- the stream ----------
   /** A zombie was shredded: bank its DNA (silently) and maybe drop an item. */
+  // ---------- combo (live play only; not saved) ----------
+  combo = 0;
+  comboBest = 0;
+  private comboIdle = 0;
+  get comboMult() { return M.comboMult(this.combo); }
+  /** Called every frame by the battle: the combo drops to 0 after a few seconds without a kill. */
+  comboTick(dt: number) { if (this.combo && (this.comboIdle += dt) >= M.CONFIG.combo.timeoutSec) this.combo = 0; }
+  /** A zombie reached the shredder: the combo halves. */
+  comboBreak() { this.combo = Math.floor(this.combo / 2); }
+
   zombieKilled(strain: StrainId, tier: number, opts: { silent?: boolean } = {}): Loot | null {
-    this.setDna(strain, M.logAdd(this.dna(strain), M.lnDnaPerKill(strain, tier, this.fx)));
+    if (!opts.silent) { this.combo++; this.comboIdle = 0; this.comboBest = Math.max(this.comboBest, this.combo); }
+    this.setDna(strain, M.logAdd(this.dna(strain), M.lnDnaPerKill(strain, tier, this.fx) + Math.log(opts.silent ? 1 : this.comboMult)));
     this.s.kills++;
     if (Math.random() >= M.dropChance(this.s.strains, this.fx)) return null;
     const loot = this.rollLoot();

@@ -72,9 +72,17 @@ Command Post; each has small nodes, two notables and a keystone, and neighbourin
 Allocate a node next to one you own. Each region is paid in its own DNA colour (Basic Training Green, Marksman and Suppression Yellow, Breacher and Deadeye Red, Inferno Teal, Demolition and Command Purple); each allocation costs ×1.9 more than the last. Tap a node to see what it does.
 
 ## 5. Hordes (Hordes tab)
-Optional challenges: **60 zombies in 60 seconds** at a fixed tier. The stream pauses while you fight. Each card shows
-your odds before you start. Hordes 1–7 are at tiers 6, 20, 40, 70, 110, 160 and 220, and unlock the unit types and
-regions above. After that come endless **Elite hordes** every 30 tiers, each rewarding an epic+ gun. Losing costs nothing.
+Optional fights: **60 zombies plus a boss in 60 seconds** at a fixed tier. The stream pauses while you fight. The boss
+is a giant version of the toughest zombie type in the horde (×10 HP, slow) and joins two-thirds of the way in.
+**You lose** if time runs out, the boss reaches the shredder, or 10 horde zombies break through (a status line on the
+field shows time, zombies left, the boss and breaches). Each card shows your odds before you start. Hordes 1–7 are at
+tiers 6, 20, 40, 70, 110, 160 and 220, and unlock the unit types and regions above. After that come endless
+**Elite hordes** every 30 tiers, each rewarding an epic+ item. Losing costs nothing; try again when stronger.
+
+## 5b. Combo
+Every kill while you're playing adds 1 to the **combo**, shown over the battlefield. DNA from kills is multiplied by
+up to **×1.5** at a 300 combo. The combo resets after 3 seconds without a kill and **halves whenever a zombie reaches
+the shredder**, so pushing the dials past what the squad can handle costs you the bonus. Offline time earns no combo.
 
 ## 6. Idle and offline
 **Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are
@@ -83,6 +91,8 @@ should win; can be switched off on the Hordes tab). Every DNA purchase is yours 
 with the same economy and summarised: zombies, DNA of each colour, items found.
 
 ## 7. Screens and sound
+Soldiers stand at random spots along the wall, mixed together (up to 6 shown per unit type; the rest fire through them).
+
 The zombie map fills the screen between the HUD (a counter for each DNA colour, keep-up status, sound, settings) and four big
 tabs at the bottom: **Zombies, Squad, Tree, Hordes**. Tapping a tab opens that menu **full-screen** (two-column layout
 on wide screens); **✕ Back to map** or tapping the tab again collapses it. Starting a horde closes the menu so you can

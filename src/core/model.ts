@@ -120,6 +120,12 @@ export const CONFIG = {
   hordeZombies: 60,
   hordeTimerSec: 60,
   hordeSpawnPerSec: 3,
+  /** Each horde ends with a boss: the toughest zombie type in the horde with this many times the HP, walking slowly.
+   * If the boss reaches the shredder, or too many horde zombies break through, the horde is lost. */
+  bossHpMult: 10, bossSpeed: 0.45, breachLimit: 10,
+  /** Combo: every live kill adds 1; DNA earned is multiplied by up to ×1.5 at 300. It drops to 0 after 3 s
+   * without a kill, and halves whenever a zombie reaches the shredder. Offline time earns no combo. */
+  combo: { max: 300, bonus: 0.5, timeoutSec: 3 },
   rarities: [
     { id: 'common',    weight: 62, power: 1.0, attach: 0.10, charm: 0.20 },
     { id: 'uncommon',  weight: 25, power: 1.3, attach: 0.18, charm: 0.35 },
@@ -286,11 +292,14 @@ export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains): Record<St
   }
   return out;
 }
-/** Can the squad beat horde k? It must kill 60 zombies (an even mix) in the timer with ~10 s of walk-in. */
+/** The toughest zombie type in horde k: it becomes the boss. */
+export const hordeBoss = (k: number) => hordeMix(k).reduce((a, b) => (strainById(b).hp > strainById(a).hp ? b : a));
+export const comboMult = (n: number) => 1 + C.combo.bonus * Math.min(n, C.combo.max) / C.combo.max;
+/** Can the squad beat horde k? It must kill 60 zombies (an even mix) plus the boss in the timer, after ~10 s of walk-in. */
 export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number) {
-  const h = hordeDef(k), mix = hordeMix(k);
+  const h = hordeDef(k), mix = hordeMix(k), boss = hordeBoss(k);
   let secPerZombie = 0;
   for (const s of mix) secPerZombie += Math.exp(Math.min(60, lnZombieHp(s, h.tier, 0) - lnSquadDps(squad, fx, s))) / mix.length;
-  const need = C.hordeZombies / (C.hordeTimerSec - C.walkSec);
-  return 1 / secPerZombie / need;
+  const bossSec = C.bossHpMult * Math.exp(Math.min(60, lnZombieHp(boss, h.tier, 0) - lnSquadDps(squad, fx, boss)));
+  return (C.hordeTimerSec - C.walkSec) / (C.hordeZombies * secPerZombie + bossSec);
 }
