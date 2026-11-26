@@ -134,6 +134,8 @@ function onClick(e: Event) {
   else if (['buy-node', 'hire', 'spawn', 'release'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
   else if (a.startsWith('equip')) sfx.equip();
   else if (a !== 'horde') sfx.click();
+  // the tap is finished, so a re-render the action asked for can happen right now (no waiting)
+  if (softTimer) { clearTimeout(softTimer); softTimer = 0; render(); }
   refresh();
 }
 

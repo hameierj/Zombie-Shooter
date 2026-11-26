@@ -406,3 +406,4 @@ img.dim { opacity: .35; }
   .s-btns .sbtn { flex: 1; }
 }
 .sbtn i { background: rgba(0,0,0,.4); padding: 0 4px; border-radius: 3px; }
+button, [data-action] { touch-action: manipulation; }
