@@ -373,3 +373,36 @@ img.dim { opacity: .35; }
 .keep.bad .keep-row b, .keep.bad .keep-x { color: var(--bad); }
 .keep-x { font: 400 16px var(--pixel); }
 .keep.sticky .meter { margin: 6px 0 4px; height: 12px; }
+.srows { display: grid; gap: 8px; margin-bottom: 10px; }
+@media (min-width: 900px) { .srows { grid-template-columns: 1fr 1fr; } }
+.srow { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px;
+  background: var(--card); border: 2px solid color-mix(in srgb, var(--dna) 55%, var(--line)); border-radius: 8px; }
+.srow.locked { opacity: .8; }
+.srow .face { width: 48px; height: 48px; object-fit: contain; background: #10120f; border-radius: 6px; padding: 3px; }
+.s-info { display: flex; flex-direction: column; min-width: 0; }
+.s-info b { font: 400 14px var(--pixel); color: var(--dna); }
+.s-info .sub { margin: 1px 0 0; font-size: 13px; }
+.s-info .small { font-size: 12px; }
+.s-btns { display: flex; gap: 6px; align-items: stretch; }
+.s-btns .sq { width: 40px; min-height: 56px; }
+.sbtn { flex-direction: column; gap: 1px; min-height: 56px; min-width: 86px; padding: 4px 8px; font-size: 13px; line-height: 1.15; }
+.sbtn i { font-style: normal; font-size: 11px; font-weight: 600; }
+.sbtn .cost .vial { height: 13px; }
+.lockmsg { max-width: 150px; text-align: right; }
+@media (max-width: 480px) {
+  .srow { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 8px; padding: 6px 8px; }
+  .srow .face { width: 36px; height: 36px; padding: 2px; }
+  .s-info b { font-size: 12px; }
+  .s-info .sub { font-size: 11.5px; }
+  .s-info .small { font-size: 11px; }
+  .s-btns { gap: 4px; }
+  .s-btns .sq { width: 32px; min-height: 52px; font-size: 18px; }
+  .sbtn { min-width: 70px; min-height: 52px; padding: 3px 5px; font-size: 12px; }
+  .sbtn i { font-size: 10px; }
+}
+@media (max-width: 350px) {
+  .srow { grid-template-columns: 36px minmax(0, 1fr); }
+  .s-btns { grid-column: 1 / -1; }
+  .s-btns .sbtn { flex: 1; }
+}
+.sbtn i { background: rgba(0,0,0,.4); padding: 0 4px; border-radius: 3px; }
