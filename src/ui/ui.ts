@@ -1,7 +1,7 @@
 // DOM interface: HUD, four tabs (Zombies, Squad, Tree, Hordes), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import * as M from '../core/model.ts';
-import type { ClassId, Gun, Recruit } from '../core/model.ts';
+import type { ClassId, Gun, Unit } from '../core/model.ts';
 import { game, type OfflineReport } from '../core/state.ts';
 import { REGIONS, TREE, treeNode } from '../core/tree.ts';
 import { classIcon, crateIcon, dnaIcon, gunIcon, zombieIcon } from '../game/art.ts';
@@ -65,13 +65,12 @@ function onClick(e: Event) {
     case 'tier-up': game.raiseTier(); break;
     case 'tier-down': game.lowerTier(); break;
     case 'spawn': game.buySpawn(); break;
-    case 'train': game.train(n, Number(arg) || 1); break;
+    case 'train': game.train(el.dataset.cls as ClassId, Number(arg) || 1); break;
     case 'hire': game.hire(arg as ClassId); break;
-    case 'dismiss': confirmDismiss(n); break;
-    case 'dismiss-yes': closeModal(); game.dismiss(n); break;
+    case 'dismiss': game.dismiss(arg as ClassId); break;
     case 'gun': openGun(Number(arg)); break;
-    case 'pick-gun': openPicker(n); break;
-    case 'equip': closeModal(); game.equip(n, Number(arg)); break;
+    case 'pick-gun': openPicker(arg as ClassId); break;
+    case 'equip': closeModal(); game.equip(el.dataset.cls as ClassId, Number(arg)); break;
     case 'scrap': closeModal(); game.scrap(Number(arg)); break;
     case 'node': if (!view.dragged) { selectedNode = arg; render(); } break;
     case 'allocate': game.allocate(arg); break;
@@ -151,7 +150,7 @@ function zombiesHtml() {
   <div class="card keep ${k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad'}">
     <div class="keep-head"><b>${k >= 1.1 ? 'Your squad is keeping up' : k >= 0.9 ? 'Barely keeping up' : 'Zombies are piling up'}</b><span>${fmtNum(game.capacity())} kills/s vs ${fmtNum(game.spawnRate)} arriving/s</span></div>
     <div class="meter"><i style="width:${Math.min(100, (k / 2) * 100)}%"></i><span class="mark"></span></div>
-    <p class="sub">${k >= 1.1 ? 'Raise <b>DNA Count</b> or <b>Spawn Rate</b> to earn more.' : 'Train your squad, hire recruits or equip better guns, or lower DNA Count.'}</p>
+    <p class="sub">${k >= 1.1 ? 'Raise <b>DNA Count</b> or <b>Spawn Rate</b> to earn more.' : 'Hire or train units, issue better guns, or lower DNA Count.'}</p>
   </div>
 
   <div class="grid2">
@@ -191,86 +190,88 @@ function statChips(cls: ClassId) {
     <span title="Zombies hit per shot">HITS<b>${bar(c.targets / 4)}</b></span>
   </div>`;
 }
-function recruitCard(r: Recruit) {
-  const c = M.classById(r.cls);
-  const gun = game.gun(r.gun);
-  const cost = game.trainCost(r);
-  return `<div class="recruit">
-    <img class="px portrait" src="${classIcon(r.cls)}" alt="">
-    <div class="r-main">
-      <div class="r-title"><b>${c.name}</b><span class="lv">Lv ${fmtInt(r.level)}</span></div>
-      <span class="sub">${fmtLn(game.recruitDps(r))} DPS · range ${Math.round(game.stats(r).range * 100)}% · hits ${game.stats(r).targets}</span>
+/** One card per unit type: how many you have, shared training, issued gun, hire and train buttons. */
+function unitCard(cls: ClassId) {
+  const c = M.classById(cls);
+  const u = game.unit(cls);
+  const open = game.classUnlocked(cls);
+  if (!open) {
+    return `<div class="unit locked"><img class="px portrait" src="${classIcon(cls)}" alt="">
+      <div class="u-main"><b>${c.plural}</b><span class="sub">${c.gun}</span>${statChips(cls)}</div>
+      <span class="lock">🔒 Beat Horde ${c.horde}<br><small>${esc(M.hordeDef(c.horde).name)}</small></span></div>`;
+  }
+  const cap = game.unitCap;
+  const gun = game.gun(u.gun);
+  const hireCost = game.hireCost(cls);
+  const full = u.count >= cap;
+  const nextCapTier = (Math.floor(game.s.maxTier / C.tiersPerUnit) + 1) * C.tiersPerUnit;
+  const st = u.count ? game.stats(u) : null;
+  return `<div class="unit">
+    <img class="px portrait" src="${classIcon(cls)}" alt="">
+    <div class="u-main">
+      <div class="r-title"><b>${c.plural}</b><span class="count">×${u.count}<small>/${cap}</small></span>${u.count ? `<span class="lv">Lv ${fmtInt(u.level)}</span>` : ''}</div>
+      <span class="sub">${u.count ? `${fmtLn(game.unitDps(u))} DPS total · range ${Math.round(st!.range * 100)}% · hits ${st!.targets}` : `${c.gun} · not hired yet`}</span>
     </div>
-    <button class="gun-tile" style="--rar:${gun ? RARITY_COLOR[gun.rarity] : '#555'}" data-action="pick-gun" data-n="${r.id}" aria-label="Change gun">
-      ${gun ? `<img class="px" src="${gunIcon(r.cls)}" alt=""><span>T${fmtInt(gun.ilvl)}</span>` : '<span>no gun</span>'}
+    <button class="gun-tile" style="--rar:${gun ? RARITY_COLOR[gun.rarity] : '#555'}" data-action="pick-gun" data-arg="${cls}" aria-label="Change ${c.plural}' gun">
+      ${gun ? `<img class="px" src="${gunIcon(cls)}" alt=""><span>T${fmtInt(gun.ilvl)}</span>` : `<img class="px dim" src="${gunIcon(cls)}" alt=""><span>none</span>`}
     </button>
     <div class="r-actions">
-      <button class="btn grow" data-action="train" data-n="${r.id}" data-arg="1" data-cost="${cost}">Train ×${C.trainMult} · ${dna(cost)}</button>
-      <button class="btn ghost" data-action="train" data-n="${r.id}" data-arg="1000" data-cost="${cost}">Max</button>
-      ${game.s.recruits.length > 1 ? `<button class="btn ghost sq" data-action="dismiss" data-n="${r.id}" aria-label="Dismiss">✕</button>` : ''}
+      ${full ? `<button class="btn ghost grow" disabled>${cap >= C.maxPerType ? 'Full: 20 / 20' : `Barracks full · more at tier ${nextCapTier}`}</button>`
+        : `<button class="btn grow" data-action="hire" data-arg="${cls}" data-cost="${hireCost}">Hire +1 · ${dna(hireCost)}</button>`}
+      ${u.count ? `<button class="btn grow" data-action="train" data-cls="${cls}" data-arg="1" data-cost="${game.trainCost(cls)}">Train · ${dna(game.trainCost(cls))}</button>
+        <button class="btn ghost" data-action="train" data-cls="${cls}" data-arg="1000" data-cost="${game.trainCost(cls)}">Max</button>` : ''}
     </div>
   </div>`;
 }
 function squadHtml() {
   const s = game.s;
-  const full = s.recruits.length >= game.slots;
-  const hire = M.CLASSES.map((c) => {
-    const open = game.classUnlocked(c.id);
-    const cost = game.hireCost(c.id);
-    return `<div class="hire ${open ? '' : 'locked'}">
-      <img class="px portrait" src="${classIcon(c.id)}" alt="">
-      <div class="h-main"><b>${c.name}</b><span class="sub">${c.gun}</span>${statChips(c.id)}</div>
-      ${open ? `<button class="btn" data-action="hire" data-arg="${c.id}" ${full ? 'disabled' : `data-cost="${cost}"`}>${full ? 'Squad full' : `Hire · ${dna(cost)}`}</button>`
-        : `<span class="lock">🔒 Beat Horde ${c.horde}</span>`}
-    </div>`;
-  }).join('');
+  const cap = game.unitCap;
   const guns = [...s.guns].sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a));
+  const nextCapTier = (Math.floor(s.maxTier / C.tiersPerUnit) + 1) * C.tiersPerUnit;
   return `
-  <div class="section-head"><h3>Squad <small>${s.recruits.length}/${game.slots} slots</small></h3>
-    ${game.fx.autoEquip ? '<span class="sub small">Quartermaster equips the best guns automatically</span>' : ''}</div>
-  <div class="grid2">${s.recruits.map(recruitCard).join('')}</div>
-  <h3>Hire recruits</h3>
-  <p class="sub small">Each recruit arrives with a standard gun at your current tier. Pistoleers are available now; beat hordes to unlock the others.</p>
-  <div class="grid2">${hire}</div>
+  <div class="section-head"><h3>Squad <small>${game.totalUnits} soldiers</small></h3>
+    ${game.fx.autoEquip ? '<span class="sub small">Quartermaster issues the best guns automatically</span>' : ''}</div>
+  <p class="sub small">Hire up to <b>${cap}</b> of each unit type${cap < C.maxPerType ? ` (barracks grow to ${cap + 1} at tier ${nextCapTier}, up to ${C.maxPerType})` : ''}.
+    Training and guns are shared: one Train upgrades every soldier of that type. Train = <b>×${C.trainMult} damage</b> per level.</p>
+  <div class="grid2">${M.CLASSES.map((c) => unitCard(c.id)).join('')}</div>
   <h3>Guns <small>${s.guns.length}/40 · rare drops from zombies and horde rewards</small></h3>
   <div class="tiles">${guns.map((g) => {
-    const on = s.recruits.find((r) => r.gun === g.uid);
+    const on = game.isIssued(g.uid);
     return `<button class="tile" style="--rar:${RARITY_COLOR[g.rarity]}" data-action="gun" data-arg="${g.uid}">
-      <img class="px" src="${gunIcon(g.cls)}" alt=""><span class="ilvl">T${fmtInt(g.ilvl)}</span>${on ? '<span class="tag">IN USE</span>' : s.newGuns.includes(g.uid) ? '<span class="tag new">NEW</span>' : ''}</button>`;
+      <img class="px" src="${gunIcon(g.cls)}" alt=""><span class="ilvl">T${fmtInt(g.ilvl)}</span>${on ? '<span class="tag">ISSUED</span>' : s.newGuns.includes(g.uid) ? '<span class="tag new">NEW</span>' : ''}</button>`;
   }).join('')}</div>`;
 }
 
 function gunPower(g: Gun) { return Math.exp(M.lnGunPower(g)); }
-function openPicker(recruitId: number) {
-  const r = game.recruit(recruitId);
-  if (!r) return;
-  const cur = game.gun(r.gun);
-  const options = game.s.guns.filter((g) => g.cls === r.cls && g.uid !== r.gun).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a));
-  openModal(`<h3>${M.classById(r.cls).name}'s gun</h3>
+function openPicker(cls: ClassId) {
+  const u: Unit = game.unit(cls);
+  const cur = game.gun(u.gun);
+  const c = M.classById(cls);
+  const options = game.s.guns.filter((g) => g.cls === cls && g.uid !== u.gun).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a));
+  openModal(`<h3>${c.plural}' gun</h3>
+    <p class="sub">Every ${c.name} carries the same issued gun.</p>
     ${cur ? `<p class="sub">Now: <b style="color:${RARITY_COLOR[cur.rarity]}">${gunName(cur)}</b> · tier ${fmtInt(cur.ilvl)}</p>` : ''}
     <div class="picks">${options.map((g) => {
       const ratio = cur ? gunPower(g) / gunPower(cur) : 2;
       return `<div class="pick" style="--rar:${RARITY_COLOR[g.rarity]}"><img class="px" src="${gunIcon(g.cls)}" alt="">
         <div><b style="color:${RARITY_COLOR[g.rarity]}">${gunName(g)}</b><span class="sub">tier ${fmtInt(g.ilvl)} · <span class="${ratio > 1.005 ? 'good' : 'bad'}">${ratio >= 1 ? '+' : ''}${Math.round((ratio - 1) * 100)}% damage</span></span></div>
-        <button class="btn sm" data-action="equip" data-n="${r.id}" data-arg="${g.uid}">Equip</button></div>`;
-    }).join('') || `<p class="sub">No other ${M.classById(r.cls).gun}s yet. Guns are rare drops; beating hordes always gives one.</p>`}</div>
+        <button class="btn sm" data-action="equip" data-cls="${cls}" data-arg="${g.uid}">Issue</button></div>`;
+    }).join('') || `<p class="sub">No other ${c.gun}s yet. Guns are rare drops; beating hordes always gives one.</p>`}</div>
     <div class="row"><button class="btn ghost" data-action="modal-close">Close</button></div>`);
 }
 function openGun(uid: number) {
   const g = game.gun(uid);
   if (!g) return;
-  const users = game.s.recruits.filter((r) => r.cls === g.cls);
-  const on = game.s.recruits.find((r) => r.gun === uid);
+  const c = M.classById(g.cls);
+  const u = game.unit(g.cls);
+  const issued = u.gun === uid;
+  const cur = game.gun(u.gun);
+  const ratio = cur && !issued ? gunPower(g) / gunPower(cur) : 1;
   openModal(`<div class="item-head"><img class="px big" src="${gunIcon(g.cls)}" alt=""><div><h3 style="color:${RARITY_COLOR[g.rarity]}">${gunName(g)}</h3>
-      <p class="sub">Tier ${fmtInt(g.ilvl)} · ${fmtMult(gunPower(g))} damage · for ${M.classById(g.cls).plural}</p></div></div>
-    <div class="give">${users.map((r) => `<button class="btn ${r.gun === uid ? 'ghost' : ''}" data-action="equip" data-n="${r.id}" data-arg="${uid}" ${r.gun === uid ? 'disabled' : ''}>${r.gun === uid ? 'Equipped' : `Give to ${M.classById(r.cls).name} Lv ${r.level}`}</button>`).join('') || `<p class="sub">Hire a ${M.classById(g.cls).name} to use this gun.</p>`}</div>
-    <div class="row"><button class="btn ghost" data-action="scrap" data-arg="${uid}" ${on ? 'disabled' : ''}>Scrap</button><button class="btn ghost" data-action="modal-close">Close</button></div>`);
-}
-function confirmDismiss(id: number) {
-  const r = game.recruit(id);
-  if (!r) return;
-  openModal(`<h3>Dismiss this ${M.classById(r.cls).name}?</h3><p class="sub">They leave the squad with their training (Lv ${r.level}). Their gun stays in your stash.</p>
-    <div class="row"><button class="btn ghost" data-action="modal-close">Cancel</button><button class="btn danger" data-action="dismiss-yes" data-n="${id}">Dismiss</button></div>`);
+      <p class="sub">Tier ${fmtInt(g.ilvl)} · ${fmtMult(gunPower(g))} damage · for ${c.plural}</p></div></div>
+    <div class="give">${u.count ? `<button class="btn ${issued ? 'ghost' : ''}" data-action="equip" data-cls="${g.cls}" data-arg="${uid}" ${issued ? 'disabled' : ''}>${issued ? `Issued to your ${c.plural}` : `Issue to all ${u.count} ${c.plural} (${ratio >= 1 ? '+' : ''}${Math.round((ratio - 1) * 100)}% damage)`}</button>`
+      : `<p class="sub">Hire a ${c.name} to use this gun.</p>`}</div>
+    <div class="row"><button class="btn ghost" data-action="scrap" data-arg="${uid}" ${issued ? 'disabled' : ''}>Scrap</button><button class="btn ghost" data-action="modal-close">Close</button></div>`);
 }
 
 // ---------- Tree tab (POE-style web with pan / pinch zoom) ----------
@@ -333,7 +334,8 @@ function bindTree() {
   const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   v.addEventListener('pointerdown', (e) => {
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    v.setPointerCapture?.(e.pointerId);
+    // Don't capture the pointer yet: capturing on press would retarget the click away from the node you pressed
+    // (that broke tapping nodes with a mouse). Capture only once the press turns into a drag.
     view.dragged = false;
     start = { x: e.clientX, y: e.clientY, d: pts.size === 2 ? dist() : 0, s: view.s, vx: view.x, vy: view.y };
   });
@@ -345,7 +347,7 @@ function bindTree() {
       view.dragged = true;
     } else if (pts.size === 1) {
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
-      if (Math.hypot(dx, dy) > 6) view.dragged = true;
+      if (!view.dragged && Math.hypot(dx, dy) > 6) { view.dragged = true; try { v.setPointerCapture(e.pointerId); } catch { /* ignore */ } }
       view.x = start.vx + dx; view.y = start.vy + dy;
     }
     applyView();
@@ -365,7 +367,7 @@ function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()]; // next horde first, beaten ones last
-  return `<p class="sub">Hordes are optional challenges: ${C.hordeZombies} zombies in ${C.hordeTimerSec} seconds. The stream pauses while you fight. Beat one to unlock new recruits and tree regions.</p>
+  return `<p class="sub">Hordes are optional challenges: ${C.hordeZombies} zombies in ${C.hordeTimerSec} seconds. The stream pauses while you fight. Beat one to unlock a new unit type and tree region.</p>
   ${game.fx.autoHorde ? `<label class="switch"><input type="checkbox" data-action="toggle" ${game.s.autoHordeOn ? 'checked' : ''}> War Drums: start the next horde automatically when your squad should win</label>` : ''}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);

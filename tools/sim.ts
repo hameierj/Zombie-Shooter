@@ -22,58 +22,45 @@ export const PROFILES = {
 export function simulate(profile, hours = HOURS, seed = SEED) {
   const rng = mulberry32(seed);
   const s = {
-    t: 0, dna: -Infinity, tier: 1, spawn: 0, hordes: 0, eliteSlots: 0, nextUid: 2,
-    recruits: [{ id: 1, cls: 'pistol', level: 0, gun: 1 }],
+    t: 0, dna: -Infinity, tier: 1, spawn: 0, hordes: 0, nextUid: 2,
+    units: Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: c.id === 'pistol' ? 1 : 0, level: 0, gun: c.id === 'pistol' ? 1 : null }])),
     guns: [{ uid: 1, cls: 'pistol', rarity: 'common', ilvl: 1 }],
     alloc: [], drops: 0,
   };
   const fx = () => treeFx(s.alloc);
-  const gunOf = (r) => s.guns.find((g) => g.uid === r.gun);
-  const squad = () => s.recruits.map((r) => ({ r, gun: gunOf(r) }));
-  const unlockedClasses = () => M.CLASSES.filter((c) => c.horde <= Math.min(s.hordes, 7));
+  const owned = () => Object.values(s.units).filter((u) => u.count > 0);
+  const squad = () => owned().map((u) => ({ r: u, gun: s.guns.find((g) => g.uid === u.gun), count: u.count }));
+  const unlocked = (c) => M.classById(c).horde <= Math.min(s.hordes, 7);
   const cap = (tier = s.tier, spawn = s.spawn) => M.killCapacity(squad(), fx(), tier, spawn);
   const pay = (ln) => { if (s.dna + 1e-9 < ln) return false; s.dna = M.logSub(s.dna, ln); return true; };
-
   function equip() {
-    const used = new Set();
-    for (const r of [...s.recruits].sort((a, b) => M.classById(b.cls).dps - M.classById(a.cls).dps)) {
-      const best = s.guns.filter((g) => g.cls === r.cls && !used.has(g.uid)).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a))[0];
-      r.gun = best?.uid ?? null;
-      if (best) used.add(best.uid);
+    for (const u of Object.values(s.units)) {
+      const best = s.guns.filter((g) => g.cls === u.cls).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a))[0];
+      u.gun = best?.uid ?? null;
     }
   }
   function giveGun(cls, minRarity = 0, ilvlBonus = 0) {
-    const g = { uid: s.nextUid++, cls, rarity: M.rollRarity(rng, minRarity), ilvl: s.tier + ilvlBonus + (rng() < 0.15 ? 1 + Math.floor(rng() * 3) : 0) };
-    s.guns.push(g);
+    s.guns.push({ uid: s.nextUid++, cls, rarity: M.rollRarity(rng, minRarity), ilvl: s.tier + ilvlBonus + (rng() < 0.15 ? 1 + Math.floor(rng() * 3) : 0) });
     equip();
   }
   function frontierNodes() {
-    const f = fx(); void f;
     return TREE.filter((n) => n.id !== 'start' && !s.alloc.includes(n.id) && REGIONS[n.region].horde <= s.hordes
       && n.links.some((l) => l === 'start' || s.alloc.includes(l)));
   }
-
-  // One round of purchases: the cheapest useful thing first.
   function shop() {
-    for (let guard = 0; guard < 200; guard++) {
+    for (let guard = 0; guard < 300; guard++) {
       const f = fx();
       const opts = [];
-      // raise DNA Count when the squad would still keep up at the next tier
       if (cap(s.tier + 1) >= M.spawnRate(s.spawn) * 1.15) opts.push({ ln: M.lnTierCost(s.tier), go: () => { s.tier++; } });
       if (s.spawn < C.spawnMax && cap(s.tier, s.spawn + 1) >= M.spawnRate(s.spawn + 1) * 1.15) opts.push({ ln: M.lnSpawnCost(s.spawn), go: () => { s.spawn++; } });
-      for (const r of s.recruits) opts.push({ ln: M.lnTrainCost(r.cls, r.level, f), go: () => { r.level++; } });
-      if (s.recruits.length < M.slots(f, s.eliteSlots)) {
-        const cls = unlockedClasses().at(-1).id;
-        const owned = s.recruits.filter((r) => r.cls === cls).length;
-        opts.push({ ln: M.lnHireCost(cls, owned), go: () => { s.recruits.push({ id: s.nextUid++, cls, level: 0, gun: null }); giveGun(cls); } });
+      for (const u of owned()) opts.push({ ln: M.lnTrainCost(u.cls, u.level, f), go: () => { u.level++; } });
+      for (const u of Object.values(s.units)) {
+        if (!unlocked(u.cls) || u.count >= M.unitCap(s.tier)) continue;
+        opts.push({ ln: M.lnHireCost(u.cls, u.count, f), go: () => { if (!u.count) giveGun(u.cls); u.count++; } });
       }
-      // swap the weakest recruit for the newest class when slots are full
       if (profile.tree) {
         const fr = frontierNodes();
-        if (fr.length) {
-          const pick = fr.find((n) => n.size !== 'small') ?? fr[0];
-          opts.push({ ln: M.lnTreeCost(s.alloc.length), go: () => { s.alloc.push(pick.id); } });
-        }
+        if (fr.length) { const pick = fr.find((n) => n.size !== 'small') ?? fr[0]; opts.push({ ln: M.lnTreeCost(s.alloc.length), go: () => { s.alloc.push(pick.id); } }); }
       }
       opts.sort((a, b) => a.ln - b.ln);
       const o = opts[0];
@@ -81,48 +68,31 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
       o.go();
     }
   }
-
-  // Retire weak old-class recruits when a stronger class is available and slots are full
-  function upgradeSquad() {
-    const f = fx();
-    const best = unlockedClasses().at(-1).id;
-    if (s.recruits.length < M.slots(f, s.eliteSlots)) return;
-    const weakest = s.recruits.filter((r) => r.cls !== best).sort((a, b) => M.classById(a.cls).dps - M.classById(b.cls).dps)[0];
-    if (!weakest) return;
-    const owned = s.recruits.filter((r) => r.cls === best).length;
-    const ln = M.lnHireCost(best, owned);
-    if (s.dna >= ln + Math.log(3)) { pay(ln); weakest.cls = best; weakest.level = Math.floor(weakest.level * 0.7); giveGun(best); }
-  }
-
   const out = [];
   let ci = 0;
   while (s.t < hours * 3600) {
     if (ci < CHECKS.length && s.t >= CHECKS[ci] * 3600) {
-      const g = s.recruits.map((r) => gunOf(r)).filter(Boolean);
-      const avgGunTier = g.reduce((a, x) => a + x.ilvl, 0) / Math.max(1, g.length);
-      const avgTrain = s.recruits.reduce((a, r) => a + r.level, 0) / s.recruits.length;
+      const us = owned();
+      const gs = us.map((u) => s.guns.find((g) => g.uid === u.gun)).filter(Boolean);
+      const avgGunTier = gs.reduce((a, x) => a + x.ilvl, 0) / Math.max(1, gs.length);
+      const avgTrain = us.reduce((a, u) => a + u.level, 0) / us.length;
       const lnTrain = avgTrain * Math.log(C.trainMult), lnGun = (avgGunTier - 1) * C.ITEM_SHARE * M.lnR;
-      out.push({ h: CHECKS[ci], tier: s.tier, spawn: s.spawn, hordes: s.hordes, squad: s.recruits.map((r) => r.cls[0]).join(''), nodes: s.alloc.length,
+      out.push({ h: CHECKS[ci], tier: s.tier, spawn: s.spawn, hordes: s.hordes, squad: us.map((u) => `${u.cls[0]}${u.count}`).join(' '), nodes: s.alloc.length,
         drops: s.drops, gunGap: s.tier - avgGunTier, train: Math.round(avgTrain), shareTrain: lnTrain / (lnTrain + lnGun || 1), keep: cap() / M.spawnRate(s.spawn) });
       ci++;
     }
-    // economy tick
     const rate = Math.min(M.spawnRate(s.spawn), cap());
     const kills = rate * DT;
     const mix = M.mixAt(s.tier);
     const lnDna = M.logSumExp(mix.map((m) => M.lnDnaPerKill(s.tier, m.id, fx()))) - Math.log(mix.length);
     s.dna = M.logAdd(s.dna, lnDna + Math.log(kills));
-    const pDrop = C.dropChance * (1 + fx().drop);
-    if (rng() < kills * pDrop) { s.drops++; giveGun(s.recruits[Math.floor(rng() * s.recruits.length)].cls); }
-    // optional hordes: attempt when the odds look good (takes about a minute)
+    if (rng() < kills * C.dropChance * (1 + fx().drop)) { s.drops++; const us = owned(); giveGun(us[Math.floor(rng() * us.length)].cls); }
     if (profile.hordes && M.hordeOdds(squad(), fx(), s.hordes + 1) >= 1.1) {
       s.hordes++;
       s.t += 60;
       const h = M.hordeDef(s.hordes);
-      if (h.elite && s.eliteSlots < C.maxSlots - 6) s.eliteSlots++;
-      giveGun(h.cls ?? s.recruits[0].cls, h.elite ? 3 : 2, 2);
+      giveGun(h.cls ?? owned()[0].cls, h.elite ? 3 : 2, 2);
     }
-    upgradeSquad();
     shop();
     s.t += DT;
   }
@@ -132,9 +102,9 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   for (const p of Object.values(PROFILES)) {
     console.log(`\n=== ${p.label} ===`);
-    console.log('  hours | tier | spawn | hordes | squad    | passives | drops | gun gap | train lv | train share | keep-up');
+    console.log('  hours | tier | spawn | hordes | passives | drops | gun gap | train lv | train share | keep-up | squad');
     for (const r of simulate(p)) {
-      console.log(`${r.h.toFixed(2).padStart(7)} | ${String(r.tier).padStart(4)} | ${String(r.spawn).padStart(5)} | ${String(r.hordes).padStart(6)} | ${r.squad.padEnd(8)} | ${String(r.nodes).padStart(8)} | ${String(r.drops).padStart(5)} | ${r.gunGap.toFixed(1).padStart(7)} | ${String(r.train).padStart(8)} | ${(r.shareTrain * 100).toFixed(0).padStart(10)}% | ${r.keep.toFixed(2)}`);
+      console.log(`${r.h.toFixed(2).padStart(7)} | ${String(r.tier).padStart(4)} | ${String(r.spawn).padStart(5)} | ${String(r.hordes).padStart(6)} | ${String(r.nodes).padStart(8)} | ${String(r.drops).padStart(5)} | ${r.gunGap.toFixed(1).padStart(7)} | ${String(r.train).padStart(8)} | ${(r.shareTrain * 100).toFixed(0).padStart(10)}% | ${r.keep.toFixed(2).padStart(7)} | ${r.squad}`);
     }
   }
 }

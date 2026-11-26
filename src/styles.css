@@ -241,3 +241,20 @@ textarea.code { width: 100%; height: 110px; background: #0e100d; color: var(--te
 .h-main b { display: block; }
 #hud-sound { margin-left: 0; }
 .keep-pill { margin-right: 4px; }
+
+/* unit type cards */
+.unit {
+  display: grid; grid-template-columns: 56px 1fr 64px; grid-template-areas: "pic main gun" "act act act"; gap: 8px 10px; align-items: center;
+  background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 10px;
+}
+.unit .portrait { grid-area: pic; }
+.u-main { grid-area: main; min-width: 0; }
+.u-main b { font: 400 15px var(--pixel); }
+.u-main .sub { margin: 2px 0 0; font-size: 13px; }
+.unit .count { font: 700 15px var(--pixel); color: var(--text); }
+.unit .count small { font-size: 11px; color: var(--muted); }
+.unit.locked { grid-template-columns: 56px 1fr auto; grid-template-areas: "pic main lock"; opacity: .6; }
+.unit.locked .lock { grid-area: lock; font-size: 13px; color: var(--muted); text-align: right; }
+.unit .r-actions { grid-area: act; display: flex; gap: 8px; flex-wrap: wrap; }
+.unit .r-actions .btn { min-width: 0; }
+img.dim { opacity: .35; }

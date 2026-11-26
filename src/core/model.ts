@@ -62,7 +62,7 @@ export const CONFIG = {
   // …and training the other half: ×1.06 per level. Keeping up needs ~1.2 training levels per tier. Training cost grows
   // ×1.15 per level, a little faster than income (×1.15 per tier), so big flat bonuses (new classes, keystones,
   // slots) give a big jump ahead and then the pace settles back down instead of snowballing.
-  trainMult: 1.06,
+  trainMult: 1.05,
   trainGrowth: 1.15,
   trainCost0: 8,
   baseHp: 6,
@@ -74,13 +74,17 @@ export const CONFIG = {
   spawnHpPerLevel: 0.03,    // each Spawn Rate level also gives zombies +3% HP
   spawnCost0: 20,
   spawnCostGrowth: 1.5,
-  hireGrowth: 3,            // each recruit you already have makes the next one ×3 more expensive
-  baseSlots: 3,
-  maxSlots: 8,
+  hireGrowth: 1.8,          // each unit of a type you already have makes the next one of that type ×1.8 more expensive
+  maxPerType: 20,           // up to 20 units of each type (7 types → up to 140 recruits)…
+  // …but barracks space grows with your best DNA Count tier: 2 of each type at first, +1 every 10 tiers (20 at tier 180).
+  // Tying it to progress (not DNA) stops a feedback loop where more units → faster tiers → cheaper units → more units.
+  unitsBase: 2,
+  unitExponent: 0.75,
+  tiersPerUnit: 10,
   baseCritDmg: 2,
   dropChance: 0.0012,       // gun drop per zombie shredded (rare: minutes apart)
   treeCost0: 15,
-  treeCostGrowth: 1.5,      // each allocated passive makes the next ×1.5 more expensive
+  treeCostGrowth: 1.9,      // each allocated passive makes the next ×1.9 more expensive
   walkSec: 10,              // a normal zombie crosses the whole road in 10 s
   // Hordes
   hordeZombies: 60,
@@ -106,7 +110,7 @@ export const logSumExp = (xs: number[]) => xs.reduce(logAdd, -Infinity);
 // ---------- Hordes ----------
 export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean }
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
-const HORDE_TIERS = [6, 14, 24, 36, 50, 66, 84];
+const HORDE_TIERS = [6,20,40,70,110,160,220];
 /** Horde k (1-based). 1–7 unlock classes/regions; beyond that, endless Elite hordes every 15 tiers. */
 export function hordeDef(k: number): HordeDef {
   if (k <= 7) {
@@ -115,7 +119,7 @@ export function hordeDef(k: number): HordeDef {
     return { index: k, name: HORDE_NAMES[k - 1], tier: HORDE_TIERS[k - 1], unlocks, cls, region: k, elite: false };
   }
   const n = k - 7;
-  return { index: k, name: `Elite Horde ${n}`, tier: HORDE_TIERS[6] + 15 * n, unlocks: n <= C.maxSlots - 6 ? 'An epic gun + 1 squad slot' : 'An epic gun', region: -1, elite: true };
+  return { index: k, name: `Elite Horde ${n}`, tier: HORDE_TIERS[6] + 30 * n, unlocks: 'An epic gun', region: -1, elite: true };
 }
 export const hordeMix = (k: number) => mixAt(hordeDef(k).tier);
 
@@ -131,14 +135,24 @@ export const lnSpawnCost = (lv: number) => Math.log(C.spawnCost0) + lv * Math.lo
 
 // ---------- Guns & recruits ----------
 export interface Gun { uid: number; cls: ClassId; rarity: RarityId; ilvl: number }
+/** One unit type in the squad: how many you have, their shared training level and their issued gun. */
+export interface Unit { cls: ClassId; count: number; level: number; gun: number | null }
+/** Pre-v5 saves stored individual recruits; kept only to migrate old saves. */
 export interface Recruit { id: number; cls: ClassId; level: number; gun: number | null }
+/** What the maths needs to know about a unit type. */
+export interface SquadEntry { r: { cls: ClassId; level: number }; gun?: Gun; count: number }
 export const rarityPower = (r: RarityId) => C.rarities.find((x) => x.id === r)!.power;
 export const lnGunPower = (g: Gun | undefined) => (g ? Math.log(rarityPower(g.rarity)) + C.ITEM_SHARE * lnR * (g.ilvl - 1) : -Infinity);
 export const lnTrainCost = (cls: ClassId, level: number, fx: Fx) =>
   Math.log(C.trainCost0 * Math.max(1, classById(cls).hire0 / 25) ** 0.5 * (1 - fx.trainDiscount)) + level * Math.log(C.trainGrowth);
-export const lnHireCost = (cls: ClassId, owned: number) => Math.log(classById(cls).hire0) + owned * Math.log(C.hireGrowth);
+/** Firepower of `count` units of one type, relative to one unit. Each extra unit adds a little less (crowding the
+ *  bunker), so 20 units hit about 9× as hard as one. This keeps a full army strong without snowballing. */
+export const unitPower = (count: number) => (count > 0 ? Math.pow(count, C.unitExponent) : 0);
+/** How many units of each type the barracks can hold at your best tier. */
+export const unitCap = (bestTier: number) => Math.min(C.maxPerType, C.unitsBase + Math.floor(bestTier / C.tiersPerUnit));
+export const lnHireCost = (cls: ClassId, owned: number, fx?: Fx) =>
+  Math.log(classById(cls).hire0 * (1 - (fx?.hireDiscount ?? 0))) + owned * Math.log(C.hireGrowth);
 export const lnTreeCost = (allocated: number) => Math.log(C.treeCost0) + allocated * Math.log(C.treeCostGrowth);
-export const slots = (fx: Fx, eliteSlots: number) => Math.min(C.maxSlots, C.baseSlots + fx.slots + eliteSlots);
 
 export function rollRarity(rng: () => number, minIdx = 0) {
   const rs = C.rarities.slice(minIdx);
@@ -148,7 +162,7 @@ export function rollRarity(rng: () => number, minIdx = 0) {
 }
 
 /** Per-recruit stats after the tree. */
-export function recruitStats(r: Recruit, gun: Gun | undefined, fx: Fx) {
+export function recruitStats(r: { cls: ClassId; level: number }, gun: Gun | undefined, fx: Fx) {
   const c = classById(r.cls);
   const range = Math.min(1, c.range * (1 + fx.range));
   const shotsPerSec = c.rate * (1 + fx.spd + (fx.classSpd[r.cls] ?? 0));
@@ -168,23 +182,23 @@ export const matchMult = (cls: ClassId, s: StrainId, fx: Fx) => (MATCH[cls]?.[s]
  * Kill capacity (zombies per second) of a squad against a strain mix at a tier. Extra targets count as +50% each
  * (a shot rarely hits its full number), and short range costs uptime because zombies spend longer out of reach.
  */
-export function killCapacity(squad: { r: Recruit; gun?: Gun }[], fx: Fx, tier: number, spawnLv: number, mix = mixAt(tier)) {
+export function killCapacity(squad: SquadEntry[], fx: Fx, tier: number, spawnLv: number, mix = mixAt(tier)) {
   let secPerZombie = 0;
   for (const s of mix) {
     let lnDps = -Infinity;
-    for (const { r, gun } of squad) {
-      if (!gun) continue;
+    for (const { r, gun, count } of squad) {
+      if (!gun || count <= 0) continue;
       const st = recruitStats(r, gun, fx);
       const eff = 1 + 0.5 * (st.targets - 1);
       const uptime = 0.55 + 0.45 * st.range;
-      lnDps = logAdd(lnDps, st.lnDps + Math.log(matchMult(r.cls, s.id, fx) * eff * uptime));
+      lnDps = logAdd(lnDps, st.lnDps + Math.log(unitPower(count) * matchMult(r.cls, s.id, fx) * eff * uptime));
     }
     secPerZombie += Math.exp(Math.min(60, lnZombieHp(tier, s.id, spawnLv) - lnDps)) / mix.length;
   }
   return secPerZombie > 0 ? 1 / secPerZombie : 0;
 }
 /** Can the squad beat horde k? It needs to kill 60 zombies within the timer (with ~10 s of walk-in). */
-export function hordeOdds(squad: { r: Recruit; gun?: Gun }[], fx: Fx, k: number) {
+export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number) {
   const need = C.hordeZombies / (C.hordeTimerSec - C.walkSec);
   return killCapacity(squad, fx, hordeDef(k).tier, 0, hordeMix(k)) / need;
 }

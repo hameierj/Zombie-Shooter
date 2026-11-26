@@ -6,7 +6,7 @@ import type { ClassId, StrainId } from './model.ts';
 
 export type NodeSize = 'small' | 'notable' | 'keystone' | 'start';
 export interface Fx {
-  dmg: number; spd: number; crit: number; critDmg: number; range: number; dna: number; drop: number; slots: number;
+  dmg: number; spd: number; crit: number; critDmg: number; range: number; dna: number; drop: number; hireDiscount: number;
   trainDiscount: number;
   classDmg: Partial<Record<ClassId, number>>;     // additive % for one class
   classMore: Partial<Record<ClassId, number>>;    // multiplicative for one class
@@ -35,7 +35,7 @@ export const REGIONS: Region[] = [
 ];
 
 export function emptyFx(): Fx {
-  return { dmg: 0, spd: 0, crit: 0, critDmg: 0, range: 0, dna: 0, drop: 0, slots: 0, trainDiscount: 0,
+  return { dmg: 0, spd: 0, crit: 0, critDmg: 0, range: 0, dna: 0, drop: 0, hireDiscount: 0, trainDiscount: 0,
     classDmg: {}, classMore: {}, classSpd: {}, targets: {}, vs: {}, more: 1, autoEquip: false, autoHorde: false };
 }
 const add = <K extends string>(m: Partial<Record<K, number>>, k: K, v: number) => { m[k] = (m[k] ?? 0) + v; };
@@ -57,7 +57,7 @@ const LAYOUT: Record<number, { smalls: [Spec, Spec]; n1: Spec; na: Spec; nb: Spe
     n1: S('Drill Sergeant', '+15% damage for the whole squad.', (f) => { f.dmg += 0.15; }),
     na: S('War Drums', 'Auto-Horde: the next horde starts by itself when your squad should win. Costs nothing.', (f) => { f.autoHorde = true; }),
     nb: S('Quartermaster', 'Auto-Equip: recruits always carry their best gun. Costs nothing.', (f) => { f.autoEquip = true; }),
-    k: S('Squad Expansion', '+1 squad slot.', (f) => { f.slots += 1; }),
+    k: S('Barracks', '+20% damage for the whole squad.', (f) => { f.dmg += 0.2; }),
   },
   1: {
     smalls: [cdmg('bow', 'Hunter', 12), rng(8)],
@@ -103,9 +103,9 @@ const LAYOUT: Record<number, { smalls: [Spec, Spec]; n1: Spec; na: Spec; nb: Spe
   },
   7: {
     smalls: [dmg(8), dna(8)],
-    n1: S('Recruitment Drive', '+1 squad slot.', (f) => { f.slots += 1; }),
+    n1: S('Recruitment Drive', 'Hiring costs 25% less.', (f) => { f.hireDiscount += 0.25; }),
     na: S('Veteran Trainers', 'Training costs 20% less.', (f) => { f.trainDiscount += 0.2; }),
-    nb: S('Logistics', '+1 squad slot.', (f) => { f.slots += 1; }),
+    nb: S('Logistics', '+10% attack speed for the whole squad.', (f) => { f.spd += 0.1; }),
     k: S('Total War', 'Whole squad deals ×1.5 damage.', (f) => { f.more *= 1.5; }),
   },
 };

@@ -6,7 +6,7 @@
 // stream pauses and 60 zombies of the horde's tier rush in; kill them all before the timer runs out to win.
 import Phaser from 'phaser';
 import * as M from '../core/model.ts';
-import type { ClassId, Gun, Recruit, StrainId } from '../core/model.ts';
+import type { ClassId, Gun, StrainId } from '../core/model.ts';
 import { game } from '../core/state.ts';
 import { fmtLn } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
@@ -44,7 +44,7 @@ export class BattleScene extends Phaser.Scene {
   private gibs!: Phaser.GameObjects.Particles.ParticleEmitter;
   private banner!: Phaser.GameObjects.Text;
   private sub!: Phaser.GameObjects.Text;
-  private shooters = new Map<number, Shooter>();
+  private shooters = new Map<string, Shooter>();
   private texts: FloatText[] = [];
   private crates: Crate[] = [];
   private pools = new Map<string, Phaser.GameObjects.Image[]>();
@@ -122,15 +122,6 @@ export class BattleScene extends Phaser.Scene {
     const { spawnX, stopX, laneTop, laneBot } = this.lay;
     return [Math.round(spawnX + (stopX - spawnX) * p) * this.px, Math.round(laneTop + (laneBot - laneTop) * ((l + 1) / 2)) * this.px];
   }
-  /** Recruits stand on the bunker in two staggered columns. */
-  private shooterFeet(i: number, n: number): [number, number] {
-    const rows = Math.ceil(n / 2);
-    const row = Math.floor(i / 2), col = i % 2;
-    const l = rows === 1 ? (n === 1 ? 0 : -0.3 + col * 0.6) : -0.85 + (1.7 * row) / Math.max(1, rows - 1) + (col ? 0.12 : 0);
-    const ax = Math.round(this.lay.bunkerRight * (col ? 0.32 : 0.66));
-    return [ax * this.px, Math.round(this.lay.laneTop + (this.lay.laneBot - this.lay.laneTop) * ((Math.min(1, l) + 1) / 2)) * this.px];
-  }
-
   // ---------- flow ----------
   private setPhase(p: Phase) { this.phase = p; this.phaseT = 0; game.emit('phase', p); }
   private clearZombies(onlyHorde = false) {
@@ -230,43 +221,62 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  // ---------- recruits ----------
+  // ---------- squad: each unit type is a group of up to 3 visible soldiers firing for the whole group ----------
+  private static readonly VISIBLE_PER_TYPE = 3;
+  private labels = new Map<ClassId, Phaser.GameObjects.Text>();
+
   private syncShooters() {
-    const ids = new Set(game.s.recruits.map((r) => r.id));
-    for (const [id, s] of this.shooters) if (!ids.has(id)) { s.body.destroy(); s.gun.destroy(); s.flash.destroy(); this.shooters.delete(id); }
-    for (const r of game.s.recruits) {
-      let s = this.shooters.get(r.id);
-      if (!s || s.cls !== r.cls) {
-        s?.body.destroy(); s?.gun.destroy(); s?.flash.destroy();
-        s = {
-          body: this.add.sprite(0, 0, `hero-${r.cls}-0`).setOrigin(0.5, 1).setScale(this.px),
-          gun: this.add.image(0, 0, `gun-${r.cls}`).setOrigin(3 / GUN_W, 6 / GUN_H).setScale(this.px),
-          flash: this.add.image(0, 0, 'muzzle').setVisible(false).setScale(this.px),
-          cls: r.cls, cd: Math.random() * 0.5, recoil: 0, flashT: 0, aim: 0,
-        };
-        this.shooters.set(r.id, s);
-      }
+    const want = new Set<string>();
+    for (const u of game.owned) for (let k = 0; k < Math.min(u.count, BattleScene.VISIBLE_PER_TYPE); k++) want.add(`${u.cls}-${k}`);
+    for (const [key, s] of this.shooters) if (!want.has(key)) { s.body.destroy(); s.gun.destroy(); s.flash.destroy(); this.shooters.delete(key); }
+    for (const key of want) {
+      if (this.shooters.has(key)) continue;
+      const cls = key.split('-')[0] as ClassId;
+      this.shooters.set(key, {
+        body: this.add.sprite(0, 0, `hero-${cls}-0`).setOrigin(0.5, 1).setScale(this.px),
+        gun: this.add.image(0, 0, `gun-${cls}`).setOrigin(3 / GUN_W, 6 / GUN_H).setScale(this.px),
+        flash: this.add.image(0, 0, 'muzzle').setVisible(false).setScale(this.px),
+        cls, cd: Math.random() * 0.5, recoil: 0, flashT: 0, aim: 0,
+      });
     }
+    for (const [cls, t] of this.labels) if (!game.owned.some((u) => u.cls === cls)) { t.destroy(); this.labels.delete(cls); }
   }
+
+  /** Where soldier k of the g-th unit type stands: one row per type, staggered across the bunker. */
+  private groupFeet(g: number, groups: number, k: number): [number, number] {
+    const l = groups === 1 ? 0 : -0.92 + (1.84 * g) / (groups - 1);
+    const ax = Math.round(this.lay.bunkerRight * (0.78 - 0.26 * k));
+    const ay = this.lay.laneTop + (this.lay.laneBot - this.lay.laneTop) * ((l + 1) / 2) + (k % 2) * 3;
+    return [ax * this.px, Math.round(ay) * this.px];
+  }
+  private shooterFeet(i: number, _n: number): [number, number] { return this.groupFeet(i, Math.max(1, game.owned.length), 0); }
 
   private tickShooters(dt: number) {
     this.syncShooters();
     const px = this.px;
-    const n = game.s.recruits.length;
-    game.s.recruits.forEach((r, i) => {
-      const s = this.shooters.get(r.id)!;
-      const [fx, fy] = this.shooterFeet(i, n);
-      const bob = Math.floor(this.time.now / 450 + i) % 2;
-      s.body.setTexture(`hero-${r.cls}-${bob}`).setPosition(fx, fy).setDepth(fy);
-      s.recoil = Math.max(0, s.recoil - dt * 30);
-      const gx = fx + (HERO_GRIP.x - HERO_W / 2) * px - Math.cos(s.aim) * s.recoil * px;
-      const gy = fy - (HERO_H - HERO_GRIP.y) * px - bob * px;
-      const gun = game.gun(r.gun);
-      s.gun.setVisible(!!gun).setPosition(Math.round(gx), Math.round(gy)).setRotation(s.aim).setDepth(fy + 1);
-      s.flashT -= dt;
-      s.flash.setVisible(s.flashT > 0);
-      if (s.flashT > 0) { const [mx, my] = this.muzzle(s); s.flash.setPosition(mx, my).setDepth(fy + 2); }
-      if (gun && this.phase !== 'intro') this.fire(r, gun, s, dt);
+    const owned = game.owned;
+    owned.forEach((u, gi) => {
+      const gun = game.gun(u.gun);
+      const visible = Math.min(u.count, BattleScene.VISIBLE_PER_TYPE);
+      for (let k = 0; k < visible; k++) {
+        const s = this.shooters.get(`${u.cls}-${k}`)!;
+        const [fx, fy] = this.groupFeet(gi, owned.length, k);
+        const bob = Math.floor(this.time.now / 450 + gi + k) % 2;
+        s.body.setTexture(`hero-${u.cls}-${bob}`).setPosition(fx, fy).setDepth(fy);
+        s.recoil = Math.max(0, s.recoil - dt * 30);
+        const gx = fx + (HERO_GRIP.x - HERO_W / 2) * px - Math.cos(s.aim) * s.recoil * px;
+        const gy = fy - (HERO_H - HERO_GRIP.y) * px - bob * px;
+        s.gun.setVisible(!!gun).setPosition(Math.round(gx), Math.round(gy)).setRotation(s.aim).setDepth(fy + 1);
+        s.flashT -= dt;
+        s.flash.setVisible(s.flashT > 0);
+        if (s.flashT > 0) { const [mx, my] = this.muzzle(s); s.flash.setPosition(mx, my).setDepth(fy + 2); }
+        if (gun && this.phase !== 'intro') this.fire(u, gun, s, visible, dt);
+      }
+      // "×12" count label above the group
+      let t = this.labels.get(u.cls);
+      if (!t) { t = this.add.text(0, 0, '', { fontFamily: FONT, color: '#ffd34d', stroke: '#140c1c' }).setOrigin(0.5, 1).setDepth(9300); this.labels.set(u.cls, t); }
+      const [lx, ly] = this.groupFeet(gi, owned.length, 0);
+      t.setText(`×${u.count}`).setFontSize(Math.round(px * 6)).setStroke('#140c1c', Math.max(2, px * 1.2)).setPosition(lx, ly - (HERO_H + 2) * px);
     });
   }
 
@@ -275,9 +285,11 @@ export class BattleScene extends Phaser.Scene {
     return [s.gun.x + Math.cos(s.aim) * len, s.gun.y + Math.sin(s.aim) * len];
   }
 
-  private fire(r: Recruit, gun: Gun, s: Shooter, dt: number) {
+  /** One visible soldier firing on behalf of `visible`-th of the whole unit group. */
+  private fire(r: M.Unit, gun: Gun, s: Shooter, visible: number, dt: number) {
     const st = M.recruitStats(r, gun, game.fx);
-    const rate = Math.min(8, st.shotsPerSec);
+    const groupShots = st.shotsPerSec * M.unitPower(r.count);
+    const rate = Math.min(8, groupShots / visible);
     s.cd -= dt;
     while (s.cd <= 0) {
       s.cd += 1 / rate;
@@ -290,7 +302,8 @@ export class BattleScene extends Phaser.Scene {
       }
       if (!target) { s.cd = Math.max(s.cd, 0.05); return; }
       const crit = Math.random() < st.crit;
-      const lnShot = st.lnDps - Math.log(rate) - Math.log(1 + st.crit * (st.critDmg - 1)) + (crit ? Math.log(st.critDmg) : 0);
+      // this soldier's share of the group's DPS, per shot (expected value matches the model; crits carry the multiplier)
+      const lnShot = st.lnDps + Math.log(M.unitPower(r.count) / visible) - Math.log(rate) - Math.log(1 + st.crit * (st.critDmg - 1)) + (crit ? Math.log(st.critDmg) : 0);
       // extra targets: the nearest other zombies to the main target (pierce, spread, splash)
       const hits = [target, ...this.zombies.filter((z) => z.alive && z !== target && z.p >= 1 - st.range)
         .sort((a, b) => this.dist(a, target!) - this.dist(b, target!)).slice(0, Math.max(0, st.targets - 1))
@@ -342,7 +355,7 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({
       targets: img, y: y + 6 * this.px, duration: 500, ease: 'Bounce.easeOut',
       onComplete: () => {
-        const [hx, hy] = this.shooterFeet(0, game.s.recruits.length);
+        const [hx, hy] = this.shooterFeet(0, 1);
         this.tweens.add({ targets: img, x: hx, y: hy - 10 * this.px, scale: this.px, duration: 600, delay: 900, ease: 'Quad.easeIn',
           onComplete: () => { this.give(img); this.crates = this.crates.filter((c) => c !== crate); } });
       },
@@ -447,7 +460,7 @@ export class BattleScene extends Phaser.Scene {
   private drawFx() {
     const g = this.fx, px = this.px;
     g.clear();
-    const range = Math.max(0, ...game.s.recruits.map((r) => M.recruitStats(r, game.gun(r.gun), game.fx).range));
+    const range = Math.max(0, ...game.owned.map((u) => M.recruitStats(u, game.gun(u.gun), game.fx).range));
     if (range > 0 && range < 0.999) {
       const [rx] = this.toScreen(1 - range, 0);
       g.fillStyle(0xffffff, 0.14);
