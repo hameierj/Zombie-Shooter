@@ -245,11 +245,11 @@ function squadHtml() {
     return `<div class="ucard" data-action="open-unit" data-cls="${c.id}" role="button" tabindex="0">
       <img class="px portrait" src="${classIcon(c.id)}" alt="">
       <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
-        <span class="sub">${u.count ? `${fmtLn(game.unitDps(u))} DPS · Dmg Lv ${M.nlv(u, 'dmg')}` : 'Not hired yet'} · ${c.ability.name} ${abilityPips(u)}</span>
-        <span class="sub small">Upgrades with ${vial(c.primary)} ${M.strainById(c.primary).dna} + ${vial(c.secondary)} ${M.strainById(c.secondary).dna}${ready ? ` · <span class="good">${ready} upgrade${ready > 1 ? 's' : ''} ready ›</span>` : ''}</span></div>
+        <span class="sub">${u.count ? `${fmtLn(game.unitDps(u))} DPS · Dmg Lv ${M.nlv(u, 'dmg')}` : 'Not hired yet'}<span class="wide-only"> · ${c.ability.name}</span> ${abilityPips(u)}</span>
+        <span class="sub small" title="Upgrades with ${M.strainById(c.primary).dna} and ${M.strainById(c.secondary).dna} DNA">Uses ${vial(c.primary)}${vial(c.secondary)}${ready ? ` · <span class="good">${ready} ready ›</span>` : ''}</span></div>
       <div class="quick">
-        ${full ? `<button class="btn sm ghost" disabled>${game.unitCap >= C.maxPerType ? 'Full' : 'Barracks full'}</button>` : `<button class="btn sm" data-action="hire" data-cls="${c.id}" ${costAttr(hcol, hc)}>Hire ${cost(hcol, hc)}</button>`}
-        <button class="btn sm" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${costAttr(dn.colour, dn.lnCost)}>Dmg ${cost(dn.colour, dn.lnCost)}</button>
+        ${full ? `<button class="btn sbtn ghost" disabled><span>Hire</span><span class="cost">${game.unitCap >= C.maxPerType ? 'full' : 'barracks full'}</span></button>` : `<button class="btn sbtn" data-action="hire" data-cls="${c.id}" ${costAttr(hcol, hc)}><span>Hire +1</span>${cost(hcol, hc)}</button>`}
+        <button class="btn sbtn" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${costAttr(dn.colour, dn.lnCost)}><span>Damage +</span>${cost(dn.colour, dn.lnCost)}</button>
       </div>
     </div>`;
   }).join('');
