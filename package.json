@@ -1,0 +1,21 @@
+{
+  "name": "zombie-idle",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "sim": "node tools/sim.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/silkscreen": "5.2.6",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vite": "6.3.5"
+  }
+}

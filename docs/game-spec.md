@@ -1,0 +1,80 @@
+# Zombie Idle: Game Spec (v0.5)
+
+An idle zombie shooter with 16-bit pixel art. Zombies walk at your shredder forever; your squad of recruits shoots
+them for DNA. You decide how hard the stream is, grow your squad and passive tree, and take on optional hordes to
+unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
+
+## 1. The loop
+1. Zombies stream in endlessly. Every kill gives **DNA**, which is banked silently.
+2. Spend DNA on **training** recruits, **hiring** more, **passives** in the tree, and the two **zombie dials**.
+3. Turn the dials up while the squad keeps up (more DNA, tougher zombies).
+4. Beat a **horde** when you're strong enough, to unlock the next recruit type and tree region.
+5. Rare **gun drops** give big jumps in power.
+
+## 2. Zombie dials (Zombies tab)
+| Dial | Range | Effect |
+|---|---|---|
+| **DNA Count** (tier) | 1 → ∞ | Each tier: ×1.15 DNA per zombie and ×1.15 zombie HP. Cost 40·1.15^(tier−1). You can dial back down for free and back up to your best |
+| **Spawn Rate** | 30 levels | 1.0 → 4.6 zombies/s (+12% per level); each level also +3% zombie HP |
+
+A **keep-up meter** compares the squad's kill capacity with the arrival rate and tells you, before you buy, whether
+the squad will keep up at the next tier or spawn level. If the squad falls behind, zombies pile up at the shredder,
+which grinds them slowly. You never lose.
+
+New strains join the stream as the tier rises: Shambler (1), Runner (6, fast, fragile), Brute (14, ×2.5 HP),
+Spitter (25), Bloater (40, ×4 HP). Each gun class is better or worse against certain strains.
+
+## 3. Recruits and guns (Squad tab)
+| Class | Gun | Range | Fire rate | Hits per shot | Unlock |
+|---|---|---|---|---|---|
+| Pistoleer | Pistol | short-mid | fast | 1 | start |
+| Hunter | Compound Bow | long | slow | 2 (pierce) | Horde 1 |
+| Shotgunner | Shotgun | short | medium | 3 (spread) | Horde 2 |
+| Rifleman | Assault Rifle | mid-long | very fast | 1 | Horde 3 |
+| Sniper | Sniper Rifle | whole road | very slow, big crits | 1 | Horde 4 |
+| Pyro | Flamethrower | very short | constant | 4 | Horde 5 |
+| Grenadier | Grenade Launcher | long | slow | 4 (splash) | Horde 6 |
+
+- **Squad slots:** 3, plus up to 8 from passives and Elite hordes. Hiring costs grow ×3 per recruit of the same class.
+- **Training:** each level gives ×1.06 damage, forever. Costs grow ×1.15 per level. Auto-Train is a passive.
+- **Guns:** each gun belongs to one class. Damage grows with the gun's tier (the DNA Count tier it dropped at) and its
+  rarity (×1 common → ×3.2 legendary). Every new recruit arrives with a standard gun at your current tier.
+- **Drops are rare:** 0.12% per zombie (about one every few minutes once the stream is fast). Each one arrives as a
+  crate with a beam in its rarity colour. Every horde win guarantees a rare-or-better gun.
+
+## 4. Passive tree (Tree tab)
+A POE2-style web you pan (drag) and zoom (pinch, scroll wheel, or the + / − buttons). It has eight regions around the
+Command Post; each has small nodes, two notables and a keystone, and neighbouring regions are linked.
+
+| Region | Opens with | Highlights |
+|---|---|---|
+| Basic Training | start | +damage, +attack speed; Auto-Train, Auto-Raise, Auto-Equip; +1 slot |
+| Marksman | Horde 1 | Hunter pierce, crit, range; Hunters ×2 |
+| Breacher | Horde 2 | Shotgun spread, ×1.4 vs Brutes; Shotgunners ×2 |
+| Suppression | Horde 3 | attack speed, crit damage; Riflemen ×2 |
+| Deadeye | Horde 4 | range, crit damage, ×1.4 vs Brutes; Snipers ×2.5 |
+| Inferno | Horde 5 | flame targets, ×1.5 vs Bloaters; Pyros ×2 |
+| Demolition | Horde 6 | drop chance, splash; Grenadiers ×2 |
+| Command | Horde 7 | +2 slots, cheaper training; whole squad ×1.5 |
+
+Allocate a node next to one you own. Each allocation costs ×1.5 more than the last. Tap a node to see what it does.
+
+## 5. Hordes (Hordes tab)
+Optional challenges: **60 zombies in 60 seconds** at a fixed tier. The stream pauses while you fight. Each card shows
+your odds before you start. Hordes 1–7 are at tiers 6, 14, 24, 36, 50, 66 and 84, and unlock the recruit types and
+regions above. After that come endless **Elite hordes** every 15 tiers, each rewarding an epic+ gun (and +1 slot,
+up to 8). Losing costs nothing.
+
+## 6. Idle and offline
+Auto-Train and Auto-Raise (Basic Training passives) let the game run itself. Time away (up to 12 h) is simulated
+with the same economy and summarised: zombies, DNA, guns found, tiers raised.
+
+## 7. Screens
+HUD: DNA (+ per second), tier, keep-up status, settings. Four big tabs at the bottom: **Zombies, Squad, Tree,
+Hordes**. The battlefield is zoomed out (~360 art pixels across its short side) and shows up to 60 zombies at once.
+Laptop: battlefield left, panel right. Phones: stacked, tabs at the bottom. iPhone Duo: switches layout live when
+folded or unfolded.
+
+## 8. Later
+Audio, more recruit classes and strains, gun perks, a prestige layer for the very late game, cloud save, and Steam
+and App Store builds.
