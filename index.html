@@ -19,18 +19,20 @@
       <div class="hud-dna"><span id="hud-vial"></span><b id="hud-dna">0</b><small id="hud-rate">+0/s</small></div>
       <div class="hud-tier">TIER <b id="hud-tier">1</b></div>
       <div id="hud-keep" class="keep-pill">keeping up</div>
+      <button id="hud-sound" class="icon-btn" data-action="sound" aria-label="Sound on or off">🔊</button>
       <button id="hud-settings" class="icon-btn" data-action="settings" aria-label="Settings">⚙</button>
     </header>
     <main id="field" aria-label="Battlefield"></main>
-    <section id="panel">
+    <section id="panel" hidden>
+      <div class="panel-head"><h2 id="panel-title"></h2><button class="btn ghost close" data-action="close">✕ Back to map</button></div>
       <div id="tab-body"></div>
-      <nav id="tabs" role="tablist">
+    </section>
+    <nav id="tabs" role="tablist">
         <button data-action="tab" data-arg="zombies" role="tab"><span class="ti">☣</span>Zombies</button>
         <button data-action="tab" data-arg="squad" role="tab"><span class="ti">✚</span>Squad</button>
         <button data-action="tab" data-arg="tree" role="tab"><span class="ti">✦</span>Tree</button>
         <button data-action="tab" data-arg="hordes" role="tab"><span class="ti">⚑</span>Hordes</button>
-      </nav>
-    </section>
+    </nav>
     <div id="toasts" aria-live="polite"></div>
     <div id="modal" hidden></div>
   </div>

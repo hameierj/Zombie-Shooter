@@ -1,4 +1,4 @@
-# Zombie Idle: Game Spec (v0.5)
+# Zombie Idle: Game Spec (v0.6)
 
 An idle zombie shooter with 16-bit pixel art. Zombies walk at your shredder forever; your squad of recruits shoots
 them for DNA. You decide how hard the stream is, grow your squad and passive tree, and take on optional hordes to
@@ -36,7 +36,7 @@ Spitter (25), Bloater (40, ×4 HP). Each gun class is better or worse against ce
 | Grenadier | Grenade Launcher | long | slow | 4 (splash) | Horde 6 |
 
 - **Squad slots:** 3, plus up to 8 from passives and Elite hordes. Hiring costs grow ×3 per recruit of the same class.
-- **Training:** each level gives ×1.06 damage, forever. Costs grow ×1.15 per level. Auto-Train is a passive.
+- **Training:** each level gives ×1.06 damage, forever. Costs grow ×1.15 per level.
 - **Guns:** each gun belongs to one class. Damage grows with the gun's tier (the DNA Count tier it dropped at) and its
   rarity (×1 common → ×3.2 legendary). Every new recruit arrives with a standard gun at your current tier.
 - **Drops are rare:** 0.12% per zombie (about one every few minutes once the stream is fast). Each one arrives as a
@@ -48,7 +48,7 @@ Command Post; each has small nodes, two notables and a keystone, and neighbourin
 
 | Region | Opens with | Highlights |
 |---|---|---|
-| Basic Training | start | +damage, +attack speed; Auto-Train, Auto-Raise, Auto-Equip; +1 slot |
+| Basic Training | start | +damage, +attack speed; War Drums (auto-start hordes), Quartermaster (auto-equip); +1 slot |
 | Marksman | Horde 1 | Hunter pierce, crit, range; Hunters ×2 |
 | Breacher | Horde 2 | Shotgun spread, ×1.4 vs Brutes; Shotgunners ×2 |
 | Suppression | Horde 3 | attack speed, crit damage; Riflemen ×2 |
@@ -66,12 +66,21 @@ regions above. After that come endless **Elite hordes** every 15 tiers, each rew
 up to 8). Losing costs nothing.
 
 ## 6. Idle and offline
-Auto-Train and Auto-Raise (Basic Training passives) let the game run itself. Time away (up to 12 h) is simulated
+**Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are
+free actions: **Quartermaster** (auto-equips the best guns) and **War Drums** (starts the next horde when your squad
+should win; can be switched off on the Hordes tab). Every DNA purchase is yours to make. Time away (up to 12 h) is simulated
 with the same economy and summarised: zombies, DNA, guns found, tiers raised.
 
-## 7. Screens
-HUD: DNA (+ per second), tier, keep-up status, settings. Four big tabs at the bottom: **Zombies, Squad, Tree,
-Hordes**. The battlefield is zoomed out (~360 art pixels across its short side) and shows up to 60 zombies at once.
+## 7. Screens and sound
+The zombie map fills the screen between the HUD (DNA + per second, tier, keep-up status, sound, settings) and four big
+tabs at the bottom: **Zombies, Squad, Tree, Hordes**. Tapping a tab opens that menu **full-screen** (two-column layout
+on wide screens); **✕ Back to map** or tapping the tab again collapses it. Starting a horde closes the menu so you can
+watch the fight.
+
+**Sound** is synthesised in code (works offline): a distinct shot for every gun, explosions, zombie deaths and groans,
+the shredder grinding, loot jingles by rarity, horde siren / victory / defeat, interface taps and purchases, and a
+quiet looping soundtrack. Sound effects and music each switch on or off in Settings; the 🔊 button mutes everything.
+(On iPhone the ring/silent switch also mutes web audio.) The battlefield is zoomed out (~360 art pixels across its short side) and shows up to 60 zombies at once.
 Laptop: battlefield left, panel right. Phones: stacked, tabs at the bottom. iPhone Duo: switches layout live when
 folded or unfolded.
 

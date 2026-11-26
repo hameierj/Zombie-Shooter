@@ -6,6 +6,7 @@ import { BattleScene } from './game/BattleScene.ts';
 import { game } from './core/state.ts';
 import { TREE } from './core/tree.ts';
 import { initUI, showOfflineReport } from './ui/ui.ts';
+import { pauseAudio, unlockAudio } from './audio/sfx.ts';
 
 const app = document.getElementById('app')!;
 const field = document.getElementById('field')!;
@@ -93,3 +94,8 @@ document.addEventListener('dblclick', (e) => e.preventDefault());
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').catch(() => { /* not available here */ });
 }
+
+// Audio can only start after a tap or key press (required by iOS and other browsers).
+document.addEventListener('pointerdown', unlockAudio, { passive: true });
+document.addEventListener('keydown', unlockAudio);
+document.addEventListener('visibilitychange', () => pauseAudio(document.hidden));

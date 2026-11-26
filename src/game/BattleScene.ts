@@ -9,6 +9,7 @@ import * as M from '../core/model.ts';
 import type { ClassId, Gun, Recruit, StrainId } from '../core/model.ts';
 import { game } from '../core/state.ts';
 import { fmtLn } from '../core/format.ts';
+import * as sfx from '../audio/sfx.ts';
 import { buildArt, drawGround, GUN_H, GUN_W, HERO_GRIP, HERO_H, HERO_W, RARITY_TRIM, ZOMBIE_FRAMES } from './art.ts';
 
 const C = M.CONFIG;
@@ -151,6 +152,7 @@ export class BattleScene extends Phaser.Scene {
     const mix = M.hordeMix(k);
     this.horde = { k, t: 0, spawnT: 0, queue: Array.from({ length: C.hordeZombies }, () => this.makeZombie(mix[Math.floor(Math.random() * mix.length)].id, h.tier, 0, true)) };
     this.showBanner(h.name.toUpperCase(), `HORDE ${k} · TIER ${h.tier}`);
+    sfx.hordeStart();
     this.setPhase('intro');
   }
 
@@ -167,7 +169,8 @@ export class BattleScene extends Phaser.Scene {
     this.phaseT += dt;
     this.teeth.tilePositionY -= dt * 30;
     this.autoT += dt;
-    if (this.autoT >= 1) { this.autoT = 0; game.autoTick(); }
+    // War Drums: start the next horde automatically when the squad should win (never spends DNA)
+    if (this.autoT >= 3) { this.autoT = 0; if (this.phase === 'stream' && game.autoHorde && game.hordeOdds() >= 1.15) game.startHorde(); }
 
     if (this.phase === 'stream' || this.phase === 'end') {
       // the endless stream
@@ -189,10 +192,12 @@ export class BattleScene extends Phaser.Scene {
       while (h.queue.length && h.spawnT <= 0) { h.spawnT += 1 / C.hordeSpawnPerSec; this.zombies.push(h.queue.shift()!); }
       if (!h.queue.length && !this.zombies.some((z) => z.alive && z.horde)) {
         this.showBanner('HORDE BEATEN!', M.hordeDef(h.k).unlocks.toUpperCase());
+        sfx.hordeWon();
         game.hordeWon(h.k);
         this.setPhase('end');
       } else if (h.t >= C.hordeTimerSec) {
         this.showBanner('TOO STRONG', 'THE HORDE PULLS BACK');
+        sfx.hordeLost();
         this.clearZombies(true);
         h.queue = [];
         game.hordeLost(h.k);
@@ -210,11 +215,15 @@ export class BattleScene extends Phaser.Scene {
     for (const z of this.zombies) {
       if (!z.alive) continue;
       z.flash -= dt;
-      if (z.p < 1) { z.p = Math.min(1, z.p + z.speed * dt); z.phase += dt * 6 * z.speed * C.walkSec; }
+      if (z.p < 1) {
+        z.p = Math.min(1, z.p + z.speed * dt); z.phase += dt * 6 * z.speed * C.walkSec;
+        if (z.p > 0.6 && Math.random() < dt * 0.15) sfx.groan();
+      }
       else {
         // in the blades: the shredder grinds it slowly while it claws at the machine
         z.phase += dt * 3;
         z.hp -= 0.08 * dt;
+        sfx.grind();
         if (Math.random() < dt * 6) { const [x, y] = this.toScreen(1, z.l); this.burst(x - 6 * this.px, y - 10 * this.px, 0x8a1c1c, 2); }
         if (z.hp <= 0) this.kill(z);
       }
@@ -321,6 +330,7 @@ export class BattleScene extends Phaser.Scene {
       s.clearTint();
       this.tweens.add({ targets: s, angle: 90, alpha: 0, duration: 380, ease: 'Quad.easeIn', onComplete: () => s.destroy() });
     }
+    sfx.zombieDeath();
     const g = game.zombieKilled(z.strain, z.tier);
     if (g) this.dropCrate(g, x, y);
   }
@@ -338,6 +348,7 @@ export class BattleScene extends Phaser.Scene {
       },
     });
     this.burst(x, y, crate.color, 10);
+    sfx.loot(g.rarity);
   }
 
   private shoot(s: Shooter, cls: ClassId, hits: Zombie[]) {
@@ -346,6 +357,7 @@ export class BattleScene extends Phaser.Scene {
     s.recoil = cls === 'sniper' || cls === 'shotgun' ? 3 : 1.5;
     const [mx, my] = this.muzzle(s);
     const px = this.px;
+    sfx.shot(cls);
     const fly = (key: string, x2: number, y2: number, ms: number, after?: () => void) => {
       const b = this.take(key).setPosition(mx, my).setRotation(Math.atan2(y2 - my, x2 - mx)).setScale(px).setDepth(8600).setAlpha(1);
       this.tweens.add({ targets: b, x: x2, y: y2, duration: ms, onComplete: () => { this.give(b); after?.(); } });
@@ -370,6 +382,7 @@ export class BattleScene extends Phaser.Scene {
             const b = this.take('boom').setPosition(tx, ty).setScale(px).setDepth(8700).setAlpha(1);
             this.tweens.add({ targets: b, scale: px * 2.2, alpha: 0, duration: 300, onComplete: () => this.give(b) });
             this.burst(tx, ty, 0xff7a2a, 10);
+            sfx.boom();
           } });
         break;
       }

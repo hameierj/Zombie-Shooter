@@ -20,8 +20,7 @@ export interface SaveData {
   alloc: string[];         // allocated passive-tree nodes
   hordes: number;          // hordes beaten
   eliteSlots: number;
-  autoTrainOn: boolean;
-  autoTierOn: boolean;
+  autoHordeOn: boolean;
   nextUid: number;
   kills: number;
   newGuns: number[];
@@ -35,7 +34,7 @@ function freshSave(): SaveData {
     version: 4, dna: null, tier: 1, maxTier: 1, spawnLv: 0,
     recruits: [{ id: 1, cls: 'pistol', level: 0, gun: 2 }],
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }],
-    alloc: [], hordes: 0, eliteSlots: 0, autoTrainOn: true, autoTierOn: true, nextUid: 3, kills: 0, newGuns: [], lastSeen: Date.now(),
+    alloc: [], hordes: 0, eliteSlots: 0, autoHordeOn: true, nextUid: 3, kills: 0, newGuns: [], lastSeen: Date.now(),
   };
 }
 
@@ -171,22 +170,8 @@ export class Game {
     return g;
   }
 
-  /** Auto-Train / Auto-Raise, run about once a second by the scene and during offline progress. */
-  autoTick() {
-    let changed = false;
-    if (this.fx.autoTrain && this.s.autoTrainOn) {
-      for (let i = 0; i < 50; i++) {
-        const r = [...this.s.recruits].sort((a, b) => this.trainCost(a) - this.trainCost(b))[0];
-        if (!r || !this.pay(this.trainCost(r))) break;
-        r.level++;
-        changed = true;
-      }
-    }
-    if (this.fx.autoTier && this.s.autoTierOn && this.s.tier === this.s.maxTier && this.keepUp(this.s.tier + 1) >= 1.15 && this.pay(this.tierCost())) {
-      this.s.maxTier++; this.s.tier++; changed = true;
-    }
-    if (changed) this.emit('change');
-  }
+  /** Free automations only (they never spend DNA): Auto-Equip keeps the best guns on; Auto-Horde is run by the scene. */
+  get autoHorde() { return this.fx.autoHorde && this.s.autoHordeOn; }
 
   // ---------- hordes ----------
   get nextHorde() { return this.s.hordes + 1; }
@@ -235,7 +220,6 @@ export class Game {
       this.setDna(M.logAdd(this.dna, ln + Math.log(Math.max(1e-9, kills))));
       this.s.kills += Math.round(kills);
       if (Math.random() < kills * C.dropChance * (1 + this.fx.drop)) this.addGun(this.s.recruits[Math.floor(Math.random() * this.s.recruits.length)].cls, 0, 0, true);
-      this.autoTick();
     }
     this.emit('change');
     return { seconds, kills: this.s.kills - kills0, lnDna: M.logSub(this.dna, before), guns: this.s.guns.filter((g) => !gunsBefore.has(g.uid)), tiers: this.s.maxTier - tier0 };

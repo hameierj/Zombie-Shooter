@@ -14,7 +14,8 @@ export interface Fx {
   targets: Partial<Record<ClassId, number>>;      // extra targets per shot
   vs: Partial<Record<StrainId, number>>;          // multiplicative vs a strain, whole squad
   more: number;                                   // multiplicative damage, whole squad
-  autoTrain: boolean; autoTier: boolean; autoEquip: boolean;
+  // Automations never spend DNA: they only do things that are free (equipping gear, starting hordes).
+  autoEquip: boolean; autoHorde: boolean;
 }
 export interface TreeNode {
   id: string; region: number; size: NodeSize; name: string; desc: string; x: number; y: number; links: string[];
@@ -35,7 +36,7 @@ export const REGIONS: Region[] = [
 
 export function emptyFx(): Fx {
   return { dmg: 0, spd: 0, crit: 0, critDmg: 0, range: 0, dna: 0, drop: 0, slots: 0, trainDiscount: 0,
-    classDmg: {}, classMore: {}, classSpd: {}, targets: {}, vs: {}, more: 1, autoTrain: false, autoTier: false, autoEquip: false };
+    classDmg: {}, classMore: {}, classSpd: {}, targets: {}, vs: {}, more: 1, autoEquip: false, autoHorde: false };
 }
 const add = <K extends string>(m: Partial<Record<K, number>>, k: K, v: number) => { m[k] = (m[k] ?? 0) + v; };
 const mul = <K extends string>(m: Partial<Record<K, number>>, k: K, v: number) => { m[k] = (m[k] ?? 1) * v; };
@@ -53,9 +54,9 @@ const cdmg = (c: ClassId, label: string, p: number) => S(`${label} Drills`, `+${
 const LAYOUT: Record<number, { smalls: [Spec, Spec]; n1: Spec; na: Spec; nb: Spec; k: Spec }> = {
   0: {
     smalls: [dmg(8), spd(6)],
-    n1: S('Drill Sergeant', 'Auto-Train: your cheapest recruit trains automatically.', (f) => { f.autoTrain = true; }),
-    na: S('Lookout', 'Auto-Raise: DNA Count goes up by itself while your squad keeps up.', (f) => { f.autoTier = true; }),
-    nb: S('Quartermaster', 'Auto-Equip: recruits always carry their best gun.', (f) => { f.autoEquip = true; }),
+    n1: S('Drill Sergeant', '+15% damage for the whole squad.', (f) => { f.dmg += 0.15; }),
+    na: S('War Drums', 'Auto-Horde: the next horde starts by itself when your squad should win. Costs nothing.', (f) => { f.autoHorde = true; }),
+    nb: S('Quartermaster', 'Auto-Equip: recruits always carry their best gun. Costs nothing.', (f) => { f.autoEquip = true; }),
     k: S('Squad Expansion', '+1 squad slot.', (f) => { f.slots += 1; }),
   },
   1: {
