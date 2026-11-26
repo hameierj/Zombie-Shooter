@@ -408,3 +408,8 @@ img.dim { opacity: .35; }
 .sbtn i { background: rgba(0,0,0,.4); padding: 0 4px; border-radius: 3px; }
 button, [data-action] { touch-action: manipulation; }
 @media (max-width: 480px) { .wide-only { display: none; } .ucard .u-main b { font-size: 13px; } }
+/* unit cards: a two-tone stripe in the DNA colours that unit's tree uses */
+.ucard { position: relative; overflow: hidden; padding-left: 16px; }
+.ucard::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(var(--c1) 0 50%, var(--c2) 50% 100%); }
+.ucard.locked::before { display: none; }
+@media (max-width: 480px) { .ucard .u-main b { font-size: 11px; letter-spacing: 0; } .ucard .count { font-size: 12px; margin-left: 4px; } .ucard { gap: 8px; } }

@@ -238,15 +238,14 @@ function squadHtml() {
     const u = game.unit(c.id);
     const open = game.classUnlocked(c.id);
     if (!open) return `<div class="ucard locked"><img class="px portrait" src="${classIcon(c.id)}" alt=""><div class="u-main"><b>${c.plural}</b><span class="sub">${c.gun}</span></div><span class="lock">🔒 Horde ${c.horde}</span></div>`;
-    const ready = game.nodesAffordable(c.id);
     const full = u.count >= game.unitCap;
     const hc = game.hireCost(c.id), hcol = game.hireColour(c.id);
     const dn = game.node(c.id, 'dmg');
-    return `<div class="ucard" data-action="open-unit" data-cls="${c.id}" role="button" tabindex="0">
+    return `<div class="ucard" style="--c1:${M.strainById(c.primary).color};--c2:${M.strainById(c.secondary).color}" title="Upgrades with ${M.strainById(c.primary).dna} and ${M.strainById(c.secondary).dna} DNA" data-action="open-unit" data-cls="${c.id}" role="button" tabindex="0">
       <img class="px portrait" src="${classIcon(c.id)}" alt="">
       <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
         <span class="sub">${u.count ? `${fmtLn(game.unitDps(u))} DPS · Dmg Lv ${M.nlv(u, 'dmg')}` : 'Not hired yet'}<span class="wide-only"> · ${c.ability.name}</span> ${abilityPips(u)}</span>
-        <span class="sub small" title="Upgrades with ${M.strainById(c.primary).dna} and ${M.strainById(c.secondary).dna} DNA">Uses ${vial(c.primary)}${vial(c.secondary)}${ready ? ` · <span class="good">${ready} ready ›</span>` : ''}</span></div>
+        </div>
       <div class="quick">
         ${full ? `<button class="btn sbtn ghost" disabled><span>Hire</span><span class="cost">${game.unitCap >= C.maxPerType ? 'full' : 'barracks full'}</span></button>` : `<button class="btn sbtn" data-action="hire" data-cls="${c.id}" ${costAttr(hcol, hc)}><span>Hire +1</span>${cost(hcol, hc)}</button>`}
         <button class="btn sbtn" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${costAttr(dn.colour, dn.lnCost)}><span>Damage +</span>${cost(dn.colour, dn.lnCost)}</button>
