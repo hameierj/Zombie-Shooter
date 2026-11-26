@@ -357,3 +357,11 @@ img.dim { opacity: .35; }
 .seg button.on { border-color: var(--rar, var(--accent)); background: color-mix(in srgb, var(--rar, var(--accent)) 22%, #10120f); color: var(--text); }
 @media (max-width: 420px) { .seg button { font-size: 11px; padding: 0 2px; } }
 @media (max-width: 560px) { .seg { grid-template-columns: repeat(3, 1fr); } }
+.ucard .quick { display: flex; flex-direction: column; gap: 6px; min-width: 112px; }
+.ucard .quick .btn { min-height: 38px; padding: 0 8px; font-size: 13px; white-space: nowrap; justify-content: space-between; gap: 6px; }
+@media (max-width: 420px) {
+  .ucard { grid-template-columns: 44px 1fr auto; gap: 8px; padding: 8px 10px; }
+  .ucard .portrait { height: 44px; }
+  .ucard .quick { min-width: 96px; }
+  .ucard .quick .btn { font-size: 12px; padding: 0 6px; }
+}

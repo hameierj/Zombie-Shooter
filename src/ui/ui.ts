@@ -225,13 +225,19 @@ function squadHtml() {
     const open = game.classUnlocked(c.id);
     if (!open) return `<div class="ucard locked"><img class="px portrait" src="${classIcon(c.id)}" alt=""><div class="u-main"><b>${c.plural}</b><span class="sub">${c.gun}</span></div><span class="lock">🔒 Horde ${c.horde}</span></div>`;
     const ready = game.nodesAffordable(c.id);
-    return `<button class="ucard" data-action="open-unit" data-cls="${c.id}">
+    const full = u.count >= game.unitCap;
+    const hc = game.hireCost(c.id), hcol = game.hireColour(c.id);
+    const dn = game.node(c.id, 'dmg');
+    return `<div class="ucard" data-action="open-unit" data-cls="${c.id}" role="button" tabindex="0">
       <img class="px portrait" src="${classIcon(c.id)}" alt="">
       <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
         <span class="sub">${u.count ? `${fmtLn(game.unitDps(u))} DPS · Dmg Lv ${M.nlv(u, 'dmg')}` : 'Not hired yet'} · ${c.ability.name} ${abilityPips(u)}</span>
-        <span class="sub small">Upgrades with ${vial(c.primary)} ${M.strainById(c.primary).dna} + ${vial(c.secondary)} ${M.strainById(c.secondary).dna}</span></div>
-      ${ready ? `<span class="ready">${ready} ready</span>` : '<span class="chev">›</span>'}
-    </button>`;
+        <span class="sub small">Upgrades with ${vial(c.primary)} ${M.strainById(c.primary).dna} + ${vial(c.secondary)} ${M.strainById(c.secondary).dna}${ready ? ` · <span class="good">${ready} upgrade${ready > 1 ? 's' : ''} ready ›</span>` : ''}</span></div>
+      <div class="quick">
+        ${full ? `<button class="btn sm ghost" disabled>${game.unitCap >= C.maxPerType ? 'Full' : 'Barracks full'}</button>` : `<button class="btn sm" data-action="hire" data-cls="${c.id}" ${costAttr(hcol, hc)}>Hire ${cost(hcol, hc)}</button>`}
+        <button class="btn sm" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${costAttr(dn.colour, dn.lnCost)}>Dmg ${cost(dn.colour, dn.lnCost)}</button>
+      </div>
+    </div>`;
   }).join('');
   const items = [...s.guns.map((g) => ({ uid: g.uid, icon: gunIcon(g.cls), rarity: g.rarity, label: `T${fmtInt(g.ilvl)}`, power: M.lnGunPower(g) })),
     ...s.gear.map((g) => ({ uid: g.uid, icon: g.kind === 'attach' ? modIcon(g.stat) : charmIcon(g.bane), rarity: g.rarity, label: g.kind === 'attach' ? g.stat.toUpperCase() : 'CHARM', power: g.value * 10 }))]
