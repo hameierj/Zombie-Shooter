@@ -160,8 +160,8 @@ function refresh() {
     b.classList.toggle('badge', badge);
   }
   for (const el of document.querySelectorAll<HTMLButtonElement>('[data-cost]')) el.disabled = !game.canAfford(el.dataset.col as StrainId, Number(el.dataset.cost));
-  const m = document.querySelector<HTMLElement>('.keep .meter i');
-  if (m) m.style.width = `${Math.min(100, (k / 2) * 100)}%`;
+  const kc = document.querySelector<HTMLElement>('.keep.sticky');
+  if (kc) kc.outerHTML = keepCardHtml(k);
 }
 
 function render() {
@@ -181,6 +181,15 @@ function render() {
 }
 
 // ---------- Zombies tab: one card per zombie type ----------
+/** The keep-up meter, pinned to the top of the Zombies menu while you scroll (refresh() keeps it live). */
+function keepCardHtml(k: number) {
+  const cls = k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad';
+  return `<div class="card keep sticky ${cls}">
+    <div class="keep-row"><b>${k >= 1.1 ? 'Keeping up' : k >= 0.9 ? 'Barely keeping up' : 'Zombies piling up'}</b><span class="keep-x">${fmtMult(k)}</span></div>
+    <div class="meter"><i style="width:${Math.min(100, (k / 2) * 100)}%"></i><span class="mark"></span></div>
+    <span class="sub small">${fmtNum(game.totalSpawnRate)} zombies/s arriving · the squad can handle ${fmtMult(k)} of that</span>
+  </div>`;
+}
 function zombiesHtml() {
   const k = game.keepUp();
   const rates = game.lnDnaPerSec();
@@ -214,12 +223,8 @@ function zombiesHtml() {
     </div>`;
   }).join('');
   return `
-  <div class="card keep ${k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad'}">
-    <div class="keep-head"><b>${k >= 1.1 ? 'Your squad is keeping up' : k >= 0.9 ? 'Barely keeping up' : 'Zombies are piling up'}</b>
-      <span>${fmtNum(game.totalSpawnRate)} zombies arriving per second · the squad can handle ${fmtMult(k)} of that</span></div>
-    <div class="meter"><i style="width:${Math.min(100, (k / 2) * 100)}%"></i><span class="mark"></span></div>
-    <p class="sub">Each zombie type drops its own colour of DNA. Raise a type's <b>DNA Count</b> or <b>Spawn Rate</b> to earn more of that colour; it also makes those zombies tougher.</p>
-  </div>
+  ${keepCardHtml(k)}
+  <p class="sub">Each zombie type drops its own colour of DNA. Raise a type's <b>DNA Count</b> or <b>Spawn Rate</b> to earn more of that colour; it also makes those zombies tougher. Every button shows how your squad would cope.</p>
   <div class="grid2">${cards}</div>`;
 }
 

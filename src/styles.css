@@ -365,3 +365,11 @@ img.dim { opacity: .35; }
   .ucard .quick { min-width: 96px; }
   .ucard .quick .btn { font-size: 12px; padding: 0 6px; }
 }
+.keep.sticky { position: sticky; top: -16px; z-index: 5; background: var(--card); padding: 10px 14px; box-shadow: 0 6px 12px rgba(0,0,0,.45); }
+.keep-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.keep-row b { font-size: 16px; }
+.keep.ok .keep-row b, .keep.ok .keep-x { color: var(--good); }
+.keep.warn .keep-row b, .keep.warn .keep-x { color: var(--warn); }
+.keep.bad .keep-row b, .keep.bad .keep-x { color: var(--bad); }
+.keep-x { font: 400 16px var(--pixel); }
+.keep.sticky .meter { margin: 6px 0 4px; height: 12px; }
