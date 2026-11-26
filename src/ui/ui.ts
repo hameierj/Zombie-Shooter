@@ -83,7 +83,14 @@ function onClick(e: Event) {
   const cls = el.dataset.cls as ClassId, sid = el.dataset.strain as StrainId;
   const spent = M.STRAIN_IDS.reduce((x, c) => x + Math.exp(Math.min(700, game.dna(c))), 0);
   switch (a) {
-    case 'tab': tab = tab === arg ? null : (arg as Tab); if (tab === 'squad') { game.markSeen(); } render(); break;
+    case 'tab':
+      // from a sub-screen (a unit type's tree), the tab button goes back to that tab's overview;
+      // from the overview it collapses the menu to the map; from the map it opens the overview
+      if (tab === arg && arg === 'squad' && unitView) unitView = null;
+      else { tab = tab === arg ? null : (arg as Tab); unitView = null; }
+      if (tab === 'squad') game.markSeen();
+      render();
+      break;
     case 'close': tab = null; render(); break;
     case 'tier-up': game.raiseTier(sid); break;
     case 'tier-down': game.lowerTier(sid); break;
