@@ -246,15 +246,25 @@ export class Game {
     this.s.lastSeen = Date.now();
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.s)); } catch { /* storage blocked */ }
   }
+  /**
+   * Loads the save. Game updates must never lose progress: new fields are filled in from defaults, and if a save
+   * can't be read (or comes from a format this version doesn't understand) it is copied to a backup key before
+   * anything else is written, so it can always be recovered. A copy of the last good save is also kept each launch.
+   */
   load(): OfflineReport | null {
+    let raw: string | null = null;
     try {
-      const raw = localStorage.getItem(SAVE_KEY);
+      raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
       const data = JSON.parse(raw) as SaveData;
-      if (data.version !== 4) return null;
+      if (data.version !== 4) throw new Error(`save version ${data.version}`);
       this.s = { ...freshSave(), ...data };
+      try { localStorage.setItem(`${SAVE_KEY}-last-good`, raw); } catch { /* storage full */ }
       return this.simulateOffline((Date.now() - this.s.lastSeen) / 1000);
-    } catch { return null; }
+    } catch {
+      if (raw) try { localStorage.setItem(`${SAVE_KEY}-backup-${Date.now()}`, raw); } catch { /* storage full */ }
+      return null;
+    }
   }
   resumeAfter(seconds: number) { return this.simulateOffline(seconds); }
   hardReset() { this.s = freshSave(); this.save(); this.emit('reset'); this.emit('change'); }
