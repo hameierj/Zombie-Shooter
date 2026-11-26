@@ -19,13 +19,17 @@ export interface SaveData {
   alloc: string[];                   // allocated passive-tree nodes
   hordes: number;
   autoHordeOn: boolean;
+  /** Drops at or below this rarity are sold on pickup (never an upgrade, never a horde reward). null = off. */
+  autoSell: M.RarityId | null;
   nextUid: number;
   kills: number;
   newItems: number[];
   lastSeen: number;
 }
-export type Loot = { type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear };
-export interface OfflineReport { seconds: number; kills: number; /** ln of DNA gained per colour */ dna: Record<StrainId, number>; items: number; }
+/** A dropped item; `sold` is set when auto-sell turned it straight into DNA. */
+export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale };
+export interface Sale { colour: StrainId; ln: number }
+export interface OfflineReport { seconds: number; kills: number; sold: number; /** ln of DNA gained per colour */ dna: Record<StrainId, number>; items: number; }
 type Listener = (evt: string, data?: unknown) => void;
 
 const emptyDna = (): DnaMap => Object.fromEntries(M.STRAIN_IDS.map((s) => [s, null])) as unknown as DnaMap;
@@ -38,7 +42,7 @@ function freshSave(): SaveData {
   return {
     version: 6, dna: emptyDna(), strains: emptyStrains(), units,
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
-    alloc: [], hordes: 0, autoHordeOn: true, nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
+    alloc: [], hordes: 0, autoHordeOn: true, autoSell: null, nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
   };
 }
 
@@ -260,12 +264,51 @@ export class Game {
     }
   }
   isEquipped(uid: number) { return Object.values(this.s.units).some((u) => u.gun === uid || u.attach === uid || u.charm === uid); }
-  scrap(uid: number) {
-    if (this.isEquipped(uid)) return;
+  // ---------- selling ----------
+  private item(uid: number): Gun | Gear | undefined { return this.gun(uid) ?? this.gearItem(uid); }
+  /** What an item sells for: ~20 s of that colour's income, doubling per rarity step. Guns pay in their unit type's
+   * colour, charms in their zombie type's colour, attachments in whichever released colour you have least of. */
+  sellValue(uid: number): Sale | null {
+    const it = this.item(uid);
+    if (!it) return null;
+    const open = this.colours;
+    const has = (c: StrainId) => open.includes(c);
+    let colour: StrainId;
+    if ('cls' in it) colour = has(M.classById(it.cls).primary) ? M.classById(it.cls).primary : 'shambler';
+    else if (it.kind === 'charm' && it.bane && has(it.bane)) colour = it.bane;
+    else colour = [...open].sort((a, b) => this.dna(a) - this.dna(b))[0] ?? 'shambler';
+    const rate = this.lnDnaPerSec()[colour];
+    const idx = M.CONFIG.rarities.findIndex((r) => r.id === it.rarity);
+    return { colour, ln: (Number.isFinite(rate) ? rate : 0) + Math.log(20 * Math.pow(2, idx)) };
+  }
+  sell(uid: number, quiet = false): Sale | null {
+    if (this.isEquipped(uid)) return null;
+    const v = this.sellValue(uid);
+    if (!v) return null;
+    this.setDna(v.colour, M.logAdd(this.dna(v.colour), v.ln));
     this.s.guns = this.s.guns.filter((g) => g.uid !== uid);
     this.s.gear = this.s.gear.filter((g) => g.uid !== uid);
-    this.emit('change');
+    this.s.newItems = this.s.newItems.filter((x) => x !== uid);
+    if (!quiet) this.emit('change');
+    return v;
   }
+  /** Would this item make any unit type stronger than what it has now? Those are never auto-sold. */
+  isUpgrade(uid: number) {
+    const it = this.item(uid);
+    if (!it) return false;
+    if ('cls' in it) { const u = this.s.units[it.cls]; return u.count > 0 && M.lnGunPower(it) > M.lnGunPower(this.gun(u.gun)); }
+    return this.owned.some((u) => M.nlv(u, it.kind) && (this.gearItem(u[it.kind])?.value ?? -1) < it.value);
+  }
+  private matchesAutoSell(uid: number) {
+    const it = this.item(uid);
+    if (!it || !this.s.autoSell || this.isEquipped(uid) || this.isUpgrade(uid)) return false;
+    const idx = (r: M.RarityId) => M.CONFIG.rarities.findIndex((x) => x.id === r);
+    return idx(it.rarity) <= idx(this.s.autoSell);
+  }
+  setAutoSell(r: M.RarityId | null) { this.s.autoSell = r; this.emit('change'); }
+  /** Items in the stash that the current auto-sell rule would sell. */
+  autoSellMatches() { return [...this.s.guns, ...this.s.gear].map((x) => x.uid).filter((uid) => this.matchesAutoSell(uid)); }
+  sellMatching() { let n = 0; for (const uid of this.autoSellMatches()) if (this.sell(uid, true)) n++; this.emit('change'); return n; }
   markSeen() { if (this.s.newItems.length) { this.s.newItems = []; this.emit('change'); } }
   private randomOwnedClass(): ClassId { const o = this.owned; return (o[Math.floor(Math.random() * o.length)] ?? this.s.units.pistol).cls; }
   private trimStash() {
@@ -297,10 +340,13 @@ export class Game {
     return g;
   }
   /** A random drop: 60% a gun for one of your unit types, 40% an attachment or charm. */
-  private rollLoot(minRarity = 0, cls?: ClassId, ilvlBonus = 0): Loot {
-    if (!cls && Math.random() < 0.4) return { type: 'gear', gear: this.addGear(minRarity) };
-    return { type: 'gun', gun: this.addGun(cls ?? this.randomOwnedClass(), minRarity, ilvlBonus, true) };
+  private rollLoot(minRarity = 0, cls?: ClassId, ilvlBonus = 0, canAutoSell = true): Loot {
+    const loot: Loot = !cls && Math.random() < 0.4 ? { type: 'gear', gear: this.addGear(minRarity) } : { type: 'gun', gun: this.addGun(cls ?? this.randomOwnedClass(), minRarity, ilvlBonus, true) };
+    const uid = loot.type === 'gun' ? loot.gun.uid : loot.gear.uid;
+    if (canAutoSell && this.matchesAutoSell(uid)) { const v = this.sell(uid, true); if (v) { loot.sold = v; this.soldCount++; } }
+    return loot;
   }
+  private soldCount = 0;
 
   // ---------- the stream ----------
   /** A zombie was shredded: bank its DNA (silently) and maybe drop an item. */
@@ -334,7 +380,7 @@ export class Game {
     const h = M.hordeDef(k);
     this.s.hordes = k;
     // reward: a rare+ gun for the newly unlocked type, or an epic+ item for elite hordes
-    const loot = h.cls ? this.rollLoot(2, h.cls, 2) : this.rollLoot(3);
+    const loot = h.cls ? this.rollLoot(2, h.cls, 2, false) : this.rollLoot(3, undefined, 0, false);
     this.emit('horde-won', { k, loot });
     this.emit('change');
   }
@@ -363,7 +409,7 @@ export class Game {
     seconds = Math.min(seconds, OFFLINE_CAP_SEC);
     if (seconds < 60) return null;
     const before = Object.fromEntries(M.STRAIN_IDS.map((s) => [s, this.dna(s)])) as Record<StrainId, number>;
-    const kills0 = this.s.kills, items0 = this.s.guns.length + this.s.gear.length;
+    const kills0 = this.s.kills, items0 = this.s.guns.length + this.s.gear.length, sold0 = this.soldCount;
     const DT = 10;
     for (let t = 0; t < seconds; t += DT) {
       const rates = this.lnDnaPerSec();
@@ -378,7 +424,7 @@ export class Game {
     }
     this.emit('change');
     const dna = Object.fromEntries(M.STRAIN_IDS.map((s) => [s, M.logSub(this.dna(s), before[s])])) as Record<StrainId, number>;
-    return { seconds, kills: this.s.kills - kills0, dna, items: Math.max(0, this.s.guns.length + this.s.gear.length - items0) };
+    return { seconds, kills: this.s.kills - kills0, dna, items: Math.max(0, this.s.guns.length + this.s.gear.length - items0), sold: this.soldCount - sold0 };
   }
 
   // ---------- persistence ----------

@@ -350,3 +350,9 @@ img.dim { opacity: .35; }
 #combo.pop b { animation: combo-pop .25s; }
 @keyframes combo-pop { 50% { transform: scale(1.25); } }
 #app.menu-open ~ #combo, .menu-open #combo { display: none; }
+.autosell .as-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 8px; }
+.autosell .as-head b { font: 400 14px var(--pixel); }
+.seg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.seg button { min-height: 40px; padding: 0 4px; border-radius: 6px; border: 2px solid var(--line); background: #10120f; color: var(--rar, var(--text)); font: 600 12px system-ui, sans-serif; cursor: pointer; }
+.seg button.on { border-color: var(--rar, var(--accent)); background: color-mix(in srgb, var(--rar, var(--accent)) 22%, #10120f); color: var(--text); }
+@media (max-width: 420px) { .seg button { font-size: 11px; padding: 0 2px; } }

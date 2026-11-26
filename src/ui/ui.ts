@@ -99,7 +99,9 @@ function onClick(e: Event) {
     case 'pick': openPicker(cls, arg as 'gun' | 'attach' | 'charm'); break;
     case 'equip-gun': closeModal(); game.equipGun(cls, Number(arg)); break;
     case 'equip-gear': closeModal(); game.equipGear(cls, el.dataset.slot as 'attach' | 'charm', arg === 'none' ? null : Number(arg)); break;
-    case 'scrap': closeModal(); game.scrap(Number(arg)); break;
+    case 'sell': closeModal(); { const v = game.sell(Number(arg)); if (v) toast(`<b>Sold</b><span>+${fmtLn(v.ln)} ${M.strainById(v.colour).dna} DNA</span>`, M.strainById(v.colour).color); } break;
+    case 'autosell': game.setAutoSell(arg === 'off' ? null : (arg as M.RarityId)); break;
+    case 'sell-matching': { const n = game.sellMatching(); if (n) toast(`<b>Sold ${n} item${n > 1 ? 's' : ''}</b><span>DNA added</span>`, '#6fdc7a'); } break;
     case 'node': if (!view.dragged) { selectedNode = arg; render(); } break;
     case 'allocate': game.allocate(arg); break;
     case 'zoom': view.s = Math.max(0.35, Math.min(2.5, view.s * (arg === 'in' ? 1.25 : 0.8))); applyView(); break;
@@ -121,6 +123,7 @@ function onClick(e: Event) {
   const paid = after < spent;
   if (['tier-up', 'tier-down'].includes(a)) sfx.tierUp();
   else if (a === 'allocate') { if (paid) sfx.allocate(); }
+  else if (a === 'sell' || a === 'sell-matching') sfx.buy();
   else if (['buy-node', 'hire', 'spawn', 'release'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
   else if (a.startsWith('equip')) sfx.equip();
   else if (a !== 'horde') sfx.click();
@@ -236,8 +239,18 @@ function squadHtml() {
   return `<p class="sub">Tap a unit type to open its own upgrade tree, gear and ability. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
   <div class="grid2">${cards}</div>
   <h3>Items <small>${items.length}/60 · guns, attachments and charms (rare drops and horde rewards)</small></h3>
+  ${autoSellHtml()}
   <div class="tiles">${items.map((it) => `<button class="tile" style="--rar:${RARITY_COLOR[it.rarity]}" data-action="item" data-arg="${it.uid}">
     <img class="px" src="${it.icon}" alt=""><span class="ilvl">${it.label}</span>${game.isEquipped(it.uid) ? '<span class="tag">IN USE</span>' : s.newItems.includes(it.uid) ? '<span class="tag new">NEW</span>' : ''}</button>`).join('')}</div>`;
+}
+
+function autoSellHtml() {
+  const cur = game.s.autoSell;
+  const opts: [string, string][] = [['off', 'Off'], ['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare'], ['epic', 'Epic']];
+  const n = cur ? game.autoSellMatches().length : 0;
+  return `<div class="card autosell"><div class="as-head"><b>Auto-sell drops</b><span class="sub small">${cur ? `Selling ${cur} and lower drops` : 'Sells drops of the chosen rarity and lower for DNA'}. Upgrades and horde rewards are always kept.</span></div>
+    <div class="seg">${opts.map(([id, label]) => `<button class="${(cur ?? 'off') === id ? 'on' : ''}" style="${id === 'off' ? '' : `--rar:${RARITY_COLOR[id as M.RarityId]}`}" data-action="autosell" data-arg="${id}">${label}</button>`).join('')}</div>
+    ${n ? `<button class="btn wide sm" data-action="sell-matching">Sell ${n} matching item${n > 1 ? 's' : ''} in the stash now</button>` : ''}</div>`;
 }
 
 // ---------- a unit type's own screen ----------
@@ -337,6 +350,11 @@ function openPicker(cls: ClassId, kind: 'gun' | 'attach' | 'charm') {
       <button class="btn sm" data-action="equip-gear" data-cls="${cls}" data-slot="${kind}" data-arg="${g.uid}" ${g.uid === cur ? 'disabled' : ''}>${g.uid === cur ? 'Equipped' : 'Equip'}</button></div>`; }).join('') || '<p class="sub">None yet. Attachments and charms are rare drops.</p>'}</div>
     <div class="row">${cur != null ? `<button class="btn ghost" data-action="equip-gear" data-cls="${cls}" data-slot="${kind}" data-arg="none">Remove</button>` : ''}<button class="btn ghost" data-action="modal-close">Close</button></div>`);
 }
+function sellBtn(uid: number) {
+  const v = game.sellValue(uid);
+  if (!v || game.isEquipped(uid)) return '<button class="btn ghost" disabled>In use</button>';
+  return `<button class="btn ghost" data-action="sell" data-arg="${uid}">Sell · ${cost(v.colour, v.ln)}</button>`;
+}
 function openItem(uid: number) {
   const g = game.gun(uid), gear = game.gearItem(uid);
   if (g) {
@@ -344,7 +362,7 @@ function openItem(uid: number) {
     const r = cur && !issued ? Math.exp(M.lnGunPower(g) - M.lnGunPower(cur)) : 1;
     openModal(`<div class="item-head"><img class="px big" src="${gunIcon(g.cls)}" alt=""><div><h3 style="color:${RARITY_COLOR[g.rarity]}">${gunName(g)}</h3><p class="sub">Tier ${fmtInt(g.ilvl)} · for ${c.plural}</p></div></div>
       <div class="give">${u.count ? `<button class="btn" data-action="equip-gun" data-cls="${g.cls}" data-arg="${uid}" ${issued ? 'disabled' : ''}>${issued ? `Issued to your ${c.plural}` : `Issue to all ${c.plural} (${r >= 1 ? '+' : ''}${Math.round((r - 1) * 100)}% damage)`}</button>` : `<p class="sub">Hire a ${c.name} to use this gun.</p>`}</div>
-      <div class="row"><button class="btn ghost" data-action="scrap" data-arg="${uid}" ${issued ? 'disabled' : ''}>Scrap</button><button class="btn ghost" data-action="modal-close">Close</button></div>`);
+      <div class="row">${sellBtn(uid)}<button class="btn ghost" data-action="modal-close">Close</button></div>`);
     return;
   }
   if (!gear) return;
@@ -352,7 +370,7 @@ function openItem(uid: number) {
   const users = game.owned.filter((u) => M.nlv(u, slot));
   openModal(`<div class="item-head"><img class="px big" src="${gear.kind === 'attach' ? modIcon(gear.stat) : charmIcon(gear.bane)}" alt=""><div><h3 style="color:${RARITY_COLOR[gear.rarity]}">${gearName(gear)}</h3><p class="sub">${gearDesc(gear)} · fits any unit type with ${slot === 'attach' ? 'an attachment' : 'a charm'} slot</p></div></div>
     <div class="give">${users.map((u) => `<button class="btn ${u[slot] === uid ? 'ghost' : ''}" data-action="equip-gear" data-cls="${u.cls}" data-slot="${slot}" data-arg="${uid}" ${u[slot] === uid ? 'disabled' : ''}>${u[slot] === uid ? `On ${M.classById(u.cls).plural}` : `Give to ${M.classById(u.cls).plural}`}</button>`).join('') || `<p class="sub">Unlock ${slot === 'attach' ? 'an Attachment' : 'a Charm'} Slot in a unit type's tree first.</p>`}</div>
-    <div class="row"><button class="btn ghost" data-action="scrap" data-arg="${uid}" ${game.isEquipped(uid) ? 'disabled' : ''}>Scrap</button><button class="btn ghost" data-action="modal-close">Close</button></div>`);
+    <div class="row">${sellBtn(uid)}<button class="btn ghost" data-action="modal-close">Close</button></div>`);
 }
 
 // ---------- Tree tab (POE-style web with pan / pinch zoom) ----------
@@ -495,7 +513,8 @@ export function showOfflineReport(r: OfflineReport) {
   openModal(`<h3>While you were away</h3><p class="sub">${h ? `${h}h ` : ''}${m}m of shredding</p>
     <div class="offline">
       <div><span>Zombies</span><b>${fmtInt(r.kills)}</b></div>
-      <div><span>Items found</span><b>${r.items}</b></div>
+      <div><span>Items kept</span><b>${r.items}</b></div>
+      ${r.sold ? `<div><span>Items auto-sold</span><b>${r.sold}</b></div>` : ''}
       ${dna}
     </div>
     <button class="btn wide" data-action="modal-close">Collect</button>`);
@@ -512,6 +531,7 @@ function toast(html: string, color: string, icon?: string) {
   setTimeout(() => el.remove(), 3700);
 }
 function toastLoot(l: Loot, title: string) {
+  if (l.sold) { toast(`<b>Auto-sold ${esc(l.type === 'gun' ? gunName(l.gun) : gearName(l.gear))}</b><span>+${fmtLn(l.sold.ln)} ${M.strainById(l.sold.colour).dna} DNA</span>`, M.strainById(l.sold.colour).color); return; }
   if (l.type === 'gun') toast(`<b>${title} ${esc(gunName(l.gun))}</b><span>Tier ${fmtInt(l.gun.ilvl)} · for ${M.classById(l.gun.cls).plural}</span>`, RARITY_COLOR[l.gun.rarity], crateIcon(l.gun.rarity));
   else toast(`<b>${title} ${esc(gearName(l.gear))}</b><span>${esc(gearDesc(l.gear))}</span>`, RARITY_COLOR[l.gear.rarity], crateIcon(l.gear.rarity));
 }

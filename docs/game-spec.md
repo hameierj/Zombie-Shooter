@@ -51,6 +51,9 @@ slowly. You never lose.
 - **Abilities evolve** through three stages (Ability I, II, III nodes).
 - **Equipment:** one gun slot (shared by the whole group), plus an **attachment** slot (a stat boost: damage, speed,
   crit, crit damage or range) and a **charm** slot (bonus damage against one zombie type) once unlocked in the tree.
+- **Selling:** any unused item sells for DNA (about 20 s of that colour's income, doubling per rarity step; guns pay
+  in their unit type's colour, charms in their zombie type's colour). **Auto-sell** (Squad tab) sells new drops of a
+  chosen rarity and lower the moment they drop; items that would be an upgrade and horde rewards are always kept.
 - **Drops are rare** and scale gently with total spawn rate; each arrives as a crate in its rarity colour. Every horde
   win guarantees a rare-or-better item (the new unit type's gun for hordes 1–6).
 
