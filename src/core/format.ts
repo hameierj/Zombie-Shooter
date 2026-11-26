@@ -1,12 +1,12 @@
-import type { Gun, RarityId } from './model.ts';
-import { classById } from './model.ts';
+import type { Gear, Gun, RarityId } from './model.ts';
+import { classById, strainById } from './model.ts';
 
 const SUFFIXES = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
 
 /** Format a number stored as a natural log. Short suffixes up to 10^36, then scientific. */
 export function fmtLn(ln: number): string {
   if (ln === -Infinity || Number.isNaN(ln)) return '0';
-  const log10 = ln / Math.LN10;
+  const log10 = ln / Math.LN10 + 1e-9;
   if (log10 < 3) {
     const v = Math.exp(ln);
     return v < 10 ? v.toFixed(v < 1 ? 2 : 1).replace(/\.0$/, '') : Math.floor(v + 1e-6).toString();
@@ -29,3 +29,12 @@ export const RARITY_COLOR: Record<RarityId, string> = {
 };
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 export const gunName = (g: Gun) => `${cap(g.rarity)} ${classById(g.cls).gun}`;
+
+const ATTACH_NAME = { dmg: 'Hollow Points', spd: 'Drum Magazine', crit: 'Laser Sight', range: 'Long Scope' } as const;
+export const gearName = (g: Gear) =>
+  g.kind === 'attach' ? `${cap(g.rarity)} ${ATTACH_NAME[g.stat]}` : `${cap(g.rarity)} ${g.bane ? `${strainById(g.bane).name} Bane` : 'Lucky Charm'}`;
+export function gearDesc(g: Gear): string {
+  const pct = (v: number) => `+${Math.round(v * 100)}%`;
+  if (g.kind === 'attach') return `${pct(g.value)} ${g.stat === 'dmg' ? 'damage' : g.stat === 'spd' ? 'attack speed' : g.stat === 'crit' ? 'crit chance' : 'range'}`;
+  return g.bane ? `${pct(g.value)} damage vs ${strainById(g.bane).plural}` : `${pct(g.value)} damage vs everything`;
+}

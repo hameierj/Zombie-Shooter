@@ -514,8 +514,7 @@ const drawTuft = () => drawSimple(6, 5, (c) => { for (const x of [1, 2, 3, 4]) R
 
 // ---------- texture registry ----------
 export const STRAIN_DNA_COLOR: Record<string, string> = {
-  shambler: '#7ddc5a', dna: '#7ddc5a',
-  brute: '#ff5a5a', runner: '#ffd23f', spitter: '#7ddc5a', burnt: '#ff9a3c', bloater: '#b77bff',
+  shambler: '#7ddc5a', runner: '#ffd23f', brute: '#ff5a5a', spitter: '#4ad6c8', bloater: '#b77bff', burnt: '#ff9a3c', dna: '#7ddc5a',
 };
 export const ZOMBIE_FRAMES = 4;
 const STRAINS: StrainId[] = ['shambler', 'runner', 'brute', 'spitter', 'bloater', 'burnt'];
@@ -552,7 +551,7 @@ export function buildArt(): ArtSet {
   canvases['shred-cap'] = drawHazard(22, 6);
   for (const s of [...STRAINS, 'generic'] as const) canvases[`charm-${s}`] = drawCharm(s === 'generic' ? '#e8e8e8' : STRAIN_DNA_COLOR[s]);
   for (const [r, col] of Object.entries(RARITY_TRIM)) canvases[`crate-${r}`] = drawCrate(col);
-  for (const [stat, col] of [['dmg', '#ff5a5a'], ['spd', '#ffd23f'], ['crit', '#7ddc5a']] as const) canvases[`mod-${stat}`] = drawMod(col);
+  for (const [stat, col] of [['dmg', '#ff5a5a'], ['spd', '#ffd23f'], ['crit', '#7ddc5a'], ['range', '#7fe8ff']] as const) canvases[`mod-${stat}`] = drawMod(col);
   for (const [k, fn] of Object.entries(ICONS)) canvases[`icon-${k}`] = fn();
   canvases['pix'] = drawSimple(1, 1, (c) => P(c, 0, 0, '#ffffff'));
   canvases['bullet'] = drawSimple(5, 1, (c) => { R(c, 0, 0, 3, 1, '#ffe9a0'); R(c, 3, 0, 2, 1, '#ffffff'); });

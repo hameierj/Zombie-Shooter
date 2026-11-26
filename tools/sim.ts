@@ -1,97 +1,106 @@
-// Plays the v4 model with bot players: endless stream economy, rare gun drops, training, hiring, passive tree,
-// optional hordes. Prints pace and where power comes from. Run: npm run sim -- [hours] [seed]
+// Plays the v0.8 model with bot players: five DNA colours, per-zombie-type dials, unit trees, gear, the passive tree
+// and optional hordes. Run: npm run sim -- [hours] [seed]   (CHECKS=0.5,1,2 to choose the report times)
 import * as M from '../src/core/model.ts';
 import { TREE, treeFx, REGIONS } from '../src/core/tree.ts';
 
 const C = M.CONFIG;
-const HOURS = Number(process.argv[2] ?? 50);
+const HOURS = Number(process.argv[2] ?? 30);
 const SEED = Number(process.argv[3] ?? 1);
-const CHECKS = (process.env.CHECKS ?? "0.1667,0.5,1,2,5,10,25,50,100").split(",").map(Number).filter((h) => h <= HOURS);
+const CHECKS = (process.env.CHECKS ?? '0.1667,0.5,1,2,5,10,20,30').split(',').map(Number).filter((h) => h <= HOURS);
 const DT = 2;
 
 function mulberry32(a) {
   return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-
 export const PROFILES = {
-  active: { hordes: true, tree: true, label: 'Active: does hordes, buys passives' },
-  noHordes: { hordes: false, tree: true, label: 'Never fights hordes (pistols only, Basic Training only)' },
+  active: { hordes: true, tree: true, label: 'Active: hordes, passives, unit trees, gear' },
+  noHordes: { hordes: false, tree: true, label: 'Never fights hordes' },
   noTree: { hordes: true, tree: false, label: 'Never buys passives' },
 };
 
 export function simulate(profile, hours = HOURS, seed = SEED) {
   const rng = mulberry32(seed);
-  const s = {
-    t: 0, dna: -Infinity, tier: 1, spawn: 0, hordes: 0, nextUid: 2,
-    units: Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: c.id === 'pistol' ? 1 : 0, level: 0, gun: c.id === 'pistol' ? 1 : null }])),
-    guns: [{ uid: 1, cls: 'pistol', rarity: 'common', ilvl: 1 }],
-    alloc: [], drops: 0,
-  };
+  const strains = Object.fromEntries(M.STRAIN_IDS.map((s) => [s, { unlocked: s === 'shambler', tier: 1, maxTier: 1, spawn: 0 }]));
+  const units = Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: c.id === 'pistol' ? 1 : 0, nodes: {}, gun: c.id === 'pistol' ? 1 : null, attach: null, charm: null }]));
+  const s = { t: 0, dna: Object.fromEntries(M.STRAIN_IDS.map((x) => [x, -Infinity])), hordes: 0, nextUid: 2, guns: [{ uid: 1, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [], alloc: [], drops: 0 };
   const fx = () => treeFx(s.alloc);
-  const owned = () => Object.values(s.units).filter((u) => u.count > 0);
-  const squad = () => owned().map((u) => ({ r: u, gun: s.guns.find((g) => g.uid === u.gun), count: u.count }));
+  const owned = () => Object.values(units).filter((u) => u.count > 0);
+  const squad = () => owned().map((u) => ({ u, gun: s.guns.find((g) => g.uid === u.gun), attach: s.gear.find((g) => g.uid === u.attach), charm: s.gear.find((g) => g.uid === u.charm) }));
+  const keep = (st = strains) => M.keepUp(squad(), fx(), st);
   const unlocked = (c) => M.classById(c).horde <= Math.min(s.hordes, 7);
-  const cap = (tier = s.tier, spawn = s.spawn) => M.killCapacity(squad(), fx(), tier, spawn);
-  const pay = (ln) => { if (s.dna + 1e-9 < ln) return false; s.dna = M.logSub(s.dna, ln); return true; };
+  const pay = (col, ln) => { if (s.dna[col] + 1e-9 < ln) return false; s.dna[col] = M.logSub(s.dna[col], ln); return true; };
+  const best = () => M.bestTier(strains);
   function equip() {
-    for (const u of Object.values(s.units)) {
-      const best = s.guns.filter((g) => g.cls === u.cls).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a))[0];
-      u.gun = best?.uid ?? null;
+    for (const u of Object.values(units)) {
+      const g = s.guns.filter((x) => x.cls === u.cls).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a))[0];
+      if (g) u.gun = g.uid;
     }
+    const byPow = owned().sort((a, b) => M.classById(b.cls).dps - M.classById(a.cls).dps);
+    const atts = s.gear.filter((g) => g.kind === 'attach' && g.stat === 'dmg').sort((a, b) => b.value - a.value);
+    const chs = s.gear.filter((g) => g.kind === 'charm' && g.bane === null).sort((a, b) => b.value - a.value);
+    for (const u of byPow) { u.attach = M.nlv(u, 'attach') ? atts.shift()?.uid ?? null : null; u.charm = M.nlv(u, 'charm') ? chs.shift()?.uid ?? null : null; }
   }
-  function giveGun(cls, minRarity = 0, ilvlBonus = 0) {
-    s.guns.push({ uid: s.nextUid++, cls, rarity: M.rollRarity(rng, minRarity), ilvl: s.tier + ilvlBonus + (rng() < 0.15 ? 1 + Math.floor(rng() * 3) : 0) });
+  function drop(minR = 0, cls = null, bonus = 0) {
+    s.drops++;
+    if (!cls && rng() < 0.4) { s.gear.push(M.rollGear(rng, s.nextUid++, minR)); equip(); return; }
+    const os = owned();
+    const c = cls ?? os[Math.floor(rng() * os.length)].cls;
+    s.guns.push({ uid: s.nextUid++, cls: c, rarity: M.rollRarity(rng, minR), ilvl: best() + bonus + (rng() < 0.15 ? 1 + Math.floor(rng() * 3) : 0) });
     equip();
   }
-  function frontierNodes() {
-    return TREE.filter((n) => n.id !== 'start' && !s.alloc.includes(n.id) && REGIONS[n.region].horde <= s.hordes
-      && n.links.some((l) => l === 'start' || s.alloc.includes(l)));
-  }
   function shop() {
-    for (let guard = 0; guard < 300; guard++) {
+    for (let guard = 0; guard < 400; guard++) {
       const f = fx();
       const opts = [];
-      if (cap(s.tier + 1) >= M.spawnRate(s.spawn) * 1.15) opts.push({ ln: M.lnTierCost(s.tier), go: () => { s.tier++; } });
-      if (s.spawn < C.spawnMax && cap(s.tier, s.spawn + 1) >= M.spawnRate(s.spawn + 1) * 1.15) opts.push({ ln: M.lnSpawnCost(s.spawn), go: () => { s.spawn++; } });
-      for (const u of owned()) opts.push({ ln: M.lnTrainCost(u.cls, u.level, f), go: () => { u.level++; } });
-      for (const u of Object.values(s.units)) {
-        if (!unlocked(u.cls) || u.count >= M.unitCap(s.tier)) continue;
-        opts.push({ ln: M.lnHireCost(u.cls, u.count, f), go: () => { if (!u.count) giveGun(u.cls); u.count++; } });
+      for (const x of M.STRAINS) {
+        const st = strains[x.id];
+        if (!st.unlocked) { if (x.unlock) opts.push({ col: x.unlock.from, ln: Math.log(x.unlock.cost), go: () => { st.unlocked = true; } }); continue; }
+        const up = { ...strains, [x.id]: { ...st, tier: st.tier + 1 } };
+        if (keep(up) >= 1.15) opts.push({ col: x.id, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); } });
+        const sp = { ...strains, [x.id]: { ...st, spawn: st.spawn + 1 } };
+        if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ col: x.id, ln: M.lnSpawnCost(x.id, st.spawn), go: () => { st.spawn++; } });
+      }
+      for (const u of Object.values(units)) {
+        const c = M.classById(u.cls);
+        if (unlocked(u.cls) && u.count < M.unitCap(best())) opts.push({ col: c.primary, ln: M.lnHireCost(u.cls, u.count, f), go: () => { if (!u.count && !u.gun) drop(0, u.cls); u.count++; } });
+        if (!u.count) continue;
+        for (const n of M.UNIT_NODES) {
+          const lv = M.nlv(u, n.id);
+          if (M.unitNodeMaxed(n, lv) || (n.requires && !M.nlv(u, n.requires))) continue;
+          opts.push({ col: M.nodeColour(u.cls, n), ln: M.lnUnitNodeCost(u.cls, n, lv, f), go: () => { u.nodes[n.id] = lv + 1; equip(); } });
+        }
       }
       if (profile.tree) {
-        const fr = frontierNodes();
-        if (fr.length) { const pick = fr.find((n) => n.size !== 'small') ?? fr[0]; opts.push({ ln: M.lnTreeCost(s.alloc.length), go: () => { s.alloc.push(pick.id); } }); }
+        const fr = TREE.filter((n) => n.id !== 'start' && !s.alloc.includes(n.id) && REGIONS[n.region].horde <= s.hordes && n.links.some((l) => l === 'start' || s.alloc.includes(l)));
+        for (const n of fr.slice(0, 3)) opts.push({ col: REGIONS[n.region].dna, ln: M.lnTreeCost(s.alloc.length), go: () => { s.alloc.push(n.id); } });
       }
-      opts.sort((a, b) => a.ln - b.ln);
-      const o = opts[0];
-      if (!o || !pay(o.ln)) return;
-      o.go();
+      let bought = false;
+      // cheapest option per colour
+      for (const col of M.STRAIN_IDS) {
+        const o = opts.filter((x) => x.col === col).sort((a, b) => a.ln - b.ln)[0];
+        if (o && pay(col, o.ln)) { o.go(); bought = true; }
+      }
+      if (!bought) return;
     }
   }
   const out = [];
   let ci = 0;
   while (s.t < hours * 3600) {
     if (ci < CHECKS.length && s.t >= CHECKS[ci] * 3600) {
-      const us = owned();
-      const gs = us.map((u) => s.guns.find((g) => g.uid === u.gun)).filter(Boolean);
-      const avgGunTier = gs.reduce((a, x) => a + x.ilvl, 0) / Math.max(1, gs.length);
-      const avgTrain = us.reduce((a, u) => a + u.level, 0) / us.length;
-      const lnTrain = avgTrain * Math.log(C.trainMult), lnGun = (avgGunTier - 1) * C.ITEM_SHARE * M.lnR;
-      out.push({ h: CHECKS[ci], tier: s.tier, spawn: s.spawn, hordes: s.hordes, squad: us.map((u) => `${u.cls[0]}${u.count}`).join(' '), nodes: s.alloc.length,
-        drops: s.drops, gunGap: s.tier - avgGunTier, train: Math.round(avgTrain), shareTrain: lnTrain / (lnTrain + lnGun || 1), keep: cap() / M.spawnRate(s.spawn) });
+      out.push({ h: CHECKS[ci], tiers: M.STRAIN_IDS.map((x) => strains[x].unlocked ? strains[x].tier : '-').join('/'), hordes: s.hordes, nodes: s.alloc.length, drops: s.drops,
+        squad: owned().map((u) => `${u.cls[0]}${u.count}:${M.nlv(u, 'dmg')}${M.abilityStage(u) ? '*' + M.abilityStage(u) : ''}`).join(' '), keep: keep() });
       ci++;
     }
-    const rate = Math.min(M.spawnRate(s.spawn), cap());
-    const kills = rate * DT;
-    const mix = M.mixAt(s.tier);
-    const lnDna = M.logSumExp(mix.map((m) => M.lnDnaPerKill(s.tier, m.id, fx()))) - Math.log(mix.length);
-    s.dna = M.logAdd(s.dna, lnDna + Math.log(kills));
-    if (rng() < kills * C.dropChance * (1 + fx().drop)) { s.drops++; const us = owned(); giveGun(us[Math.floor(rng() * us.length)].cls); }
-    if (profile.hordes && M.hordeOdds(squad(), fx(), s.hordes + 1) >= 1.1) {
-      s.hordes++;
-      s.t += 60;
+    const sq = squad(), f = fx();
+    const k = Math.min(1, M.keepUp(sq, f, strains));
+    const rate = M.lnDnaPerSec(sq, f, strains);
+    let kills = 0;
+    for (const x of M.STRAIN_IDS) if (strains[x].unlocked) { s.dna[x] = M.logAdd(s.dna[x], rate[x] + Math.log(DT)); kills += M.spawnRate(x, strains[x].spawn) * k * DT; }
+    if (rng() < kills * M.dropChance(strains, f)) drop();
+    if (profile.hordes && M.hordeOdds(sq, f, s.hordes + 1) >= 1.1) {
+      s.hordes++; s.t += 60;
       const h = M.hordeDef(s.hordes);
-      giveGun(h.cls ?? owned()[0].cls, h.elite ? 3 : 2, 2);
+      if (h.cls) drop(2, h.cls, 2); else drop(3);
     }
     shop();
     s.t += DT;
@@ -102,9 +111,6 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   for (const p of Object.values(PROFILES)) {
     console.log(`\n=== ${p.label} ===`);
-    console.log('  hours | tier | spawn | hordes | passives | drops | gun gap | train lv | train share | keep-up | squad');
-    for (const r of simulate(p)) {
-      console.log(`${r.h.toFixed(2).padStart(7)} | ${String(r.tier).padStart(4)} | ${String(r.spawn).padStart(5)} | ${String(r.hordes).padStart(6)} | ${String(r.nodes).padStart(8)} | ${String(r.drops).padStart(5)} | ${r.gunGap.toFixed(1).padStart(7)} | ${String(r.train).padStart(8)} | ${(r.shareTrain * 100).toFixed(0).padStart(10)}% | ${r.keep.toFixed(2).padStart(7)} | ${r.squad}`);
-    }
+    for (const r of simulate(p)) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(22)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);
   }
 }

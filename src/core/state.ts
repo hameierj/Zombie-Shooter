@@ -1,64 +1,92 @@
 // Game state and every action that changes it. The Phaser scene and the DOM UI both talk to the single
 // `game` instance exported here; it never touches rendering.
 import * as M from './model.ts';
-import type { ClassId, Gun, Recruit, StrainId, Unit } from './model.ts';
+import type { Attachment, Charm, ClassId, DnaMap, Gear, Gun, Recruit, StrainId, Strains, Unit, UnitNodeId, UnitV5 } from './model.ts';
 import { REGIONS, TREE, treeFx, treeNode, type Fx } from './tree.ts';
 
 const C = M.CONFIG;
-const SAVE_KEY = 'zombie-idle-save-v4';   // same key as before so existing saves are found and upgraded
-const STASH_CAP = 40;
+const SAVE_KEY = 'zombie-idle-save-v4';   // unchanged so existing saves are always found and upgraded
+const STASH_CAP = 60;
 const OFFLINE_CAP_SEC = 12 * 3600;
 
 export interface SaveData {
-  version: 5;
-  dna: number | null;      // ln amount; null = 0
-  tier: number;            // active DNA Count tier (can be dialled down)
-  maxTier: number;         // highest tier bought
-  spawnLv: number;
-  units: Record<ClassId, Unit>;  // one entry per unit type: count, shared training level, issued gun
+  version: 6;
+  dna: DnaMap;                       // ln amount of each DNA colour
+  strains: Strains;                  // per zombie type: released?, DNA Count tier, Spawn Rate level
+  units: Record<ClassId, Unit>;      // per unit type: count, upgrade tree, issued gun, attachment, charm
   guns: Gun[];
-  alloc: string[];         // allocated passive-tree nodes
-  hordes: number;          // hordes beaten
+  gear: Gear[];                      // attachments and charms
+  alloc: string[];                   // allocated passive-tree nodes
+  hordes: number;
   autoHordeOn: boolean;
   nextUid: number;
   kills: number;
-  newGuns: number[];
+  newItems: number[];
   lastSeen: number;
 }
-/** The previous save format (individual recruits), only used to upgrade old saves. */
-interface SaveV4 extends Omit<SaveData, 'version' | 'units'> { version: 4; recruits: Recruit[] }
-export interface OfflineReport { seconds: number; kills: number; lnDna: number; guns: Gun[]; tiers: number }
+export type Loot = { type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear };
+export interface OfflineReport { seconds: number; kills: number; /** ln of DNA gained per colour */ dna: Record<StrainId, number>; items: number; }
 type Listener = (evt: string, data?: unknown) => void;
 
-const emptyUnits = () => Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: 0, level: 0, gun: null }])) as unknown as Record<ClassId, Unit>;
+const emptyDna = (): DnaMap => Object.fromEntries(M.STRAIN_IDS.map((s) => [s, null])) as unknown as DnaMap;
+const emptyStrains = (): Strains => Object.fromEntries(M.STRAIN_IDS.map((s) => [s, { unlocked: s === 'shambler', tier: 1, maxTier: 1, spawn: 0 }])) as unknown as Strains;
+const emptyUnits = (): Record<ClassId, Unit> =>
+  Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: 0, nodes: {}, gun: null, attach: null, charm: null }])) as unknown as Record<ClassId, Unit>;
 function freshSave(): SaveData {
   const units = emptyUnits();
-  units.pistol = { cls: 'pistol', count: 1, level: 0, gun: 2 };
+  units.pistol = { cls: 'pistol', count: 1, nodes: {}, gun: 2, attach: null, charm: null };
   return {
-    version: 5, dna: null, tier: 1, maxTier: 1, spawnLv: 0, units,
-    guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }],
-    alloc: [], hordes: 0, autoHordeOn: true, nextUid: 3, kills: 0, newGuns: [], lastSeen: Date.now(),
+    version: 6, dna: emptyDna(), strains: emptyStrains(), units,
+    guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
+    alloc: [], hordes: 0, autoHordeOn: true, nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
   };
 }
-/** Upgrade any supported save to the current format without losing progress. */
-function migrate(data: SaveData | SaveV4): SaveData {
-  if (data.version === 4) {
-    // individual recruits → unit types: keep how many of each type, their best training level and best gun
-    const units = emptyUnits();
-    for (const r of data.recruits) {
-      const u = units[r.cls];
-      u.count = Math.min(C.maxPerType, u.count + 1);
-      u.level = Math.max(u.level, r.level);
-      const g = data.guns.find((x) => x.uid === r.gun), cur = data.guns.find((x) => x.uid === u.gun);
-      if (g && (!cur || M.lnGunPower(g) > M.lnGunPower(cur))) u.gun = g.uid;
-    }
-    const { recruits: _drop, ...rest } = data;
-    void _drop;
-    return { ...freshSave(), ...rest, version: 5, units };
+
+// ---------- save upgrades (never lose progress) ----------
+interface SaveV4 { version: 4; dna: number | null; tier: number; maxTier: number; spawnLv: number; recruits: Recruit[]; guns: Gun[]; alloc: string[]; hordes: number; autoHordeOn?: boolean; nextUid: number; kills: number; lastSeen: number }
+interface SaveV5 extends Omit<SaveV4, 'version' | 'recruits'> { version: 5; units: Record<ClassId, UnitV5> }
+function v4to5(d: SaveV4): SaveV5 {
+  const units = Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: 0, level: 0, gun: null }])) as unknown as Record<ClassId, UnitV5>;
+  for (const r of d.recruits) {
+    const u = units[r.cls];
+    u.count = Math.min(C.maxPerType, u.count + 1);
+    u.level = Math.max(u.level, r.level);
+    const g = d.guns.find((x) => x.uid === r.gun), cur = d.guns.find((x) => x.uid === u.gun);
+    if (g && (!cur || M.lnGunPower(g) > M.lnGunPower(cur))) u.gun = g.uid;
   }
-  if (data.version !== 5) throw new Error(`save version ${(data as { version: unknown }).version}`);
+  const { recruits: _r, ...rest } = d;
+  void _r;
+  return { ...rest, version: 5, units };
+}
+function v5to6(d: SaveV5): SaveData {
   const f = freshSave();
-  return { ...f, ...data, units: { ...emptyUnits(), ...data.units } };
+  // one DNA → Green (Shambler) DNA; the single tier/spawn → Shamblers; types that were already in the stream
+  // at the old tier are released at that tier
+  const strains = emptyStrains();
+  for (const def of M.STRAINS) {
+    if (def.fromTier <= d.maxTier) strains[def.id] = { unlocked: true, tier: def.id === 'shambler' ? Math.min(d.tier, d.maxTier) : 1, maxTier: d.maxTier, spawn: def.id === 'shambler' ? d.spawnLv : 0 };
+  }
+  const units = emptyUnits();
+  for (const c of M.CLASSES) {
+    const old = d.units[c.id];
+    if (old) units[c.id] = { cls: c.id, count: old.count, nodes: old.level ? { dmg: old.level } : {}, gun: old.gun, attach: null, charm: null };
+  }
+  const dna = emptyDna();
+  dna.shambler = d.dna;
+  return { ...f, dna, strains, units, guns: d.guns, alloc: d.alloc, hordes: d.hordes, autoHordeOn: d.autoHordeOn ?? true, nextUid: d.nextUid, kills: d.kills, lastSeen: d.lastSeen };
+}
+function migrate(data: { version: number }): SaveData {
+  let d = data as unknown;
+  if ((d as { version: number }).version === 4) d = v4to5(d as SaveV4);
+  if ((d as { version: number }).version === 5) d = v5to6(d as SaveV5);
+  const s = d as SaveData;
+  if (s.version !== 6) throw new Error(`save version ${s.version}`);
+  const f = freshSave();
+  return { ...f, ...s, dna: { ...emptyDna(), ...s.dna }, strains: { ...emptyStrains(), ...s.strains }, units: { ...emptyUnits(), ...s.units }, gear: s.gear ?? [] };
+}
+
+export interface NodeState {
+  def: M.UnitNodeDef; level: number; maxed: boolean; colour: StrainId; lnCost: number; locked: string; canAfford: boolean;
 }
 
 export class Game {
@@ -69,79 +97,115 @@ export class Game {
   on(fn: Listener) { this.listeners.push(fn); return () => { this.listeners = this.listeners.filter((l) => l !== fn); }; }
   emit(evt: string, data?: unknown) { for (const l of this.listeners) l(evt, data); }
 
-  // ---------- derived ----------
+  // ---------- DNA ----------
   get fx(): Fx {
     const key = this.s.alloc.join(',');
     if (this.fxCache?.key !== key) this.fxCache = { key, fx: treeFx(this.s.alloc) };
     return this.fxCache.fx;
   }
-  get dna() { return this.s.dna ?? -Infinity; }
-  private setDna(v: number) { this.s.dna = v === -Infinity ? null : v; }
-  canAfford(ln: number) { return ln <= this.dna + 1e-9; }
-  private pay(ln: number) { if (!this.canAfford(ln)) return false; this.setDna(M.logSub(this.dna, ln)); return true; }
+  dna(c: StrainId) { return this.s.dna[c] ?? -Infinity; }
+  private setDna(c: StrainId, v: number) { this.s.dna[c] = v === -Infinity ? null : v; }
+  canAfford(c: StrainId, ln: number) { return ln <= this.dna(c) + 1e-9; }
+  private pay(c: StrainId, ln: number) { if (!this.canAfford(c, ln)) return false; this.setDna(c, M.logSub(this.dna(c), ln)); return true; }
+  /** DNA colours you can earn (released zombie types). */
+  get colours(): StrainId[] { return M.activeStrains(this.s.strains); }
 
+  // ---------- squad ----------
   gun(uid: number | null | undefined) { return uid == null ? undefined : this.s.guns.find((g) => g.uid === uid); }
+  gearItem(uid: number | null | undefined) { return uid == null ? undefined : this.s.gear.find((g) => g.uid === uid); }
   unit(c: ClassId) { return this.s.units[c]; }
-  /** Unit types you have at least one of, in class order. */
   get owned(): Unit[] { return M.CLASSES.map((c) => this.s.units[c.id]).filter((u) => u.count > 0); }
   get totalUnits() { return this.owned.reduce((a, u) => a + u.count, 0); }
-  squad(): M.SquadEntry[] { return this.owned.map((u) => ({ r: u, gun: this.gun(u.gun), count: u.count })); }
-  /** How many of each type the barracks holds right now (grows with your best tier, up to 20). */
-  get unitCap() { return M.unitCap(this.s.maxTier); }
-  classUnlocked(c: ClassId) { return M.classById(c).horde <= Math.min(this.s.hordes, 7); }
-  get spawnRate() { return M.spawnRate(this.s.spawnLv); }
-  capacity(tier = this.s.tier, spawnLv = this.s.spawnLv) { return M.killCapacity(this.squad(), this.fx, tier, spawnLv); }
-  /** Kill capacity ÷ spawn rate. ≥ 1 means the squad keeps up with the stream. */
-  keepUp(tier = this.s.tier, spawnLv = this.s.spawnLv) { return this.capacity(tier, spawnLv) / M.spawnRate(spawnLv); }
-  lnDnaPerKill(strain: StrainId, tier = this.s.tier) { return M.lnDnaPerKill(tier, strain, this.fx); }
-  /** DNA per second at the current settings (what the stream actually pays). */
-  lnDnaPerSec() {
-    const mix = M.mixAt(this.s.tier);
-    const kills = Math.min(this.spawnRate, this.capacity());
-    return M.logSumExp(mix.map((m) => this.lnDnaPerKill(m.id))) - Math.log(mix.length) + Math.log(Math.max(1e-9, kills));
+  entry(u: Unit): M.SquadEntry {
+    const a = this.gearItem(u.attach), ch = this.gearItem(u.charm);
+    return { u, gun: this.gun(u.gun), attach: a?.kind === 'attach' && M.nlv(u, 'attach') ? a : undefined, charm: ch?.kind === 'charm' && M.nlv(u, 'charm') ? ch : undefined };
   }
-  /** Stats of one unit of a type (range, crit, per-unit DPS...). */
-  stats(u: Unit) { return M.recruitStats(u, this.gun(u.gun), this.fx); }
-  /** Total DPS of all units of a type against the current zombie mix (ln). */
+  squad(): M.SquadEntry[] { return this.owned.map((u) => this.entry(u)); }
+  get best() { return M.bestTier(this.s.strains); }
+  get unitCap() { return M.unitCap(this.best); }
+  classUnlocked(c: ClassId) { return M.classById(c).horde <= Math.min(this.s.hordes, 7); }
+  stats(u: Unit) { return M.unitStats(this.entry(u), this.fx); }
+  /** Total DPS of a unit type, averaged over the zombie types currently in the stream (ln). */
   unitDps(u: Unit) {
-    const mix = M.mixAt(this.s.tier);
-    return this.stats(u).lnDps + Math.log(M.unitPower(u.count)) + Math.log(mix.reduce((a, m) => a + M.matchMult(u.cls, m.id, this.fx), 0) / mix.length);
+    const e = this.entry(u), st = M.unitStats(e, this.fx), cs = this.colours;
+    return st.lnDps + Math.log(M.unitPower(u.count)) + Math.log(cs.reduce((a, s) => a + M.matchMult(e, s, this.fx), 0) / cs.length);
   }
 
   // ---------- zombie dials ----------
-  tierCost() { return M.lnTierCost(this.s.maxTier); }
-  raiseTier() {
-    if (this.s.tier < this.s.maxTier) this.s.tier++;
-    else if (this.pay(this.tierCost())) { this.s.maxTier++; this.s.tier++; }
+  keepUp(st: Strains = this.s.strains) { return M.keepUp(this.squad(), this.fx, st); }
+  /** Keep-up ratio if one zombie type's tier or spawn level changed by +1. */
+  keepUpIf(s: StrainId, what: 'tier' | 'spawn') {
+    const x = this.s.strains[s];
+    return this.keepUp({ ...this.s.strains, [s]: { ...x, [what]: x[what] + 1 } });
+  }
+  lnDnaPerSec() { return M.lnDnaPerSec(this.squad(), this.fx, this.s.strains); }
+  get totalSpawnRate() { return M.totalSpawnRate(this.s.strains); }
+  tierCost(s: StrainId) { return M.lnTierCost(s, this.s.strains[s].maxTier); }
+  raiseTier(s: StrainId) {
+    const x = this.s.strains[s];
+    if (x.tier < x.maxTier) x.tier++;
+    else if (this.pay(s, this.tierCost(s))) { x.maxTier++; x.tier++; }
     else return;
     this.emit('change');
   }
-  lowerTier() { if (this.s.tier > 1) { this.s.tier--; this.emit('change'); } }
-  spawnCost() { return M.lnSpawnCost(this.s.spawnLv); }
-  buySpawn() { if (this.s.spawnLv < C.spawnMax && this.pay(this.spawnCost())) { this.s.spawnLv++; this.emit('change'); } }
+  lowerTier(s: StrainId) { const x = this.s.strains[s]; if (x.tier > 1) { x.tier--; this.emit('change'); } }
+  spawnCost(s: StrainId) { return M.lnSpawnCost(s, this.s.strains[s].spawn); }
+  buySpawn(s: StrainId) {
+    const x = this.s.strains[s];
+    if (x.spawn < C.spawnMax && this.pay(s, this.spawnCost(s))) { x.spawn++; this.emit('change'); }
+  }
+  canRelease(s: StrainId) {
+    const u = M.strainById(s).unlock;
+    return !!u && !this.s.strains[s].unlocked && this.s.strains[u.from].unlocked && this.canAfford(u.from, Math.log(u.cost));
+  }
+  release(s: StrainId) {
+    const u = M.strainById(s).unlock;
+    if (!u || !this.canRelease(s)) return;
+    this.pay(u.from, Math.log(u.cost));
+    this.s.strains[s].unlocked = true;
+    this.emit('release', s);
+    this.emit('change');
+  }
 
-  // ---------- squad (unit types) ----------
-  trainCost(c: ClassId) { return M.lnTrainCost(c, this.s.units[c].level, this.fx); }
-  /** Training is shared: one level trains every unit of that type. */
-  train(c: ClassId, max = 1) {
-    const u = this.s.units[c];
-    if (!u.count) return 0;
+  // ---------- unit trees ----------
+  node(c: ClassId, id: UnitNodeId): NodeState {
+    const u = this.s.units[c], def = M.unitNodeById(id), level = M.nlv(u, id);
+    const colour = M.nodeColour(c, def);
+    const lnCost = M.lnUnitNodeCost(c, def, level, this.fx);
+    const maxed = M.unitNodeMaxed(def, level);
+    let locked = '';
+    if (!u.count) locked = `Hire a ${M.classById(c).name} first`;
+    else if (def.requires && !M.nlv(u, def.requires)) locked = `Needs ${M.unitNodeById(def.requires).name}`;
+    else if (!this.s.strains[colour].unlocked) locked = `Needs ${M.strainById(colour).dna} DNA: release ${M.strainById(colour).plural}`;
+    return { def, level, maxed, colour, lnCost, locked, canAfford: !maxed && !locked && this.canAfford(colour, lnCost) };
+  }
+  buyNode(c: ClassId, id: UnitNodeId, max = 1) {
     let n = 0;
-    while (n < max && this.pay(this.trainCost(c))) { u.level++; n++; }
+    while (n < max) {
+      const st = this.node(c, id);
+      if (!st.canAfford || !this.pay(st.colour, st.lnCost)) break;
+      this.s.units[c].nodes[id] = st.level + 1;
+      n++;
+    }
     if (n) this.emit('change');
     return n;
   }
+  nodesAffordable(c: ClassId) { return M.UNIT_NODES.filter((n) => this.node(c, n.id).canAfford).length; }
+
+  // ---------- hiring ----------
+  hireColour(c: ClassId) { return M.classById(c).primary; }
   hireCost(c: ClassId) { return M.lnHireCost(c, this.s.units[c].count, this.fx); }
-  canHire(c: ClassId) { return this.classUnlocked(c) && this.s.units[c].count < this.unitCap && this.canAfford(this.hireCost(c)); }
+  canHire(c: ClassId) {
+    const col = this.hireColour(c);
+    return this.classUnlocked(c) && this.s.strains[col].unlocked && this.s.units[c].count < this.unitCap && this.canAfford(col, this.hireCost(c));
+  }
   hire(c: ClassId) {
     if (!this.canHire(c)) return;
-    this.pay(this.hireCost(c));
+    this.pay(this.hireColour(c), this.hireCost(c));
     const u = this.s.units[c];
-    if (u.count === 0) {
-      // the first unit of a type arrives with a standard-issue gun at your current tier
-      const g = this.addGun(c, 0, 0, false);
-      const cur = this.gun(u.gun);
-      if (!cur || M.lnGunPower(g) > M.lnGunPower(cur)) u.gun = g.uid;
+    if (u.count === 0 && !this.gun(u.gun)) {
+      const g = this.addGun(c, 0, 0, false); // the first unit of a type arrives with a standard gun at your best tier
+      u.gun = g.uid;
     }
     u.count++;
     this.emit('hire', u);
@@ -153,57 +217,101 @@ export class Game {
     u.count--;
     this.emit('change');
   }
-  /** Each unit type carries one issued gun model. */
-  equip(c: ClassId, uid: number) {
+
+  // ---------- gear ----------
+  equipGun(c: ClassId, uid: number) {
     const g = this.gun(uid);
     if (!g || g.cls !== c) return;
     this.s.units[c].gun = uid;
     this.emit('change');
   }
+  /** Put an attachment or charm on a unit type (moving it off any other type), or clear the slot with null. */
+  equipGear(c: ClassId, slot: 'attach' | 'charm', uid: number | null) {
+    const u = this.s.units[c];
+    if (!M.nlv(u, slot)) return;
+    if (uid != null) {
+      const g = this.gearItem(uid);
+      if (!g || g.kind !== slot) return;
+      for (const o of Object.values(this.s.units)) if (o[slot] === uid) o[slot] = null;
+    }
+    u[slot] = uid;
+    this.emit('change');
+  }
+  /** Quartermaster: best gun for every type; attachments and charms go where they add the most keep-up. */
   autoEquip() {
     for (const u of Object.values(this.s.units)) {
       const best = this.s.guns.filter((g) => g.cls === u.cls).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a))[0];
       if (best) u.gun = best.uid;
     }
+    for (const slot of ['attach', 'charm'] as const) {
+      const slots = this.owned.filter((u) => M.nlv(u, slot));
+      for (const u of slots) u[slot] = null;
+      const pool = this.s.gear.filter((g) => g.kind === slot).sort((a, b) => b.value - a.value);
+      for (const u of slots.sort((a, b) => M.classById(b.cls).dps - M.classById(a.cls).dps)) {
+        let bestUid: number | null = null, bestK = this.keepUp();
+        for (const g of pool.slice(0, 12)) {
+          if (Object.values(this.s.units).some((o) => o[slot] === g.uid)) continue;
+          u[slot] = g.uid;
+          const k = this.keepUp();
+          if (k > bestK) { bestK = k; bestUid = g.uid; }
+        }
+        u[slot] = bestUid;
+      }
+    }
   }
-  isIssued(uid: number) { return Object.values(this.s.units).some((u) => u.gun === uid); }
+  isEquipped(uid: number) { return Object.values(this.s.units).some((u) => u.gun === uid || u.attach === uid || u.charm === uid); }
   scrap(uid: number) {
-    if (this.isIssued(uid)) return;
+    if (this.isEquipped(uid)) return;
     this.s.guns = this.s.guns.filter((g) => g.uid !== uid);
+    this.s.gear = this.s.gear.filter((g) => g.uid !== uid);
     this.emit('change');
   }
-  markSeen() { if (this.s.newGuns.length) { this.s.newGuns = []; this.emit('change'); } }
-  /** A random unit type you own (guns drop for types you actually use). */
+  markSeen() { if (this.s.newItems.length) { this.s.newItems = []; this.emit('change'); } }
   private randomOwnedClass(): ClassId { const o = this.owned; return (o[Math.floor(Math.random() * o.length)] ?? this.s.units.pistol).cls; }
-
-  private addGun(cls: ClassId, minRarity: number, ilvlBonus: number, isDrop: boolean, rng = Math.random): Gun {
+  private trimStash() {
+    const total = this.s.guns.length + this.s.gear.length;
+    if (total <= STASH_CAP) return;
+    const score = (x: Gun | Gear) => ('cls' in x ? M.lnGunPower(x) : Math.log(1 + x.value) * 20);
+    const all = [...this.s.guns, ...this.s.gear].filter((x) => !this.isEquipped(x.uid)).sort((a, b) => score(a) - score(b));
+    const drop = new Set(all.slice(0, total - STASH_CAP).map((x) => x.uid));
+    this.s.guns = this.s.guns.filter((x) => !drop.has(x.uid));
+    this.s.gear = this.s.gear.filter((x) => !drop.has(x.uid));
+  }
+  private addGun(cls: ClassId, minRarity: number, ilvlBonus: number, isDrop: boolean): Gun {
     const g: Gun = {
-      uid: this.s.nextUid++, cls, rarity: isDrop || minRarity ? M.rollRarity(rng, minRarity) : 'common',
-      ilvl: this.s.tier + ilvlBonus + (isDrop && rng() < 0.15 ? 1 + Math.floor(rng() * 3) : 0),
+      uid: this.s.nextUid++, cls, rarity: isDrop || minRarity ? M.rollRarity(Math.random, minRarity) : 'common',
+      ilvl: this.best + ilvlBonus + (isDrop && Math.random() < 0.15 ? 1 + Math.floor(Math.random() * 3) : 0),
     };
     this.s.guns.push(g);
-    if (isDrop || minRarity) this.s.newGuns.push(g.uid);
-    if (this.s.guns.length > STASH_CAP) {
-      const removable = this.s.guns.filter((x) => !this.isIssued(x.uid)).sort((a, b) => M.lnGunPower(a) - M.lnGunPower(b));
-      const drop = new Set(removable.slice(0, this.s.guns.length - STASH_CAP).map((x) => x.uid));
-      this.s.guns = this.s.guns.filter((x) => !drop.has(x.uid));
-    }
+    if (isDrop || minRarity) this.s.newItems.push(g.uid);
+    this.trimStash();
     if (this.fx.autoEquip) this.autoEquip();
     return g;
   }
-
-  // ---------- the stream ----------
-  /** A zombie was shredded: bank its DNA (silently) and maybe drop a gun for one of your recruits' classes. */
-  zombieKilled(strain: StrainId, tier: number, opts: { silent?: boolean } = {}): Gun | null {
-    this.setDna(M.logAdd(this.dna, this.lnDnaPerKill(strain, tier)));
-    this.s.kills++;
-    if (Math.random() >= C.dropChance * (1 + this.fx.drop)) return null;
-    const g = this.addGun(this.randomOwnedClass(), 0, 0, true);
-    if (!opts.silent) this.emit('loot', g);
+  private addGear(minRarity = 0): Gear {
+    const g = M.rollGear(Math.random, this.s.nextUid++, minRarity);
+    this.s.gear.push(g);
+    this.s.newItems.push(g.uid);
+    this.trimStash();
+    if (this.fx.autoEquip) this.autoEquip();
     return g;
   }
+  /** A random drop: 60% a gun for one of your unit types, 40% an attachment or charm. */
+  private rollLoot(minRarity = 0, cls?: ClassId, ilvlBonus = 0): Loot {
+    if (!cls && Math.random() < 0.4) return { type: 'gear', gear: this.addGear(minRarity) };
+    return { type: 'gun', gun: this.addGun(cls ?? this.randomOwnedClass(), minRarity, ilvlBonus, true) };
+  }
 
-  /** Free automations only (they never spend DNA): Auto-Equip keeps the best guns on; Auto-Horde is run by the scene. */
+  // ---------- the stream ----------
+  /** A zombie was shredded: bank its DNA (silently) and maybe drop an item. */
+  zombieKilled(strain: StrainId, tier: number, opts: { silent?: boolean } = {}): Loot | null {
+    this.setDna(strain, M.logAdd(this.dna(strain), M.lnDnaPerKill(strain, tier, this.fx)));
+    this.s.kills++;
+    if (Math.random() >= M.dropChance(this.s.strains, this.fx)) return null;
+    const loot = this.rollLoot();
+    if (!opts.silent) this.emit('loot', loot);
+    return loot;
+  }
   get autoHorde() { return this.fx.autoHorde && this.s.autoHordeOn; }
 
   // ---------- hordes ----------
@@ -214,47 +322,52 @@ export class Game {
     if (k !== this.nextHorde) return;
     const h = M.hordeDef(k);
     this.s.hordes = k;
-    // reward gun: rare+ for the newly unlocked class, or epic+ for elite hordes
-    const cls = h.cls ?? this.randomOwnedClass();
-    const g = this.addGun(cls, h.elite ? 3 : 2, 2, true);
-    this.emit('horde-won', { k, gun: g });
+    // reward: a rare+ gun for the newly unlocked type, or an epic+ item for elite hordes
+    const loot = h.cls ? this.rollLoot(2, h.cls, 2) : this.rollLoot(3);
+    this.emit('horde-won', { k, loot });
     this.emit('change');
   }
   hordeLost(k: number) { this.emit('horde-lost', k); }
 
   // ---------- passive tree ----------
   treeCost() { return M.lnTreeCost(this.s.alloc.length); }
+  treeColour(id: string): StrainId { const n = treeNode(id); return n && n.region >= 0 ? REGIONS[n.region].dna : 'shambler'; }
   regionOpen(region: number) { return region < 0 || REGIONS[region].horde <= this.s.hordes; }
   canAllocate(id: string) {
     const n = treeNode(id);
     if (!n || n.id === 'start' || this.s.alloc.includes(id) || !this.regionOpen(n.region)) return false;
     return n.links.some((l) => l === 'start' || this.s.alloc.includes(l));
   }
+  canAffordNode(id: string) { return this.canAllocate(id) && this.canAfford(this.treeColour(id), this.treeCost()); }
   allocate(id: string) {
-    if (!this.canAllocate(id) || !this.pay(this.treeCost())) return;
+    if (!this.canAllocate(id) || !this.pay(this.treeColour(id), this.treeCost())) return;
     this.s.alloc.push(id);
     this.emit('allocate', id);
     this.emit('change');
   }
-  allocatableCount() { return TREE.filter((n) => this.canAllocate(n.id)).length; }
+  allocatableCount() { return TREE.filter((n) => this.canAffordNode(n.id)).length; }
 
   // ---------- offline ----------
   simulateOffline(seconds: number): OfflineReport | null {
     seconds = Math.min(seconds, OFFLINE_CAP_SEC);
     if (seconds < 60) return null;
-    const before = this.dna, tier0 = this.s.maxTier, kills0 = this.s.kills;
-    const gunsBefore = new Set(this.s.guns.map((g) => g.uid));
+    const before = Object.fromEntries(M.STRAIN_IDS.map((s) => [s, this.dna(s)])) as Record<StrainId, number>;
+    const kills0 = this.s.kills, items0 = this.s.guns.length + this.s.gear.length;
     const DT = 10;
     for (let t = 0; t < seconds; t += DT) {
-      const kills = Math.min(this.spawnRate, this.capacity()) * DT;
-      const mix = M.mixAt(this.s.tier);
-      const ln = M.logSumExp(mix.map((m) => this.lnDnaPerKill(m.id))) - Math.log(mix.length);
-      this.setDna(M.logAdd(this.dna, ln + Math.log(Math.max(1e-9, kills))));
+      const rates = this.lnDnaPerSec();
+      const k = Math.min(1, this.keepUp());
+      let kills = 0;
+      for (const s of this.colours) {
+        this.setDna(s, M.logAdd(this.dna(s), rates[s] + Math.log(DT)));
+        kills += M.spawnRate(s, this.s.strains[s].spawn) * k * DT;
+      }
       this.s.kills += Math.round(kills);
-      if (Math.random() < kills * C.dropChance * (1 + this.fx.drop)) this.addGun(this.randomOwnedClass(), 0, 0, true);
+      if (Math.random() < kills * M.dropChance(this.s.strains, this.fx)) this.rollLoot();
     }
     this.emit('change');
-    return { seconds, kills: this.s.kills - kills0, lnDna: M.logSub(this.dna, before), guns: this.s.guns.filter((g) => !gunsBefore.has(g.uid)), tiers: this.s.maxTier - tier0 };
+    const dna = Object.fromEntries(M.STRAIN_IDS.map((s) => [s, M.logSub(this.dna(s), before[s])])) as Record<StrainId, number>;
+    return { seconds, kills: this.s.kills - kills0, dna, items: Math.max(0, this.s.guns.length + this.s.gear.length - items0) };
   }
 
   // ---------- persistence ----------
@@ -263,21 +376,32 @@ export class Game {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.s)); } catch { /* storage blocked */ }
   }
   /**
-   * Loads the save. Game updates must never lose progress: new fields are filled in from defaults, and if a save
-   * can't be read (or comes from a format this version doesn't understand) it is copied to a backup key before
-   * anything else is written, so it can always be recovered. A copy of the last good save is also kept each launch.
+   * Loads the save. Game updates must never lose progress: older formats are converted, and if a save can't be read
+   * it is copied to a backup key before anything is written. A copy of the last good save is kept every launch.
    */
   load(): OfflineReport | null {
     let raw: string | null = null;
     try {
       raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
+      const old = (JSON.parse(raw) as { version: number }).version;
       this.s = migrate(JSON.parse(raw));
+      if (old < 6) this.settleTiers();
       try { localStorage.setItem(`${SAVE_KEY}-last-good`, raw); } catch { /* storage full */ }
       return this.simulateOffline((Date.now() - this.s.lastSeen) / 1000);
     } catch {
       if (raw) try { localStorage.setItem(`${SAVE_KEY}-backup-${Date.now()}`, raw); } catch { /* storage full */ }
       return null;
+    }
+  }
+  /** After an upgrade from an older save: lower tiers until the squad keeps up, so nobody starts out overrun.
+   * Raising them back up to the old best tier stays free. */
+  private settleTiers() {
+    for (let guard = 0; guard < 2000 && this.keepUp() < 1.2; guard++) {
+      const top = M.STRAIN_IDS.filter((c) => this.s.strains[c].unlocked && this.s.strains[c].tier > 1)
+        .sort((a, b) => this.s.strains[b].tier - this.s.strains[a].tier)[0];
+      if (!top) break;
+      this.s.strains[top].tier--;
     }
   }
   resumeAfter(seconds: number) { return this.simulateOffline(seconds); }
@@ -291,4 +415,5 @@ export class Game {
   }
 }
 
+export type { Attachment, Charm };
 export const game = new Game();

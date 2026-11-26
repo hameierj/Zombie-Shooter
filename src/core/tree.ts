@@ -21,17 +21,18 @@ export interface TreeNode {
   id: string; region: number; size: NodeSize; name: string; desc: string; x: number; y: number; links: string[];
   apply: (fx: Fx) => void;
 }
-export interface Region { name: string; horde: number; color: string; cls?: ClassId }
+/** `dna` is the DNA colour that pays for this region's passives. */
+export interface Region { name: string; horde: number; color: string; dna: StrainId; cls?: ClassId }
 
 export const REGIONS: Region[] = [
-  { name: 'Basic Training', horde: 0, color: '#c8b070' },
-  { name: 'Marksman', horde: 1, color: '#7ddc5a', cls: 'bow' },
-  { name: 'Breacher', horde: 2, color: '#ff9a3c', cls: 'shotgun' },
-  { name: 'Suppression', horde: 3, color: '#6cb6ff', cls: 'rifle' },
-  { name: 'Deadeye', horde: 4, color: '#e8e8e8', cls: 'sniper' },
-  { name: 'Inferno', horde: 5, color: '#ff5a3a', cls: 'flamer' },
-  { name: 'Demolition', horde: 6, color: '#ffd23f', cls: 'grenade' },
-  { name: 'Command', horde: 7, color: '#b77bff' },
+  { name: 'Basic Training', horde: 0, color: '#c8b070', dna: 'shambler' },
+  { name: 'Marksman', horde: 1, color: '#7ddc5a', dna: 'runner', cls: 'bow' },
+  { name: 'Breacher', horde: 2, color: '#ff9a3c', dna: 'brute', cls: 'shotgun' },
+  { name: 'Suppression', horde: 3, color: '#6cb6ff', dna: 'runner', cls: 'rifle' },
+  { name: 'Deadeye', horde: 4, color: '#e8e8e8', dna: 'brute', cls: 'sniper' },
+  { name: 'Inferno', horde: 5, color: '#ff5a3a', dna: 'spitter', cls: 'flamer' },
+  { name: 'Demolition', horde: 6, color: '#ffd23f', dna: 'bloater', cls: 'grenade' },
+  { name: 'Command', horde: 7, color: '#b77bff', dna: 'bloater' },
 ];
 
 export function emptyFx(): Fx {
@@ -95,9 +96,9 @@ const LAYOUT: Record<number, { smalls: [Spec, Spec]; n1: Spec; na: Spec; nb: Spe
     k: S('Firestorm', 'Pyros deal ×2 damage.', (f) => mul(f.classMore, 'flamer', 2)),
   },
   6: {
-    smalls: [cdmg('grenade', 'Grenadier', 12), S('Scrounger', '+10% gun drop chance', (f) => { f.drop += 0.1; })],
+    smalls: [cdmg('grenade', 'Grenadier', 12), S('Scrounger', '+10% item drop chance', (f) => { f.drop += 0.1; })],
     n1: S('Cluster Bombs', 'Grenades hit 1 more zombie.', (f) => add(f.targets, 'grenade', 1)),
-    na: S('Scavenger', '+50% gun drop chance.', (f) => { f.drop += 0.5; }),
+    na: S('Scavenger', '+50% item drop chance.', (f) => { f.drop += 0.5; }),
     nb: S('Shrapnel', '+10% damage for the whole squad.', (f) => { f.dmg += 0.1; }),
     k: S('Carpet Bombing', 'Grenadiers deal ×2 damage.', (f) => mul(f.classMore, 'grenade', 2)),
   },

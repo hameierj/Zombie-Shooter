@@ -15,13 +15,13 @@ import { buildArt, drawGround, GUN_H, GUN_W, HERO_GRIP, HERO_H, HERO_W, RARITY_T
 const C = M.CONFIG;
 const FONT = 'Silkscreen, monospace';
 const ART_SHORT_SIDE = 360;  // art pixels across the field's short side (bigger = more zoomed out)
-const MAX_AMBIENT = 60;      // cap on stream zombies alive at once
+const MAX_AMBIENT = 70;      // cap on stream zombies alive at once
 const MAX_TEXTS = 24;
 const INTRO_SEC = 1.4;
 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
-  strain: StrainId; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean;
+  strain: StrainId; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; slow: number; burn: number;
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
 }
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
@@ -54,7 +54,7 @@ export class BattleScene extends Phaser.Scene {
   private phase: Phase = 'stream';
   private phaseT = 0;
   private zombies: Zombie[] = [];
-  private spawnT = 0;
+  private spawnTimers = new Map<StrainId, number>();
   private horde = { k: 0, queue: [] as Zombie[], t: 0, spawnT: 0 };
   private ready = false;
 
@@ -130,7 +130,7 @@ export class BattleScene extends Phaser.Scene {
   }
   private makeZombie(strain: StrainId, tier: number, spawnLv: number, horde: boolean): Zombie {
     return {
-      strain, tier, horde, lnHp: M.lnZombieHp(tier, strain, spawnLv), hp: 1,
+      strain, tier, horde, lnHp: M.lnZombieHp(strain, tier, spawnLv), hp: 1, slow: 0, burn: 0,
       p: -0.02 - Math.random() * 0.05, l: Math.random() * 2 - 1,
       speed: (M.strainById(strain).speed * (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1)) / C.walkSec,
       flash: -1, phase: Math.random() * 4, alive: true,
@@ -141,7 +141,7 @@ export class BattleScene extends Phaser.Scene {
     const k = game.nextHorde;
     const h = M.hordeDef(k);
     const mix = M.hordeMix(k);
-    this.horde = { k, t: 0, spawnT: 0, queue: Array.from({ length: C.hordeZombies }, () => this.makeZombie(mix[Math.floor(Math.random() * mix.length)].id, h.tier, 0, true)) };
+    this.horde = { k, t: 0, spawnT: 0, queue: Array.from({ length: C.hordeZombies }, () => this.makeZombie(mix[Math.floor(Math.random() * mix.length)], h.tier, 0, true)) };
     this.showBanner(h.name.toUpperCase(), `HORDE ${k} · TIER ${h.tier}`);
     sfx.hordeStart();
     this.setPhase('intro');
@@ -164,14 +164,16 @@ export class BattleScene extends Phaser.Scene {
     if (this.autoT >= 3) { this.autoT = 0; if (this.phase === 'stream' && game.autoHorde && game.hordeOdds() >= 1.15) game.startHorde(); }
 
     if (this.phase === 'stream' || this.phase === 'end') {
-      // the endless stream
-      this.spawnT -= dt;
-      while (this.spawnT <= 0) {
-        this.spawnT += 1 / game.spawnRate;
-        if (this.zombies.filter((z) => z.alive && !z.horde).length < MAX_AMBIENT) {
-          const mix = M.mixAt(game.s.tier);
-          this.zombies.push(this.makeZombie(mix[Math.floor(Math.random() * mix.length)].id, game.s.tier, game.s.spawnLv, false));
+      // the endless stream: every released zombie type spawns at its own rate, tier and spawn level
+      const ambient = this.zombies.filter((z) => z.alive && !z.horde).length;
+      for (const sid of game.colours) {
+        const x = game.s.strains[sid];
+        let t = (this.spawnTimers.get(sid) ?? Math.random()) - dt;
+        while (t <= 0) {
+          t += 1 / M.spawnRate(sid, x.spawn);
+          if (ambient < MAX_AMBIENT) this.zombies.push(this.makeZombie(sid, x.tier, x.spawn, false));
         }
+        this.spawnTimers.set(sid, t);
       }
       if (this.phase === 'end' && this.phaseT > 1.5) this.setPhase('stream');
     } else if (this.phase === 'intro') {
@@ -207,7 +209,10 @@ export class BattleScene extends Phaser.Scene {
       if (!z.alive) continue;
       z.flash -= dt;
       if (z.p < 1) {
-        z.p = Math.min(1, z.p + z.speed * dt); z.phase += dt * 6 * z.speed * C.walkSec;
+        z.slow = Math.max(0, z.slow - dt * 0.5);
+        const sp = z.speed * (1 - z.slow);
+        z.p = Math.min(1, z.p + sp * dt); z.phase += dt * 6 * sp * C.walkSec;
+        if (z.burn > 0) { z.burn -= dt; if (Math.random() < dt * 8) { const [bx, by] = this.zombieCenter(z); this.burst(bx, by + 8 * this.px, 0xff7a2a, 1); } }
         if (z.p > 0.6 && Math.random() < dt * 0.15) sfx.groan();
       }
       else {
@@ -287,7 +292,9 @@ export class BattleScene extends Phaser.Scene {
 
   /** One visible soldier firing on behalf of `visible`-th of the whole unit group. */
   private fire(r: M.Unit, gun: Gun, s: Shooter, visible: number, dt: number) {
-    const st = M.recruitStats(r, gun, game.fx);
+    const e = game.entry(r);
+    const st = M.unitStats(e, game.fx);
+    const ab = st.ability;
     const groupShots = st.shotsPerSec * M.unitPower(r.count);
     const rate = Math.min(8, groupShots / visible);
     s.cd -= dt;
@@ -297,7 +304,7 @@ export class BattleScene extends Phaser.Scene {
       let target: Zombie | undefined, best = -Infinity;
       for (const z of this.zombies) {
         if (!z.alive || z.p < Math.max(0.02, 1 - st.range)) continue;
-        const score = z.p + (z.horde ? 1 : 0) + Math.log(M.matchMult(r.cls, z.strain, game.fx)) * 0.3;
+        const score = z.p + (z.horde ? 1 : 0) + Math.log(M.matchMult(e, z.strain, game.fx)) * 0.3;
         if (score > best) { best = score; target = z; }
       }
       if (!target) { s.cd = Math.max(s.cd, 0.05); return; }
@@ -310,7 +317,18 @@ export class BattleScene extends Phaser.Scene {
         .filter((z) => this.dist(z, target!) < 0.25)];
       this.shoot(s, r.cls, hits);
       for (const z of hits) {
-        const ln = lnShot + Math.log(M.matchMult(r.cls, z.strain, game.fx));
+        if (!z.alive) continue;
+        const ln = lnShot + Math.log(M.matchMult(e, z.strain, game.fx)) - (ab.execute ? Math.log(ab.dmg) : 0);
+        // abilities: knockback, slow, napalm, headshot execute
+        if (ab.knockback) z.p = Math.max(0, z.p - ab.knockback);
+        if (ab.slow) z.slow = Math.max(z.slow, ab.slow);
+        if (r.cls === 'flamer' && M.abilityStage(r)) z.burn = 1.5;
+        if (ab.execute && !z.horde && Math.random() < ab.execute && z.alive) {
+          const [hx, hy] = this.zombieCenter(z);
+          this.floatText('HEADSHOT', hx, hy - 16 * this.px, true);
+          this.damage(z, z.hp + 1, '', false);
+          continue;
+        }
         this.damage(z, Math.exp(Math.min(700, ln - z.lnHp)), z === target ? fmtLn(ln) : '', crit);
       }
     }
@@ -344,13 +362,13 @@ export class BattleScene extends Phaser.Scene {
       this.tweens.add({ targets: s, angle: 90, alpha: 0, duration: 380, ease: 'Quad.easeIn', onComplete: () => s.destroy() });
     }
     sfx.zombieDeath();
-    const g = game.zombieKilled(z.strain, z.tier);
-    if (g) this.dropCrate(g, x, y);
+    const loot = game.zombieKilled(z.strain, z.tier);
+    if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 
-  private dropCrate(g: Gun, x: number, y: number) {
-    const img = this.take(`crate-${g.rarity}`).setPosition(x, y).setScale(this.px * 2).setDepth(8800).setAlpha(1);
-    const crate: Crate = { img, t: 0, color: hex(RARITY_TRIM[g.rarity]) };
+  private dropCrate(rarity: M.RarityId, x: number, y: number) {
+    const img = this.take(`crate-${rarity}`).setPosition(x, y).setScale(this.px * 2).setDepth(8800).setAlpha(1);
+    const crate: Crate = { img, t: 0, color: hex(RARITY_TRIM[rarity]) };
     this.crates.push(crate);
     this.tweens.add({
       targets: img, y: y + 6 * this.px, duration: 500, ease: 'Bounce.easeOut',
@@ -361,7 +379,7 @@ export class BattleScene extends Phaser.Scene {
       },
     });
     this.burst(x, y, crate.color, 10);
-    sfx.loot(g.rarity);
+    sfx.loot(rarity);
   }
 
   private shoot(s: Shooter, cls: ClassId, hits: Zombie[]) {
@@ -460,7 +478,7 @@ export class BattleScene extends Phaser.Scene {
   private drawFx() {
     const g = this.fx, px = this.px;
     g.clear();
-    const range = Math.max(0, ...game.owned.map((u) => M.recruitStats(u, game.gun(u.gun), game.fx).range));
+    const range = Math.max(0, ...game.owned.map((u) => game.stats(u).range));
     if (range > 0 && range < 0.999) {
       const [rx] = this.toScreen(1 - range, 0);
       g.fillStyle(0xffffff, 0.14);
