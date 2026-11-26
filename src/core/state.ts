@@ -20,15 +20,17 @@ export interface SaveData {
   hordes: number;
   autoHordeOn: boolean;
   /** Drops at or below this rarity are sold on pickup (never an upgrade, never a horde reward). null = off. */
-  autoSell: M.RarityId | null;
+  autoSell: AutoSell;
   nextUid: number;
   kills: number;
   newItems: number[];
   lastSeen: number;
 }
 /** A dropped item; `sold` is set when auto-sell turned it straight into DNA. */
-export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale };
+export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale; alsoSold?: number };
 export interface Sale { colour: StrainId; ln: number }
+/** Auto-sell rule: sell drops of a rarity and lower, or 'best' = keep equipped items plus the best of each kind. */
+export type AutoSell = M.RarityId | 'best' | null;
 export interface OfflineReport { seconds: number; kills: number; sold: number; /** ln of DNA gained per colour */ dna: Record<StrainId, number>; items: number; }
 type Listener = (evt: string, data?: unknown) => void;
 
@@ -299,15 +301,25 @@ export class Game {
     if ('cls' in it) { const u = this.s.units[it.cls]; return u.count > 0 && M.lnGunPower(it) > M.lnGunPower(this.gun(u.gun)); }
     return this.owned.some((u) => M.nlv(u, it.kind) && (this.gearItem(u[it.kind])?.value ?? -1) < it.value);
   }
-  private matchesAutoSell(uid: number) {
+  /** The best item of each kind: one per unit type's gun, attachment stat and charm target. */
+  private bestOfKind() {
+    const best = new Map<string, { uid: number; score: number }>();
+    const consider = (key: string, uid: number, score: number) => { const b = best.get(key); if (!b || score > b.score) best.set(key, { uid, score }); };
+    for (const g of this.s.guns) consider(`gun:${g.cls}`, g.uid, M.lnGunPower(g));
+    for (const g of this.s.gear) consider(g.kind === 'attach' ? `attach:${g.stat}` : `charm:${g.bane ?? 'all'}`, g.uid, g.value);
+    return new Set([...best.values()].map((b) => b.uid));
+  }
+  private matchesAutoSell(uid: number, keep?: Set<number>) {
     const it = this.item(uid);
-    if (!it || !this.s.autoSell || this.isEquipped(uid) || this.isUpgrade(uid)) return false;
+    if (!it || !this.s.autoSell || this.isEquipped(uid)) return false;
+    if (this.s.autoSell === 'best') return !(keep ?? this.bestOfKind()).has(uid);
+    if (this.isUpgrade(uid)) return false;
     const idx = (r: M.RarityId) => M.CONFIG.rarities.findIndex((x) => x.id === r);
     return idx(it.rarity) <= idx(this.s.autoSell);
   }
-  setAutoSell(r: M.RarityId | null) { this.s.autoSell = r; this.emit('change'); }
+  setAutoSell(r: AutoSell) { this.s.autoSell = r; this.emit('change'); }
   /** Items in the stash that the current auto-sell rule would sell. */
-  autoSellMatches() { return [...this.s.guns, ...this.s.gear].map((x) => x.uid).filter((uid) => this.matchesAutoSell(uid)); }
+  autoSellMatches() { const keep = this.bestOfKind(); return [...this.s.guns, ...this.s.gear].map((x) => x.uid).filter((uid) => this.matchesAutoSell(uid, keep)); }
   sellMatching() { let n = 0; for (const uid of this.autoSellMatches()) if (this.sell(uid, true)) n++; this.emit('change'); return n; }
   markSeen() { if (this.s.newItems.length) { this.s.newItems = []; this.emit('change'); } }
   private randomOwnedClass(): ClassId { const o = this.owned; return (o[Math.floor(Math.random() * o.length)] ?? this.s.units.pistol).cls; }
@@ -343,7 +355,10 @@ export class Game {
   private rollLoot(minRarity = 0, cls?: ClassId, ilvlBonus = 0, canAutoSell = true): Loot {
     const loot: Loot = !cls && Math.random() < 0.4 ? { type: 'gear', gear: this.addGear(minRarity) } : { type: 'gun', gun: this.addGun(cls ?? this.randomOwnedClass(), minRarity, ilvlBonus, true) };
     const uid = loot.type === 'gun' ? loot.gun.uid : loot.gear.uid;
-    if (canAutoSell && this.matchesAutoSell(uid)) { const v = this.sell(uid, true); if (v) { loot.sold = v; this.soldCount++; } }
+    if (canAutoSell && this.s.autoSell === 'best') {
+      // keep-best: the new item may replace an older one, so sweep the whole stash
+      for (const x of this.autoSellMatches()) { const v = this.sell(x, true); if (!v) continue; this.soldCount++; if (x === uid) loot.sold = v; else loot.alsoSold = (loot.alsoSold ?? 0) + 1; }
+    } else if (canAutoSell && this.matchesAutoSell(uid)) { const v = this.sell(uid, true); if (v) { loot.sold = v; this.soldCount++; } }
     return loot;
   }
   private soldCount = 0;

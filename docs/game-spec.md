@@ -53,7 +53,9 @@ slowly. You never lose.
   crit, crit damage or range) and a **charm** slot (bonus damage against one zombie type) once unlocked in the tree.
 - **Selling:** any unused item sells for DNA (about 20 s of that colour's income, doubling per rarity step; guns pay
   in their unit type's colour, charms in their zombie type's colour). **Auto-sell** (Squad tab) sells new drops of a
-  chosen rarity and lower the moment they drop; items that would be an upgrade and horde rewards are always kept.
+  chosen rarity and lower the moment they drop (items that would be an upgrade are kept), or **Keep best**: keep what
+  units have equipped plus the best gun per unit type, best attachment per stat and best charm per zombie type, and sell
+  everything else, including older items a new drop replaces. Horde rewards are never auto-sold.
 - **Drops are rare** and scale gently with total spawn rate; each arrives as a crate in its rarity colour. Every horde
   win guarantees a rare-or-better item (the new unit type's gun for hordes 1–6).
 

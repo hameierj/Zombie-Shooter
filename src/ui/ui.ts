@@ -3,7 +3,7 @@
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
-import { game, type Loot, type OfflineReport } from '../core/state.ts';
+import { game, type AutoSell, type Loot, type OfflineReport } from '../core/state.ts';
 import { REGIONS, TREE, treeNode } from '../core/tree.ts';
 import { charmIcon, classIcon, crateIcon, gunIcon, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import { fmtInt, fmtLn, fmtMult, fmtNum, gearDesc, gearName, gunName, RARITY_COLOR } from '../core/format.ts';
@@ -100,7 +100,7 @@ function onClick(e: Event) {
     case 'equip-gun': closeModal(); game.equipGun(cls, Number(arg)); break;
     case 'equip-gear': closeModal(); game.equipGear(cls, el.dataset.slot as 'attach' | 'charm', arg === 'none' ? null : Number(arg)); break;
     case 'sell': closeModal(); { const v = game.sell(Number(arg)); if (v) toast(`<b>Sold</b><span>+${fmtLn(v.ln)} ${M.strainById(v.colour).dna} DNA</span>`, M.strainById(v.colour).color); } break;
-    case 'autosell': game.setAutoSell(arg === 'off' ? null : (arg as M.RarityId)); break;
+    case 'autosell': game.setAutoSell(arg === 'off' ? null : (arg as AutoSell)); break;
     case 'sell-matching': { const n = game.sellMatching(); if (n) toast(`<b>Sold ${n} item${n > 1 ? 's' : ''}</b><span>DNA added</span>`, '#6fdc7a'); } break;
     case 'node': if (!view.dragged) { selectedNode = arg; render(); } break;
     case 'allocate': game.allocate(arg); break;
@@ -246,10 +246,10 @@ function squadHtml() {
 
 function autoSellHtml() {
   const cur = game.s.autoSell;
-  const opts: [string, string][] = [['off', 'Off'], ['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare'], ['epic', 'Epic']];
+  const opts: [string, string][] = [['off', 'Off'], ['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare'], ['epic', 'Epic'], ['best', 'Keep best']];
   const n = cur ? game.autoSellMatches().length : 0;
-  return `<div class="card autosell"><div class="as-head"><b>Auto-sell drops</b><span class="sub small">${cur ? `Selling ${cur} and lower drops` : 'Sells drops of the chosen rarity and lower for DNA'}. Upgrades and horde rewards are always kept.</span></div>
-    <div class="seg">${opts.map(([id, label]) => `<button class="${(cur ?? 'off') === id ? 'on' : ''}" style="${id === 'off' ? '' : `--rar:${RARITY_COLOR[id as M.RarityId]}`}" data-action="autosell" data-arg="${id}">${label}</button>`).join('')}</div>
+  return `<div class="card autosell"><div class="as-head"><b>Auto-sell drops</b><span class="sub small">${cur === 'best' ? 'Keeps what your units have equipped plus the best gun for each unit type, the best attachment of each stat and the best charm for each zombie type. Everything else is sold' : cur ? `Selling ${cur} and lower drops; upgrades are always kept` : 'Sell drops of a rarity and lower, or keep only the best of each kind'}. Horde rewards are never auto-sold.</span></div>
+    <div class="seg">${opts.map(([id, label]) => `<button class="${(cur ?? 'off') === id ? 'on' : ''}" style="${id === 'off' ? '' : `--rar:${id === 'best' ? '#ffd34d' : RARITY_COLOR[id as M.RarityId]}`}" data-action="autosell" data-arg="${id}">${label}</button>`).join('')}</div>
     ${n ? `<button class="btn wide sm" data-action="sell-matching">Sell ${n} matching item${n > 1 ? 's' : ''} in the stash now</button>` : ''}</div>`;
 }
 
@@ -531,6 +531,7 @@ function toast(html: string, color: string, icon?: string) {
   setTimeout(() => el.remove(), 3700);
 }
 function toastLoot(l: Loot, title: string) {
+  if (l.alsoSold && !l.sold) toast(`<b>Upgrade kept</b><span>Sold ${l.alsoSold} older item${l.alsoSold > 1 ? 's' : ''} it replaced</span>`, '#6fdc7a');
   if (l.sold) { toast(`<b>Auto-sold ${esc(l.type === 'gun' ? gunName(l.gun) : gearName(l.gear))}</b><span>+${fmtLn(l.sold.ln)} ${M.strainById(l.sold.colour).dna} DNA</span>`, M.strainById(l.sold.colour).color); return; }
   if (l.type === 'gun') toast(`<b>${title} ${esc(gunName(l.gun))}</b><span>Tier ${fmtInt(l.gun.ilvl)} · for ${M.classById(l.gun.cls).plural}</span>`, RARITY_COLOR[l.gun.rarity], crateIcon(l.gun.rarity));
   else toast(`<b>${title} ${esc(gearName(l.gear))}</b><span>${esc(gearDesc(l.gear))}</span>`, RARITY_COLOR[l.gear.rarity], crateIcon(l.gear.rarity));
