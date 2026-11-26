@@ -93,7 +93,6 @@ function onClick(e: Event) {
       break;
     case 'close': tab = null; render(); break;
     case 'tier-up': game.raiseTier(sid); break;
-    case 'tier-down': game.lowerTier(sid); break;
     case 'spawn': game.buySpawn(sid); break;
     case 'release': game.release(sid); break;
     case 'open-unit': unitView = cls; unitNode = 'dmg'; render(); break;
@@ -128,7 +127,7 @@ function onClick(e: Event) {
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
   const after = M.STRAIN_IDS.reduce((x, c) => x + Math.exp(Math.min(700, game.dna(c))), 0);
   const paid = after < spent;
-  if (['tier-up', 'tier-down'].includes(a)) sfx.tierUp();
+  if (a === 'tier-up') sfx.tierUp();
   else if (a === 'allocate') { if (paid) sfx.allocate(); }
   else if (a === 'sell' || a === 'sell-matching') sfx.buy();
   else if (['buy-node', 'hire', 'spawn', 'release'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
@@ -216,7 +215,6 @@ function zombiesHtml() {
         <span class="sub">${vial(st.id)} +${fmtLn(rates[st.id])}/s · ${fmtLn(M.lnZombieHp(st.id, x.tier, x.spawn))} HP</span>
         <span class="sub small">Tier ${fmtInt(x.tier)}${free ? `/${fmtInt(x.maxTier)}` : ''} · Spawn ${x.spawn}/${C.spawnMax} (${fmtNum(M.spawnRate(st.id, x.spawn))}/s)</span></div>
       <div class="s-btns">
-        <button class="btn ghost sq" data-action="tier-down" data-strain="${st.id}" ${x.tier > 1 ? '' : 'disabled'} aria-label="Lower ${st.name} tier">−</button>
         <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(st.id, game.tierCost(st.id))} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : cost(st.id, game.tierCost(st.id))}${word(kT)}</button>
         ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(st.id, game.spawnCost(st.id))} title="+12% ${st.plural}, each level +3% HP"><span>Spawn +</span>${cost(st.id, game.spawnCost(st.id))}${word(kS)}</button>`
           : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}

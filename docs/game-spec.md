@@ -24,7 +24,7 @@ unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 Every released type has **its own two dials**, paid in its own colour:
 | Dial | Range | Effect |
 |---|---|---|
-| **DNA Count** (tier) | 1 → ∞ | Each tier: ×1.15 DNA and ×1.15 HP for that type. Lower for free; raise free back up to its best |
+| **DNA Count** (tier) | 1 → ∞ | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
 
 A **keep-up meter** compares the squad's kill capacity with all arrivals combined, and every dial button previews
