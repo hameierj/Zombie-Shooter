@@ -1,6 +1,6 @@
 # Zombie Idle: Game Spec (v0.8)
 
-An idle zombie shooter with 16-bit pixel art. Zombies walk at your shredder forever; your squad shoots them for DNA in five colours. You decide how hard the stream is, grow your squad and passive tree, and take on optional hordes to
+An idle zombie shooter with smooth HD cartoon art (drawn in code as vector shapes). Zombies walk at your shredder forever; your squad shoots them for DNA in five colours. You decide how hard the stream is, grow your squad and passive tree, and take on optional hordes to
 unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 
 ## 1. The loop

@@ -156,7 +156,12 @@ function refresh() {
   }
   for (const el of hud.querySelectorAll<HTMLElement>('[data-dna]')) el.querySelector('b')!.textContent = fmtLn(game.dna(el.dataset.dna as StrainId));
   const snd = sfx.soundPrefs();
-  $('#hud-sound').textContent = snd.sfx || snd.music ? '🔊' : '🔇';
+  const on = snd.sfx || snd.music;
+  const sb = $('#hud-sound');
+  if (sb.dataset.on !== String(on)) {
+    sb.dataset.on = String(on);
+    sb.innerHTML = `<svg viewBox="0 0 24 24"><path class="f" d="M4 9.5h3.4L12 5.5v13l-4.6-4H4z"/>${on ? '<path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/>' : '<path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/>'}</svg>`;
+  }
   const k = game.keepUp();
   const pill = $('#hud-keep');
   pill.className = `keep-pill ${k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad'}`;

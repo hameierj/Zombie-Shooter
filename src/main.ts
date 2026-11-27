@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
-import '@fontsource/silkscreen/400.css';
-import '@fontsource/silkscreen/700.css';
+import '@fontsource/lilita-one/400.css';
 import './styles.css';
 import { BattleScene } from './game/BattleScene.ts';
 import { game } from './core/state.ts';
@@ -30,16 +29,17 @@ applyLayout();
 const report = game.load();
 
 // ---------- Phaser ----------
-// The pixel font must be loaded before Phaser renders any text with it.
-await Promise.race([document.fonts.load('16px Silkscreen'), new Promise((r) => setTimeout(r, 1500))]);
+// The display font must be loaded before Phaser renders any text with it.
+await Promise.race([document.fonts.load('16px "Lilita One"'), new Promise((r) => setTimeout(r, 1500))]);
 const scene = new BattleScene();
 const phaser = new Phaser.Game({
   type: Phaser.AUTO,
   parent: field,
   backgroundColor: '#1b1d1a',
   scale: { mode: Phaser.Scale.NONE, width: 100, height: 100 },
-  pixelArt: true,
-  roundPixels: true,
+  pixelArt: false,
+  antialias: true,
+  roundPixels: false,
   render: { powerPreference: 'low-power' },
   audio: { noAudio: true },
   banner: false,

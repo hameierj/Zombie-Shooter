@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#121411" />
+  <meta name="theme-color" content="#0b0e13" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,19 +18,19 @@
     <header id="hud">
       <div id="hud-dna" class="hud-dna"></div>
       <div id="hud-keep" class="keep-pill">keeping up</div>
-      <button id="hud-sound" class="icon-btn" data-action="sound" aria-label="Sound on or off">🔊</button>
-      <button id="hud-settings" class="icon-btn" data-action="settings" aria-label="Settings">⚙</button>
+      <button id="hud-sound" class="icon-btn" data-action="sound" aria-label="Sound on or off"></button>
+      <button id="hud-settings" class="icon-btn" data-action="settings" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M12.00 4.80 L13.87 2.58 L15.67 3.13 L16.00 6.01 L17.09 6.91 L19.98 6.67 L20.87 8.33 L19.06 10.60 L19.20 12.00 L21.42 13.87 L20.87 15.67 L17.99 16.00 L17.09 17.09 L17.33 19.98 L15.67 20.87 L13.40 19.06 L12.00 19.20 L10.13 21.42 L8.33 20.87 L8.00 17.99 L6.91 17.09 L4.02 17.33 L3.13 15.67 L4.94 13.40 L4.80 12.00 L2.58 10.13 L3.13 8.33 L6.01 8.00 L6.91 6.91 L6.67 4.02 L8.33 3.13 L10.60 4.94Z"/><circle cx="12" cy="12" r="3"/></svg></button>
     </header>
     <main id="field" aria-label="Battlefield"></main>
     <section id="panel" hidden>
-      <div class="panel-head"><h2 id="panel-title"></h2><button class="btn ghost close" data-action="close">✕ Back to map</button></div>
+      <div class="panel-head"><h2 id="panel-title"></h2><button class="btn ghost close" data-action="close"><svg viewBox="0 0 24 24" class="i"><path d="M6 6l12 12M18 6L6 18"/></svg>Map</button></div>
       <div id="tab-body"></div>
     </section>
     <nav id="tabs" role="tablist">
-        <button data-action="tab" data-arg="zombies" role="tab"><span class="ti">☣</span>Zombies</button>
-        <button data-action="tab" data-arg="squad" role="tab"><span class="ti">✚</span>Squad</button>
-        <button data-action="tab" data-arg="tree" role="tab"><span class="ti">✦</span>Tree</button>
-        <button data-action="tab" data-arg="hordes" role="tab"><span class="ti">⚑</span>Hordes</button>
+        <button data-action="tab" data-arg="zombies" role="tab"><span class="ti"><svg viewBox="0 0 24 24"><path d="M12 2.8a8 8 0 0 0-8 8c0 2.9 1.5 4.9 3.4 6.1v3.3h9.2v-3.3c1.9-1.2 3.4-3.2 3.4-6.1a8 8 0 0 0-8-8z"/><circle class="f" cx="8.9" cy="11" r="1.9"/><circle class="f" cx="15.1" cy="11" r="1.9"/><path d="M10.4 17.2v3M13.6 17.2v3"/></svg></span>Zombies</button>
+        <button data-action="tab" data-arg="squad" role="tab"><span class="ti"><svg viewBox="0 0 24 24"><path d="M4.5 10.2a5 5 0 0 1 10 0z"/><path d="M3.6 10.2h11.8"/><path d="M5.5 20.5c0-3.2 1.8-5.6 4.5-5.6s4.5 2.4 4.5 5.6"/><path d="M13.4 8.3a4.2 4.2 0 0 1 7 2h-3.2M16.2 14.8c2.4.2 4 2.4 4 5.7"/></svg></span>Squad</button>
+        <button data-action="tab" data-arg="tree" role="tab"><span class="ti"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="18" r="2.4"/><circle cx="19" cy="18" r="2.4"/><circle cx="12" cy="13" r="2"/><path d="M12 7.4v3.6M10.4 14.4l-3.6 2.2M13.6 14.4l3.6 2.2"/></svg></span>Tree</button>
+        <button data-action="tab" data-arg="hordes" role="tab"><span class="ti"><svg viewBox="0 0 24 24"><path d="M5.5 21V3.5"/><path d="M5.5 4.2c4.5-2.4 7.6 2.2 13 0v9c-5.4 2.2-8.5-2.4-13 0"/></svg></span>Hordes</button>
     </nav>
     <div id="toasts" aria-live="polite"></div>
     <div id="combo" hidden><b>COMBO <span id="combo-n">0</span></b><span id="combo-x">×1.00 DNA</span><i><em id="combo-bar"></em></i></div>
