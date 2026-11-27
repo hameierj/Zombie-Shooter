@@ -177,7 +177,7 @@ export const CLASSES: ClassDef[] = [
   { id: 'rifle',   name: 'Rifleman',   plural: 'Riflemen',    gun: 'Assault Rifle',    dps: 20, range: 0.60, rate: 5.0, targets: 1, crit: 0.08, horde: 3, hire0: 1.2e4, primary: 'runner', secondary: 'brute',
     ability: { name: 'Suppressive Fire', tags: ['Slow 15%', 'Slow 25%', 'Slow 35%'], stages: ['Hits slow zombies by 15%', 'Hits slow zombies by 25%', 'Hits slow zombies by 35%'] } },
   { id: 'sniper',  name: 'Sniper',     plural: 'Snipers',     gun: 'Sniper Rifle',     dps: 28, range: 1.00, rate: 0.45, targets: 1, crit: 0.30, horde: 4, hire0: 8e4, primary: 'brute', secondary: 'bloater',
-    ability: { name: 'Headshot', tags: ['Kill 10%', 'Kill 20%', 'Kill 30%'], stages: ['10% chance to instantly kill (not bosses)', '20% chance to instantly kill', '30% chance to instantly kill'] } },
+    ability: { name: 'Headshot', tags: ['Kill 10%', 'Kill 20%', 'Kill 30%'], stages: ['10% chance to instantly kill (bosses: ×10 damage)', '20% chance to instantly kill (bosses: ×10 damage)', '30% chance to instantly kill (bosses: ×10 damage)'] } },
   { id: 'flamer',  name: 'Pyro',       plural: 'Pyros',       gun: 'Flamethrower',     dps: 38, range: 0.20, rate: 8.0, targets: 4, crit: 0.0,  horde: 5, hire0: 5e5, primary: 'spitter', secondary: 'bloater',
     ability: { name: 'Napalm', tags: ['Burn +1', 'Burn +2', 'Burn +3'], stages: ['Burning ground: +1 zombie hit, +10% damage', '+2 zombies hit, +20% damage', '+3 zombies hit, +30% damage'] } },
   { id: 'grenade', name: 'Grenadier',  plural: 'Grenadiers',  gun: 'Grenade Launcher', dps: 42, range: 0.65, rate: 0.7, targets: 4, crit: 0.05, horde: 6, hire0: 5e6, primary: 'bloater', secondary: 'shambler',

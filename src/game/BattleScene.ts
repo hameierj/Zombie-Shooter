@@ -25,6 +25,8 @@ const ART_SHORT_SIDE = 400;  // art pixels across the field's short side (bigger
 const MAX_AMBIENT = 110;     // cap on stream zombies alive at once
 const MAX_TEXTS = 36;
 const NUM_FONT = '"Saira Condensed", "Arial Narrow", sans-serif';
+/** A Sniper headshot on a boss (which can't be killed outright) hits for this many times the shot's damage. */
+const BOSS_HEADSHOT = 10;
 const MAX_PARTS = 700;
 /** Safety caps for soft lights and flame puffs (drawn at half resolution, so these are generous). */
 const MAX_GLOWS = 90;
@@ -569,8 +571,9 @@ export class BattleScene extends Phaser.Scene {
         if (!z.alive) continue;
         if (st.ult?.burn) { z.burn = Math.max(z.burn, st.ult.burn); z.vuln = Math.max(z.vuln ?? 0, st.ult.vuln ?? 0); }
         // Headshot's value is counted in the unit's DPS as an average; here it lands as real instant kills instead, so
-        // normal zombies take the plain damage plus the kill chance, and bosses (which can't be headshot) get the full average
-        const ln = lnShot + Math.log(M.matchMult(e, z.strain, game.fx)) - (ab.execute && !z.boss ? Math.log(ab.dmg) : 0) + (z.burn > 0 && z.vuln ? Math.log(1 + z.vuln) : 0);
+        // normal zombies take the plain damage plus the kill chance; bosses can't be killed outright, so a headshot on a
+        // boss deals 10× that shot's damage instead
+        let ln = lnShot + Math.log(M.matchMult(e, z.strain, game.fx)) - (ab.execute ? Math.log(ab.dmg) : 0) + (z.burn > 0 && z.vuln ? Math.log(1 + z.vuln) : 0);
         // abilities: knockback, slow, napalm, headshot execute
         if (ab.knockback && !z.boss) z.p = Math.max(0, z.p - ab.knockback);   // bosses can't be pushed back
         if (ab.slow) z.slow = Math.max(z.slow, ab.slow);
@@ -581,6 +584,18 @@ export class BattleScene extends Phaser.Scene {
           this.skullPop(hx, hy - 4 * this.px);
           this.damage(z, z.hp + 1, '', false);
           continue;
+        }
+        if (ab.execute && z.boss) {
+          // this drawn shot stands for `perDrawn` real shots: each has the Headshot chance to hit for ×10
+          const want = perDrawn * ab.execute, procs = Math.floor(want) + (Math.random() < want - Math.floor(want) ? 1 : 0);
+          if (procs > 0) {
+            ln += Math.log(1 + (BOSS_HEADSHOT - 1) * Math.min(procs, perDrawn) / perDrawn);
+            const [hx, hy] = this.zombieCenter(z);
+            this.floatText(`HEADSHOT ×${BOSS_HEADSHOT}`, hx, hy - 34 * this.px, true);
+            this.skullPop(hx, hy - 8 * this.px);
+            this.damage(z, Math.exp(Math.min(700, ln - z.lnHp)), '', true);
+            continue;
+          }
         }
         this.damage(z, Math.exp(Math.min(700, ln - z.lnHp)), z === target ? fmtLn(ln) : '', crit);
       }
