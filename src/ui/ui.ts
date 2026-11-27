@@ -454,7 +454,8 @@ function railRender() {
     if (urailPick) {
       const c = M.classById(urailPick), u = game.unit(c.id);
       pop = `<div class="zr-pop u-pop ${u.count ? '' : 'narrow'}" style="--dna:${M.strainById(c.primary).color}">
-        <div class="zr-head"><img class="px" src="${classIcon(c.id)}" alt=""><div><b>${esc(c.plural)}</b><span>${u.count ? `${u.count} hired · ${esc(c.gun)}` : `Not hired yet · ${esc(c.gun)}`}</span></div></div>
+        <div class="zr-head"><img class="px" src="${classIcon(c.id)}" alt=""><div><b>${esc(c.plural)}</b><span>${u.count ? `${u.count} hired · ${esc(c.gun)}` : `Not hired yet · ${esc(c.gun)}`}</span></div>
+          ${u.count ? `<span class="zr-rate dps" title="Damage per second from all your ${esc(c.plural)}"><svg viewBox="0 0 24 24" class="i"><path d="M14.5 3.5l6 6-9 9-6-6zM4 20l3.5-3.5M8 13l3 3"/></svg>${fmtLn(game.stats(u).lnDps + Math.log(M.unitPower(u.count)))}<i>/s</i></span>` : ''}</div>
         ${u.count ? upgradeRow(c.id) : `<div class="ugrid">${hireBtn(c.id)}</div>`}</div>`;
     }
   }
