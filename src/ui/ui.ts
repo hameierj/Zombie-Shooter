@@ -4,7 +4,7 @@
 import { showTitle } from './title.ts';
 import { biohazard, evolveCard, hordeCards, overlayUp, showCards, ultCard, zombieUltCard } from './unlocks.ts';
 import { coachUp } from './tutorial.ts';
-import { commanderScene, leaderboardHtml, maybeCommanderScene, syncBoard } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, maybeCommanderScene, syncBoard } from './leader.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps } from '../core/prefs';
 import * as M from '../core/model.ts';
@@ -324,7 +324,7 @@ function act(d: ActionData): boolean {
     case 'zombie-ult': game.zombieUlt(sid); break;
     case 'global': game.buyGlobal(arg as M.ColourId, 1); break;
     case 'scavenger': game.buyScavenger(); break;
-    case 'rename': commanderScene(true); break;
+    case 'rename': if (canRename()) { closeModal(); commanderScene(true); } break;
     case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals'; const cfg = game.autoCfg; cfg[k] = !cfg[k]; game.save(); autoChip(); if (!$('#modal').hidden) openSettings();
       break; }
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
@@ -931,6 +931,9 @@ function openSettings() {
       ${sw('keep-pref', 'Difficulty meters', 'Keep-up meter, upgrade hints and horde odds', showKeep())}
       ${sw('fps-pref', 'FPS counter', 'Frames per second and the slowest frame, over the battlefield', showFps())}
     </section>
+    ${(() => { const pl = getPlayer(); return pl ? `<section class="set-sec"><h4>Commander</h4>
+      <div class="trow static"><div><b>${esc(pl.name)}</b><span>Your name on the leaderboard.${pl.renamed ? ' Your one name change has been used.' : ' You can change it once.'}</span></div>
+      ${pl.renamed ? '' : '<button class="btn small" data-action="rename">Change name</button>'}</div></section>` : ''; })()}
     <section class="set-sec"><h4>Auto-buy</h4>${game.autoUnlocked ? `
       <p class="sub small">Also on the map: the AUTO switches in the top-left corner.</p>
       ${(['zombies', 'units', 'globals'] as const).map((k) => sw('auto-pref', { zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades' }[k], { zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms, only while your squad keeps up ×1.3', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`

@@ -8,7 +8,7 @@ import { classIcon } from '../game/art.ts';
 import { fmtInt } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
 
-export interface Player { id: string; name: string; secret?: string }
+export interface Player { id: string; name: string; secret?: string; renamed?: boolean }
 const KEY = 'zombie-idle-player';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -20,13 +20,15 @@ export function getPlayer(): Player | null {
   if (p && !p.secret) { p.secret = rnd(16); try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* storage blocked */ } game.s.player = p; }
   return p;
 }
-export function setPlayer(name: string): Player {
+export function setPlayer(name: string, rename = false): Player {
   const old = getPlayer();
-  const p: Player = { id: old?.id ?? crypto.randomUUID(), name, secret: old?.secret ?? rnd(16) };
+  const p: Player = { id: old?.id ?? crypto.randomUUID(), name, secret: old?.secret ?? rnd(16), renamed: rename || old?.renamed };
   try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* storage blocked */ }
   game.s.player = p; game.save();
   return p;
 }
+/** One name change per lifetime (from Settings). */
+export const canRename = () => { const p = getPlayer(); return !!p && !p.renamed; };
 /** Names: 2-16 letters, digits, spaces, _ or -. */
 export const cleanName = (s: string) => s.replace(/[^\p{L}\p{N} _-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
 
@@ -72,7 +74,7 @@ export function leaderboardHtml() {
   const rows = BOARD && cache.length ? cache : [me];
   const sorted = [...rows].sort((a, b) => b.hordes - a.hordes || b.tier - a.tier || b.kills - a.kills).slice(0, 20);
   if (!sorted.some((e) => e.id === me.id)) sorted.push(me);
-  return `<div class="lb card"><div class="lb-h"><b>Leaderboard</b><button class="lb-name" data-action="rename" title="Change your name">✎ ${esc(me.name)}</button></div>
+  return `<div class="lb card"><div class="lb-h"><b>Leaderboard</b><span class="lb-name">${esc(me.name)}</span></div>
     <div class="lb-t"><div class="lb-r lb-head"><span>#</span><span>Commander</span><span>Hordes</span><span>Best tier</span><span>Kills</span><span>Bosses</span></div>
     ${sorted.map((e, i) => `<div class="lb-r ${e.id === me.id ? 'me' : ''}"><span>${i + 1}</span><span class="nm">${esc(e.name)}${e.runs ? ` <i>P${e.runs}</i>` : ''}</span><span>${fmtInt(e.hordes)}</span><span>${fmtInt(e.tier)}</span><span>${fmtInt(e.kills)}</span><span>${fmtInt(e.bosses)}</span></div>`).join('')}</div>
     ${BOARD ? '' : '<p class="sub small" style="margin:6px 0 0">The global board is coming online soon; for now it shows your own record.</p>'}</div>`;
@@ -87,9 +89,10 @@ export function maybeCommanderScene(blocked: boolean) {
   commanderScene();
 }
 export function commanderScene(rename = false) {
+  if (rename && !canRename()) return;
   up = true;
   const lines = rename
-    ? ['HQ here. Changing your call sign, Commander?']
+    ? ['HQ here. Changing your call sign, Commander? You only get to do this once, so choose well.']
     : ['*kssht* ...this is HQ. Do you read me, rooftop?', 'That horde should have broken the wall. It didn\'t. Good work out there.',
       'The squad\'s been asking who\'s calling the shots. Guess that makes you the leader.', 'So, Commander. What do they call you?'];
   const el = document.createElement('div');
@@ -119,21 +122,35 @@ export function commanderScene(rename = false) {
     next.hidden = last; form.hidden = !last;
     if (last) window.setTimeout(() => input.focus({ preventScroll: true }), 300);
   };
+  let done = false;
   next.addEventListener('click', () => {
     if (lineEl.textContent !== full) { window.clearInterval(typing); lineEl.textContent = full; return; }   // first tap finishes the line
+    if (done) { sfx.nextCard(); el.classList.add('cs-bye'); window.setTimeout(() => { el.remove(); up = false; game.emit('change'); if (!rename) window.setTimeout(eerie, 900); }, 250); return; }
     i++; sfx.nextCard(); show();
   });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const name = cleanName(input.value);
     if (name.length < 2) { err.hidden = false; input.focus(); return; }
-    const p = setPlayer(name);
+    const p = setPlayer(name, rename);
     form.hidden = true; next.hidden = true;
     type(rename ? `Copy that. Call sign updated: Commander ${p.name}.` : `Commander ${p.name}. The whole world is watching the leaderboard. Make it count. HQ out.`);
     sfx.unlock(0);
     void syncBoard(true);
-    window.setTimeout(() => { el.classList.add('cs-bye'); window.setTimeout(() => { el.remove(); up = false; game.emit('change'); }, 250); }, 3200);
+    // the player closes it themselves, once they've read HQ's sign-off
+    next.textContent = rename ? 'Done' : 'Back to the fight ›'; next.hidden = false; done = true;
+    window.setTimeout(() => next.focus({ preventScroll: true }), 50);
   });
   sfx.nextCard();
   show();
+}
+
+/** After the first naming: a faint, unsettling line drifts over the battlefield, then fades away. */
+function eerie() {
+  const el = document.createElement('div');
+  el.id = 'eerie';
+  el.setAttribute('aria-live', 'polite');
+  el.innerHTML = '<p>You feel an eerie, unknown presence watching you…</p><p class="e2">watching…</p><p class="e3">always watching…</p>';
+  document.body.appendChild(el);
+  window.setTimeout(() => el.remove(), 8200);
 }

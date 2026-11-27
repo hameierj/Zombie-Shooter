@@ -542,6 +542,9 @@ export class BattleScene extends Phaser.Scene {
     // drawn shots per unit type per second (damage is unaffected): big single shots and flames fewer, so the road stays readable and fast
     const cap = r.cls === 'rail' || r.cls === 'sniper' ? 8 : r.cls === 'flamer' ? 30 : 40;
     const rate = Math.min(8, groupShots / visible, cap / visible);
+    // each drawn shot stands for this many real shots: abilities that roll per shot (Headshot) roll for all of them
+    const perDrawn = Math.max(1, groupShots / Math.max(1e-6, rate * visible));
+    const execChance = ab.execute ? Math.min(0.97, 1 - Math.pow(1 - ab.execute, perDrawn)) : 0;
     s.cd -= dt;
     while (s.cd <= 0) {
       s.cd += 1 / rate;
@@ -565,14 +568,17 @@ export class BattleScene extends Phaser.Scene {
       for (const z of hits) {
         if (!z.alive) continue;
         if (st.ult?.burn) { z.burn = Math.max(z.burn, st.ult.burn); z.vuln = Math.max(z.vuln ?? 0, st.ult.vuln ?? 0); }
-        const ln = lnShot + Math.log(M.matchMult(e, z.strain, game.fx)) - (ab.execute ? Math.log(ab.dmg) : 0) + (z.burn > 0 && z.vuln ? Math.log(1 + z.vuln) : 0);
+        // Headshot's value is counted in the unit's DPS as an average; here it lands as real instant kills instead, so
+        // normal zombies take the plain damage plus the kill chance, and bosses (which can't be headshot) get the full average
+        const ln = lnShot + Math.log(M.matchMult(e, z.strain, game.fx)) - (ab.execute && !z.boss ? Math.log(ab.dmg) : 0) + (z.burn > 0 && z.vuln ? Math.log(1 + z.vuln) : 0);
         // abilities: knockback, slow, napalm, headshot execute
         if (ab.knockback && !z.boss) z.p = Math.max(0, z.p - ab.knockback);   // bosses can't be pushed back
         if (ab.slow) z.slow = Math.max(z.slow, ab.slow);
         if (r.cls === 'flamer' && M.abilityStage(r)) z.burn = 1.5;
-        if (ab.execute && !z.horde && Math.random() < ab.execute && z.alive) {
+        if (execChance && !z.boss && z.alive && Math.random() < execChance) {   // any zombie but a boss, horde zombies included
           const [hx, hy] = this.zombieCenter(z);
-          this.floatText('HEADSHOT', hx, hy - 16 * this.px, true);
+          this.floatText('HEADSHOT', hx, hy - 30 * this.px, true);
+          this.skullPop(hx, hy - 4 * this.px);
           this.damage(z, z.hp + 1, '', false);
           continue;
         }
@@ -838,6 +844,17 @@ export class BattleScene extends Phaser.Scene {
     const t = this.time.now / 1000 + d.seed * 10;
     d.img.setVisible(true).setPosition(d.x + Math.sin(t * 1.3) * 3 * px, d.y + Math.sin(t * 3.1) * 2.5 * px).setScale(this.S * 1.8 * this.crowd)
       .setRotation(Math.sin(t * 2) * 0.08).setDepth(8650);
+  }
+
+  /** A Sniper headshot: a little skull and crossbones rises off the zombie and fades away (pooled, at most a few at once). */
+  private skulls = 0;
+  private skullPop(x: number, y: number) {
+    if (this.skulls >= 10) return;
+    this.skulls++;
+    const px = this.px, img = this.take('skull').setPosition(x, y).setDepth(9450).setAlpha(0).setScale(this.S * 0.6).setBlendMode(Phaser.BlendModes.NORMAL);
+    this.tweens.add({ targets: img, scale: this.S * 1.4, alpha: 1, duration: 160, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: img, y: y - 34 * px, angle: (Math.random() - 0.5) * 24, delay: 120, duration: 1100, ease: 'Sine.easeOut' });
+    this.tweens.add({ targets: img, alpha: 0, delay: 750, duration: 500, onComplete: () => { this.give(img); this.skulls--; } });
   }
 
   // ---------- rooftop-siege effects ----------

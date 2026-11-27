@@ -1078,6 +1078,20 @@ export function buildArt(): ArtSet {
   canvases['glob'] = sprite(6, 6, (c) => { ell(c, 3, 3, 2.2, 2.2); shade(c, '#6ff5df', 0.8, 0.8, 4.4, 4.4, 0.5, 0.3); }, { outline: 0.3 });
   canvases['shard'] = sprite(7, 5, (c) => { c.beginPath(); c.moveTo(0.6, 2.5); c.lineTo(3.4, 0.6); c.lineTo(6.6, 2.5); c.lineTo(3.4, 4.4); c.closePath(); shade(c, '#bff8ff', 0.6, 0.6, 6, 3.8, 0.5, 0.2); }, { outline: 0.3 });
   canvases['muzzle'] = fx(7, 7, (c) => { star(c, 3.5, 3.5, 3.5, 1.2, 4); const g = c.createRadialGradient(3.5, 3.5, 0, 3.5, 3.5, 3.5); g.addColorStop(0, '#fff'); g.addColorStop(0.4, '#ffe9a0'); g.addColorStop(1, 'rgba(255,150,40,0)'); c.fillStyle = g; c.fill(); glow(c, 3.5, 3.5, 2.4, '#ffd060', 0.9); });
+  // skull and crossbones (Sniper headshots): bone-white skull with dark eye sockets over two crossed bones
+  canvases['skull'] = sprite(14, 14, (c) => {
+    c.lineCap = 'round';
+    for (const [x0, y0, x1, y1] of [[2.2, 2.6, 11.8, 12.2], [11.8, 2.6, 2.2, 12.2]]) {
+      c.strokeStyle = '#2a2622'; c.lineWidth = 2.6; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+      c.strokeStyle = '#efe8d8'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+      for (const [x, y] of [[x0, y0], [x1, y1]]) { ell(c, x, y, 1.15, 1.15); c.fillStyle = '#efe8d8'; c.fill(); edge(c, 0.3); }
+    }
+    ell(c, 7, 6.2, 4, 3.8); shade(c, '#f4efe2', 3, 2.4, 8, 7.6, 0.4, 0.3); edge(c, 0.45);
+    rr(c, 4.9, 8.6, 4.2, 2.6, 0.8); c.fillStyle = '#f4efe2'; c.fill(); edge(c, 0.4);
+    for (const x of [5.4, 8.6]) { ell(c, x, 6.2, 1.15, 1.25); c.fillStyle = '#1c1416'; c.fill(); }
+    c.beginPath(); c.moveTo(7, 7.4); c.lineTo(6.4, 8.5); c.lineTo(7.6, 8.5); c.closePath(); c.fillStyle = '#1c1416'; c.fill();
+    c.strokeStyle = '#1c1416'; c.lineWidth = 0.35; for (const x of [6.1, 7, 7.9]) { c.beginPath(); c.moveTo(x, 9.4); c.lineTo(x, 10.9); c.stroke(); }
+  }, { outline: 0.5 });
   canvases['spark'] = fx(5, 5, (c) => { star(c, 2.5, 2.5, 2.5, 0.8, 4); c.fillStyle = '#fff6c0'; c.fill(); glow(c, 2.5, 2.5, 1.6, '#ffe060', 1); });
   cache = { canvases, guns };
   return cache;

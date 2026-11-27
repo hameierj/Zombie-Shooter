@@ -1224,3 +1224,21 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .lb-head { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .lb-r.me { background: rgba(255,211,77,.1); outline: 1px solid rgba(255,211,77,.35); }
 #cutscene [hidden] { display: none !important; }
+.trow.static { cursor: default; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.trow.static .btn.small { padding: 7px 12px; min-height: 34px; font-size: 13px; white-space: nowrap; }
+.lb-name { cursor: default; }
+
+/* the eerie line after you take command */
+#eerie { position: fixed; z-index: 70; left: 50%; top: 42%; transform: translate(-50%, -50%); width: min(88vw, 420px); text-align: center; pointer-events: none;
+  font: 400 15px/1.6 "Silkscreen", ui-monospace, monospace; color: #c9a8ff; letter-spacing: .04em; text-shadow: 0 0 10px rgba(160,100,255,.8), 0 0 2px #000, 0 2px 4px #000; }
+#eerie p { margin: 0 0 6px; opacity: 0; animation: eerie-in 7.8s ease-in-out forwards; }
+#eerie .e2 { animation-delay: 1.4s; animation-duration: 6.4s; font-size: 13px; color: #a98ae0; }
+#eerie .e3 { animation-delay: 2.6s; animation-duration: 5.2s; font-size: 12px; color: #8f74c4; letter-spacing: .2em; }
+@keyframes eerie-in {
+  0% { opacity: 0; filter: blur(6px); transform: translateY(6px); }
+  18% { opacity: .95; filter: blur(0); transform: none; }
+  30% { opacity: .55; } 34% { opacity: .9; } 37% { opacity: .4; } 41% { opacity: .9; }
+  75% { opacity: .85; filter: blur(0); }
+  100% { opacity: 0; filter: blur(5px); transform: translateY(-8px); }
+}
+@media (prefers-reduced-motion: reduce) { #eerie p { animation: eerie-fade 7s linear forwards; } @keyframes eerie-fade { 10%, 80% { opacity: .9; } 100% { opacity: 0; } } }
