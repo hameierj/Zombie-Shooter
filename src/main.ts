@@ -64,6 +64,20 @@ phaser.events.once(Phaser.Core.Events.READY, () => setTimeout(fitCanvas, 0));
 // ---------- UI ----------
 initUI();
 
+// ---------- session timer (top right): time played since the app was opened; pauses while it's hidden ----------
+const timeEl = document.getElementById('hud-time')!;
+let playedMs = 0, lastTick = performance.now();
+const fmtTime = (ms: number) => {
+  const t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
+};
+setInterval(() => {
+  const now = performance.now();
+  if (!document.hidden) playedMs += Math.min(now - lastTick, 2000);   // a long gap means the app was asleep
+  lastTick = now;
+  timeEl.textContent = fmtTime(playedMs);
+}, 250);
+
 // ---------- persistence & app lifecycle ----------
 // iOS can kill a backgrounded web app without warning, so save on every hide, not just on unload.
 setInterval(() => game.save(), AUTOSAVE_MS);

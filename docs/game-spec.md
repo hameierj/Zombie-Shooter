@@ -171,8 +171,13 @@ in total; only Snipers can cover the whole road (others cap
 at 95%). Zombies take about 16 s to walk the road, and the view is zoomed out (~400 art units across the short side).
 See `unit-ranges.png`.
 
-## 11. Save slots
-Settings → **Save slots**: three slots plus an automatic **Backup**. *Save here* copies the current game into a slot;
-*Load* swaps a slot in (the current game is copied to Backup first, so a swap can always be undone); *Code* shows a
-slot's save code; *Clear* empties it. *Import code* checks a pasted code, then loads it or files it into a slot.
+## 11. Settings and saves
+Settings is one screen in three sections. **Sound & display**: on/off switches for sound effects, music, range lines and
+difficulty meters. **Saves**: the current game (with when it was last saved), three slots and an automatic **Backup**,
+shown inline. *Save* copies the current game into a slot (asks first if the slot has a save); *Load* switches to a slot
+(asks first; the current game goes to Backup, so it can always be undone); ✕ deletes a slot (asks first). *Copy save
+code* / *Paste save code* move a game between devices; a pasted code is checked as you paste it, then loaded or put into
+a slot. **Danger zone**: *Erase progress* (asks first) also keeps the current game in Backup, so it can be restored.
+A session timer at the top right of the screen shows how long you've been playing since opening the app (it pauses
+while the app is in the background).
 `docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).
