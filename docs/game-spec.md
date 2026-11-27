@@ -42,7 +42,7 @@ Every released type has **its own two dials**, paid in its own colour:
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
 
 The **keep-up meter** is an option in Settings, **off by default**: players read the battlefield instead, and the
-shredder glows and pulses red while zombies are reaching it. The **Shredder** is upgradeable (endless,
+shredder glows and pulses red while zombies are reaching it. The **Shredder** (first card on the Squad menu) is upgradeable (endless,
 Green DNA, ×1.1 damage per level): its damage is shared by the zombies grinding on it and counts towards keeping up.
 It always takes at least 2% of a zombie's HP per second, so every zombie at the wall dies eventually and you can't get
 permanently stuck (zombies killed only by that minimum pay DNA in proportion to the Shredder's real damage, so it can't
@@ -82,7 +82,12 @@ slowly. You never lose.
 - **Drops are rare** and scale gently with total spawn rate; each arrives as a crate in its rarity colour. Every horde
   win guarantees a rare-or-better item (the new unit type's gun for hordes 1–6).
 
-## 4. Passive tree (Tree tab)
+## 4. Upgrade Trees tab
+Sub-tabs across the top switch between **Global** (the passive web below) and every unlocked unit type's own
+upgrade tree (a dot marks any tree with an affordable upgrade). Unit trees are also on each unit's Squad screen;
+"Gear ›" jumps there.
+
+### Global passive tree
 A POE2-style web you pan (drag) and zoom (pinch, scroll wheel, or the + / − buttons). It has eight regions around the
 Command Post; each has small nodes, two notables and a keystone, and neighbouring regions are linked.
 

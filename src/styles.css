@@ -586,3 +586,21 @@ textarea.code { background: #0a0d12; border: 1px solid var(--line); border-radiu
 .specials .sp b { font: 400 15px var(--display); }
 .specials .sp .sub { margin: 0; }
 .feral { color: #ff9a86; } .alpha { color: #b8a6ff; }
+/* Tree tab sub-tabs: Global + one chip per unit type */
+.tree-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; margin-bottom: 4px; scrollbar-width: none; flex: none; }
+.tree-tabs::-webkit-scrollbar { display: none; }
+.tchip { position: relative; flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--muted); font: 400 14px var(--display); white-space: nowrap; }
+.tchip svg { width: 22px; height: 22px; margin-left: 4px; }
+.tchip img { height: 30px; width: 30px; object-fit: contain; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #2a3442, #121820); }
+.tchip.on { color: #10120f; background: linear-gradient(180deg, #ffd65a, #f2b52a); border-color: transparent; box-shadow: 0 4px 12px rgba(255,201,60,.3); }
+.tchip i { position: absolute; top: 3px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 2px #0f1319; }
+.tree-unit-head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; margin: 4px 0 6px; }
+.tree-unit-head .portrait { height: 48px; }
+.tree-unit-head b { display: block; font: 400 16px var(--display); }
+.tree-unit-head .sub { margin: 0; }
+.tree-unit-head + .unit-tree .utree { max-width: 460px; }
+.tree-unit-head .portrait, .tree-unit-head > div { grid-area: auto; }
+.tree-unit-head .btn { min-height: 38px; }
+.shred-card { cursor: default; }
+.shred-card .portrait { object-fit: contain; padding: 8px; }
