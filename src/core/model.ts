@@ -84,6 +84,17 @@ export const strainById = (id: ZombieId) => STRAINS.find((s) => s.id === id)!;
 export const familyOf = (id: ZombieId): ColourId => strainById(id).family;
 /** Zombie types of one colour family, in release order. */
 export const familyMembers = (c: ColourId) => STRAINS.filter((s) => s.family === c);
+/** Progression: each colour's leader is unlocked by a horde; every type's DNA Count caps at TIER_CAP, and at the cap the
+ * colour's next form (its "evolution") can be released. A form continues the curve: Crawler tier 1 is as tough and as rich
+ * as Shambler tier 51 (its stage adds TIER_CAP tiers). The last form of each colour has no cap. */
+export const TIER_CAP = 50;
+export const COLOUR_HORDE: Partial<Record<ZombieId, number>> = { runner: 1, brute: 2, spitter: 3, bloater: 4 };
+const STAGE = new Map<string, number>(), LAST = new Map<string, boolean>();
+export const stageOf = (s: ZombieId) => { let v = STAGE.get(s); if (v === undefined) { const m = familyMembers(familyOf(s)); v = m.findIndex((x) => x.id === s); STAGE.set(s, v); LAST.set(s, v === m.length - 1); } return v; };
+export const isLastForm = (s: ZombieId) => { stageOf(s); return LAST.get(s)!; };
+export const tierCapOf = (s: ZombieId) => (isLastForm(s) ? Infinity : TIER_CAP);
+/** The tier that sets HP, DNA and prices: the type's own tier plus TIER_CAP per evolution stage. */
+export const effTier = (s: ZombieId, t: number) => t + TIER_CAP * stageOf(s);
 export type DnaMap = Record<ColourId, number | null>; // ln amounts per colour; null = 0
 /** Per-type zombie dials. */
 export interface StrainState { unlocked: boolean; tier: number; maxTier: number; spawn: number }
@@ -216,12 +227,13 @@ export const CONFIG = {
                             // covered by guns) costs about one tier of DNA, so each tier takes about the same play time
   baseHp: 6,
   baseDna: 3,
-  tierCost0: 40,            // raising a type's DNA Count from tier t costs 40·1.15^(t−1) of its own DNA
+  tierCost0: 40,            // raising a type's DNA Count from tier t costs 40·1.15^(t−1) of its own DNA (t = effective tier)
+  formCostMult: 2,          // each evolution stage makes that form's tiers and spawn levels 2× pricier, so every form takes longer
   spawnPerLevel: 0.12,      // +12% spawn rate per level…
   spawnMax: 30,
   spawnHpPerLevel: 0.03,    // …and +3% HP
   releaseSec: 180,          // (RELEASE_COST was tuned to ~3 min of a normal run's income)…
-  releaseTier: 15,          // …once the type it comes from has reached tier 15
+  releaseTier: 50,          // a colour's next form opens when the current one reaches the tier cap (TIER_CAP)
   spawnCost0: 20,
   spawnCostGrowth: 1.5,
   hireGrowth: 1.8,
@@ -297,10 +309,12 @@ const BOSS_ORDER: BossKind[] = ['exploder', 'leaper', 'titan', 'brood', 'screame
 const KIND_ORDER: HordeKind[] = ['classic', 'stampede', 'armoured', 'swarm', 'waves', 'fog', 'hospital'];   // matches the first seven horde names
 export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean; kind: HordeKind; boss: BossKind }
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
-// Horde tiers, set from the balance sim so each horde arrives at a steadily growing gap (about 5, 8, 12, 15, 20, 25
-// and 30 min for hordes 1-7, then about 35 min per Elite horde). ELITE_TIERS continue the list; past its end, +32 each.
-const HORDE_TIERS = [17, 26, 34, 85, 480, 1000, 1400];
-const ELITE_TIERS = [1860, 2075, 2215, 2290, 2340, 2385];
+// Horde tiers (effective tiers), set from the balance sim with the tier cap + evolutions: hordes 1-7 at about 6, 13, 29,
+// 41, 62, 73 and 90 min (Hordes 1-4 also bring the yellow, red, teal and purple colours), then an Elite horde every
+// 20-40 min. ELITE_TIERS continue the list; past its end, +10 each.
+const HORDE_TIERS = [18, 34, 78, 104, 130, 145, 158];
+const ELITE_TIERS = [172, 184, 196, 207, 217, 227];
+const ELITE_STEP = 10;
 export function hordeDef(k: number): HordeDef {
   const cls = CLASSES.find((c) => c.horde === k)?.id;
   if (k <= 7) {
@@ -309,38 +323,32 @@ export function hordeDef(k: number): HordeDef {
   }
   const n = k - 7;
   const kind = KIND_ORDER[1 + ((n - 1) % (KIND_ORDER.length - 1))];   // elites never use the plain march
-  const tier = ELITE_TIERS[n - 1] ?? ELITE_TIERS[ELITE_TIERS.length - 1] + 32 * (n - ELITE_TIERS.length);
+  const tier = ELITE_TIERS[n - 1] ?? ELITE_TIERS[ELITE_TIERS.length - 1] + ELITE_STEP * (n - ELITE_TIERS.length);
   return { index: k, name: `Elite ${HORDE_KINDS[kind].name} ${n}`, tier, unlocks: cls ? `${classById(cls).plural} (new recruits)` : 'An epic item', cls, region: -1, elite: true, kind, boss: BOSS_ORDER[(k - 1) % BOSS_ORDER.length] };
 }
 /** Hordes bring a fixed mix of zombie types for their tier (it doesn't depend on which types you've released). */
 /** Guns keep up with you: every gun is refitted to your toughest zombie tier. Guns cover half of each tier's HP
  * growth by design, so they must never fall behind; drops then only matter for rarity. */
 export const gunFloor = (strains: Strains) => bestTier(strains);
-export const hordeMix = (k: number) => STRAINS.filter((s) => s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only
+export const hordeMix = (k: number) => STRAINS.filter((s) => stageOf(s.id) === 0 && s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only (a horde's tier is already the effective tier)
 
 // ---------- Zombies ----------
 export const spawnRate = (s: ZombieId, spawn: number) => strainById(s).baseRate * (1 + C.spawnPerLevel * spawn) * live.spawnMult;
 export const lnZombieHp = (s: ZombieId, tier: number, spawn: number) =>
-  Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (tier - 1) * lnR;
+  Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (effTier(s, tier) - 1) * lnR;
 export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
-  Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna) * (fx.dnaMore ?? 1)) + (tier - 1) * lnR;
-/** Releasing a new zombie type has a FIXED price, paid in the colour it comes from (it never moves while you save up).
- * Each is about 3 min of a normal run's income at the moment it becomes available (its parent type at tier 15). */
-export const RELEASE_COST: Partial<Record<ZombieId, number>> = {
-  runner: 7000, crawler: 7000, office: 12000, farmer: 20000, prisoner: 32000,
-  brute: 4500, jogger: 4500, courier: 9000, skater: 15000, athlete: 24000,
-  spitter: 7000, bouncer: 7000, lumberjack: 16000, butcher: 26000, juggernaut: 40000,
-  bloater: 5500, labtech: 5500, sewer: 12000, diver: 20000, plague: 32000,
-  chef: 8500, sumo: 19000, mutant: 32000, abomination: 50000,
-};
-export const lnReleaseCost = (s: ZombieId, _lnRate?: number) => Math.log(RELEASE_COST[s] ?? 10000);
-export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (tier - 1) * lnR;
-export const lnSpawnCost = (s: ZombieId, lv: number) => Math.log(C.spawnCost0 * strainById(s).dnaMult) + lv * Math.log(C.spawnCostGrowth);
+  Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna) * (fx.dnaMore ?? 1)) + (effTier(s, tier) - 1) * lnR;
+/** Evolving (releasing a colour's next form) costs EVOLVE_TIERS more tiers' worth of the parent at the cap: about a
+ * minute of that colour's income, a fixed price that never moves while you save. */
+export const EVOLVE_TIERS = 4;
+export const lnReleaseCost = (s: ZombieId, _lnRate?: number) => { const from = strainById(s).unlock?.from ?? s; return lnTierCost(from, TIER_CAP) + Math.log(EVOLVE_TIERS); };
+export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (effTier(s, tier) - 1) * lnR + stageOf(s) * Math.log(C.formCostMult);
+export const lnSpawnCost = (s: ZombieId, lv: number) => Math.log(C.spawnCost0 * strainById(s).dnaMult) + lv * Math.log(C.spawnCostGrowth) + TIER_CAP * stageOf(s) * lnR + stageOf(s) * Math.log(C.formCostMult);
 export const activeStrains = (st: Strains) => ZOMBIE_IDS.filter((s) => st[s]?.unlocked);
 export const totalSpawnRate = (st: Strains) => activeStrains(st).reduce((a, s) => a + spawnRate(s, st[s].spawn), 0);
 /** Chance that one shredded zombie drops an item. */
 export const dropChance = (st: Strains, fx: Fx) => (C.dropChance / Math.pow(Math.max(1, totalSpawnRate(st)), C.dropRateExp)) * (1 + fx.drop);
-export const bestTier = (st: Strains) => Math.max(1, ...activeStrains(st).map((s) => st[s].maxTier));
+export const bestTier = (st: Strains) => Math.max(1, ...activeStrains(st).map((s) => effTier(s, st[s].maxTier)));
 
 // ---------- Items ----------
 export interface Gun { uid: number; cls: ClassId; rarity: RarityId; ilvl: number }
@@ -505,8 +513,8 @@ export const prestigeGain = (hordes: number, p: Prestige | undefined) => hordes 
 export function applyPerks(fx: Fx, p: Prestige | undefined) { for (const d of PERKS) { const l = plv(p, d.id); if (l && d.apply) d.apply(fx, l); } return fx; }
 /** Can the squad beat horde k? It must kill the horde (an even mix of its zombie types, shaped by the horde's kind)
  * plus the boss before the boss reaches the shredder. */
-export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number) {
-  const h = hordeDef(k), mix = hordeMix(k), boss = hordeBoss(k), kd = HORDE_KINDS[h.kind], bd = BOSSES[h.boss];
+export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number, tierOverride?: number) {
+  const h = tierOverride ? { ...hordeDef(k), tier: tierOverride } : hordeDef(k), mix = hordeMix(k), boss = hordeBoss(k), kd = HORDE_KINDS[h.kind], bd = BOSSES[h.boss];
   let secPerZombie = 0;
   for (const s of mix) secPerZombie += Math.exp(Math.min(60, lnZombieHp(s, h.tier, 0) - lnSquadDps(squad, fx, s))) / mix.length;
   const bossSec = C.bossHpMult * bd.hp * Math.exp(Math.min(60, lnZombieHp(boss, h.tier, 0) - lnSquadDps(squad, fx, boss)));

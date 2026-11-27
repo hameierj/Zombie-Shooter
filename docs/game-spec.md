@@ -8,16 +8,22 @@ unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 2. Spend each colour on the things priced in it: that zombie type's dials, the unit types whose trees use it, and
    the passive-tree regions paid in it.
 3. Turn each zombie type's dials up while the squad keeps up (more of that colour, tougher zombies of that type).
-4. Release new zombie types with the previous colour to open new colours.
+4. New colours join as horde rewards (Hordes 1–4); each type caps at tier 50 and then **evolves** into its colour's next form.
 5. Beat a **horde** when you're strong enough, to unlock the next unit type and tree region.
 6. Rare **item drops** (guns, attachments, charms) give big jumps in power.
 
 ## 2. Zombie types and their dials (Zombies tab)
 There are **25 zombie types in five DNA colour families**. Every type in a family drops that family's colour.
-The first type of each family is released with the previous family's colour; the other four are released one after
-another with the family's own colour. **Releasing** a type needs the type it comes from at **tier 15**, and has a
-**fixed price** in the colour you pay with (4,500–50,000, about 3 minutes of a normal run's income when it opens up). The
-price never moves while you save up for it (`RELEASE_COST` in model.ts).
+**Colours are horde rewards**, never bought: Green from the start, Yellow (Runner) after Horde 1, Red (Brute) after
+Horde 2, Teal (Spitter) after Horde 3, Purple (Bloater) after Horde 4.
+
+**Tier cap and evolutions.** A type's DNA Count stops at **tier 50** (`TIER_CAP`). At 50 its colour's next form can be
+**evolved** (released) for a fixed price: 4 more tiers' worth of the parent at tier 50, about a minute of that colour's
+income (`EVOLVE_TIERS`). Forms are added alongside the old ones, and each continues the curve: form *n*'s tier 1 is as
+tough and as rich as tier 50·(n−1)+1 of the first form (its **effective tier**, used for HP, DNA, prices, guns and
+barracks). Each form's tier and spawn prices are also ×2 per stage (`formCostMult`), so every form takes longer than the
+last (balance sim: first evolution ~25 min, then ~60 and ~135 min). The fifth form of each colour has no cap. Older saves
+are converted on load: a colour's best tier T becomes forms at 50, 50, … with the remainder on the next form.
 
 | Colour | Family (release order) |
 |---|---|
@@ -41,7 +47,7 @@ item chance), Armoured (×5 HP, ×5 DNA), Screamer (speeds up nearby zombies, ×
 Every released type has **its own two dials**, paid in its own colour:
 | Dial | Range | Effect |
 |---|---|---|
-| **DNA Count** (tier) | 1 → ∞ | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
+| **DNA Count** (tier) | 1 → 50 (last form: ∞) | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
 
 The **keep-up meter** (Settings → Difficulty meters, which also shows horde odds) is **off by default**: players read the battlefield instead, and the
@@ -149,10 +155,11 @@ banner) right after you beat a horde.
 The odds (shown with **Difficulty meters** on) account for the type and boss: count × HP × a difficulty factor for
 speed, fog or healing, plus the extra zombies a boss brings, against the time until the boss arrives and walks in.
 Browser play tests: every horde type and boss won at 1.3, and 5 of 6 lost at 0.85. War Drums starts at 1.10.
-Hordes 1–7 are at tiers 17, 26, 34, 85, 480, 1000 and 1400, and unlock the unit types and regions above. Elite
-hordes follow at 1860, 2075, 2215, 2290, 2340, 2385, then +32 each (some unlock the newer recruits, the rest give an
-epic+ item). These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde) so the gaps
-grow gently: hordes at about 5, 11, 25, 43, 65, 90 and 110 min, then one every 30–40 min. If the next horde is far
+Hordes 1–7 are at effective tiers 18, 34, 78, 104, 130, 145 and 158, and unlock the unit types and regions above
+(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 172, 184, 196, 207, 217, 227,
+then +10 each (some unlock the newer recruits, the rest give an epic+ item). Horde zombies are always each colour's first
+form. These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde): hordes at about 6,
+13, 29, 41, 62, 73 and 90 min, then one every 20–40 min. If the next horde is far
 above your toughest zombies, its card says so and points you at raising zombie tiers.
 
 ## 5b. Combo

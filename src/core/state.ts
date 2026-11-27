@@ -28,6 +28,8 @@ export interface SaveData {
   playSec: number;
   /** Prestige: kept through resets (runs, unspent points, perks). */
   prestige: M.Prestige;
+  /** Economy version: 2 = tier cap + evolutions + horde-unlocked colours (older saves are converted on load). */
+  econ?: number;
 }
 /** A dropped item; `sold` is set when auto-sell turned it straight into DNA. */
 export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale; alsoSold?: number };
@@ -46,7 +48,7 @@ function freshSave(): SaveData {
   return {
     version: 6, dna: emptyDna(), strains: emptyStrains(), units,
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
-    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(), playSec: 0, prestige: M.emptyPrestige(),
+    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(), playSec: 0, prestige: M.emptyPrestige(), econ: 2,
   };
 }
 
@@ -90,8 +92,30 @@ function migrate(data: { version: number }): SaveData {
   const s = d as SaveData;
   if (s.version !== 6) throw new Error(`save version ${s.version}`);
   const f = freshSave();
-  return { ...f, ...s, dna: { ...emptyDna(), ...s.dna }, strains: { ...emptyStrains(), ...s.strains }, units: { ...emptyUnits(), ...s.units }, gear: s.gear ?? [],
+  const out: SaveData = { ...f, ...s, dna: { ...emptyDna(), ...s.dna }, strains: { ...emptyStrains(), ...s.strains }, units: { ...emptyUnits(), ...s.units }, gear: s.gear ?? [],
     autoSell: 'best' };   // auto-sell always keeps the best of each kind and sells the rest
+  if (s.econ !== 2) out.strains = toEcon2(out.strains);
+  out.econ = 2;
+  // colours are horde rewards: make sure every colour you've earned is out
+  for (const [id, k] of Object.entries(M.COLOUR_HORDE) as [M.ZombieId, number][]) if (out.hordes >= k) out.strains[id].unlocked = true;
+  return out;
+}
+/** Older saves had no tier cap. Keep each colour's strength: its best tier T becomes forms at 50, 50, … with the rest
+ * on the next form (the last form is uncapped). Spawn levels and the colour's leader stay as they were. */
+function toEcon2(st: Strains): Strains {
+  const out = { ...st };
+  for (const c of M.COLOURS) {
+    const forms = M.familyMembers(c);
+    if (!st[forms[0].id].unlocked) continue;
+    const T = Math.max(...forms.filter((f) => st[f.id].unlocked).map((f) => st[f.id].maxTier));
+    forms.forEach((f, i) => {
+      const left = T - M.TIER_CAP * i, cap = M.tierCapOf(f.id);
+      const x = st[f.id];
+      if (i === 0 || left >= 1) { const t = Math.max(1, Math.min(cap, left)); out[f.id] = { unlocked: true, tier: t, maxTier: t, spawn: x.spawn }; }
+      else out[f.id] = { unlocked: false, tier: 1, maxTier: 1, spawn: 0 };
+    });
+  }
+  return out;
 }
 
 export interface NodeState {
@@ -158,6 +182,7 @@ export class Game {
   raiseTier(s: ZombieId) {
     const x = this.s.strains[s];
     if (x.tier < x.maxTier) x.tier++;
+    else if (x.maxTier >= M.tierCapOf(s)) return;   // at the cap: evolve to the next form instead
     else if (this.pay(M.familyOf(s), this.tierCost(s))) { x.maxTier++; x.tier++; this.refitGuns(); }
     else return;
     this.emit('change');
@@ -177,12 +202,12 @@ export class Game {
   releaseCost(s: ZombieId) { return M.lnReleaseCost(s); }
   canRelease(s: ZombieId) {
     const u = M.strainById(s).unlock;
-    return !!u && !this.s.strains[s].unlocked && this.releaseReady(s) && this.canAfford(M.familyOf(u.from), this.releaseCost(s));
+    return !!u && !M.COLOUR_HORDE[s] && !this.s.strains[s].unlocked && this.releaseReady(s) && this.canAfford(M.familyOf(u.from), this.releaseCost(s));
   }
   /** Is the type this one comes from released and at tier 15+? */
   releaseReady(s: ZombieId) {
     const u = M.strainById(s).unlock;
-    return !!u && this.s.strains[u.from].unlocked && this.s.strains[u.from].maxTier >= M.CONFIG.releaseTier;
+    return !!u && !M.COLOUR_HORDE[s] && this.s.strains[u.from].unlocked && this.s.strains[u.from].maxTier >= M.TIER_CAP;
   }
   release(s: ZombieId) {
     const u = M.strainById(s).unlock;
@@ -442,6 +467,8 @@ export class Game {
     const h = M.hordeDef(k);
     this.s.hordes = k;
     this.hordeFailOdds = 0;
+    // a new colour joins the stream
+    for (const [id, hk] of Object.entries(M.COLOUR_HORDE) as [M.ZombieId, number][]) if (hk === k && !this.s.strains[id].unlocked) { this.s.strains[id].unlocked = true; this.emit('release', id); }
     this.refitGuns();   // your guns are refitted to at least this horde's tier
     // reward: a rare+ gun for the newly unlocked type, or an epic+ item for elite hordes
     const loot = h.cls ? this.rollLoot(2, h.cls, 2, false) : this.rollLoot(3, undefined, 0, false);

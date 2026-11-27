@@ -47,7 +47,9 @@ function preview(colour: StrainId, costAt: (i: number) => number | null): { n: n
 }
 /** Price tag for a preview: "×12 · 🧪 3.4M" when buying more than one. */
 const amtCost = (col: StrainId, p: { n: number; ln: number }) => `${p.n > 1 ? `<i class="amt">×${p.n}</i>` : ''}${cost(col, p.ln)}`;
-const tierPrev = (z: M.ZombieId) => { const x = game.s.strains[z]; return preview(M.familyOf(z), (i) => (x.tier + i < x.maxTier ? -Infinity : M.lnTierCost(z, x.maxTier + (x.tier + i - x.maxTier)))); };
+const tierPrev = (z: M.ZombieId) => { const x = game.s.strains[z], cap = M.tierCapOf(z); return preview(M.familyOf(z), (i) => (x.tier + i >= cap ? null : x.tier + i < x.maxTier ? -Infinity : M.lnTierCost(z, x.maxTier + (x.tier + i - x.maxTier)))); };
+/** At the tier cap with nothing left to raise (the next form is the way up). */
+const atCap = (z: M.ZombieId) => { const x = game.s.strains[z]; return x.tier >= M.tierCapOf(z); };
 const spawnPrev = (z: M.ZombieId) => { const x = game.s.strains[z]; return preview(M.familyOf(z), (i) => (x.spawn + i < C.spawnMax ? M.lnSpawnCost(z, x.spawn + i) : null)); };
 const hirePrev = (c: ClassId) => { const u = game.unit(c); return preview(game.hireColour(c), (i) => (u.count + i < game.unitCap ? M.lnHireCost(c, u.count + i, game.fx) : null)); };
 const nodePrev = (c: ClassId, id: UnitNodeId) => {
@@ -183,7 +185,7 @@ export function initUI() {
     if (evt === 'horde-won') { const d = data as { k: number; loot: Loot }; toast(`<b>Horde ${d.k} beaten!</b><span>${esc(M.hordeDef(d.k).unlocks)}</span>`, '#ffd34d'); toastLoot(d.loot, 'Reward:'); }
     if (evt === 'stuck') offerRollBack();
     if (evt === 'horde-lost') toast('<b>The horde was too strong</b><span>Upgrade your units and try again.</span>', '#ff6b6b');
-    if (evt === 'release') { const st = M.strainById(data as StrainId); toast(`<b>${st.plural} released!</b><span>They drop ${st.dna} DNA.</span>`, st.color, zombieIcon(st.id)); }
+    if (evt === 'release') { const st = M.strainById(data as StrainId); toast(M.COLOUR_HORDE[st.id as M.ZombieId] ? `<b>New colour: ${st.plural}!</b><span>They drop ${st.dna} DNA.</span>` : `<b>${st.plural} evolved!</b><span>A tougher ${st.dna.toLowerCase()} form that pays far more DNA.</span>`, st.color, zombieIcon(st.id)); }
     if (evt === 'phase') battlePhase = data as string;
     if (evt === 'horde-start') battlePhase = 'intro';
     if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase', 'horde-start'].includes(evt)) soft();
@@ -385,7 +387,7 @@ let urailPick: ClassId | null = null;
 function railCan(id: M.ZombieId) {
   const x = game.s.strains[id], col = M.familyOf(id);
   if (x.tier < x.maxTier) return true;
-  return game.canAfford(col, M.lnTierCost(id, x.maxTier)) || (x.spawn < C.spawnMax && game.canAfford(col, M.lnSpawnCost(id, x.spawn)));
+  return (x.maxTier < M.tierCapOf(id) && game.canAfford(col, M.lnTierCost(id, x.maxTier))) || (x.spawn < C.spawnMax && game.canAfford(col, M.lnSpawnCost(id, x.spawn)));
 }
 const UNIT_NODES_ALL: UnitNodeId[] = ['dmg', 'spd', 'range', 'crit', 'critx', 'ab1', 'ab2', 'ab3', 'attach', 'charm'];
 /** Can you hire one more of this unit type, or afford any of its upgrades? */
@@ -421,9 +423,9 @@ function railRender() {
       const st = M.strainById(railPick), x = game.s.strains[railPick], col = st.family, free = x.tier < x.maxTier;
       const tp = tierPrev(st.id), sp = spawnPrev(st.id);
       pop = `<div class="zr-pop" style="--dna:${st.color}">
-        <div class="zr-head"><img class="px" src="${zombieIcon(st.id)}" alt=""><div><b>${esc(st.plural)}</b><span>Tier ${fmtInt(x.tier)} · Spawn ${x.spawn}/${C.spawnMax}</span></div></div>
+        <div class="zr-head"><img class="px" src="${zombieIcon(st.id)}" alt=""><div><b>${esc(st.plural)}</b><span>Tier ${fmtInt(x.tier)}${M.isLastForm(st.id) ? '' : `/${M.TIER_CAP}`} · Spawn ${x.spawn}/${C.spawnMax}</span></div></div>
         <div class="s-btns">
-          <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>
+          ${atCap(st.id) ? '<button class="btn sbtn ghost" disabled><span>DNA</span><span class="cost">max</span></button>' : `<button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>`}
           ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)}><span>Spawn +</span>${amtCost(col, sp)}</button>`
             : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
         </div></div>`;
@@ -473,7 +475,7 @@ function zombiesHtml() {
   const rates = game.lnDnaPerSec();
   const f = Math.min(1, k);
   const word = (k: number) => !showKeep() ? '' : (k >= 1.1 ? '<i class="good">keeps up</i>' : k >= 0.9 ? '<i class="warn">barely</i>' : '<i class="bad">overrun</i>');
-  const traits = (st: M.StrainDef) => `${st.hp}× HP · ${st.dnaMult}× DNA${st.speed > 1.2 ? ' · fast' : st.speed < 0.8 ? ' · slow' : ''}`;
+  const traits = (st: M.StrainDef) => `${M.stageOf(st.id) ? `Form ${M.stageOf(st.id) + 1} · tier 1 = tier ${M.TIER_CAP * M.stageOf(st.id) + 1} power` : `${st.hp}× HP · ${st.dnaMult}× DNA`}${st.speed > 1.2 ? ' · fast' : st.speed < 0.8 ? ' · slow' : ''}`;
   const row = (st: M.StrainDef) => {
     const x = game.s.strains[st.id], col = st.family;
     if (!x.unlocked) {
@@ -483,8 +485,9 @@ function zombiesHtml() {
       return `<div class="srow locked" style="--dna:${st.color}">
         <img class="px face" src="${zombieIcon(st.id)}" alt="">
         <div class="s-info"><b>${st.plural}</b><span class="sub">${traits(st)}</span></div>
-        <div class="s-btns">${fromOpen ? `<button class="btn sbtn" data-action="release" data-strain="${st.id}" ${costAttr(pc, ln)}><span>Release</span>${cost(pc, ln)}</button>`
-          : `<span class="sub small lockmsg">🔒 ${fx.unlocked ? `${from.plural} to tier ${C.releaseTier} (now ${fx.maxTier})` : `Release ${from.plural} first`}</span>`}</div>
+        <div class="s-btns">${M.COLOUR_HORDE[st.id] ? `<span class="sub small lockmsg">🔒 Beat Horde ${M.COLOUR_HORDE[st.id]}</span>`
+          : fromOpen ? `<button class="btn sbtn" data-action="release" data-strain="${st.id}" ${costAttr(pc, ln)}><span>Evolve</span>${cost(pc, ln)}</button>`
+          : `<span class="sub small lockmsg">🔒 ${fx.unlocked ? `${from.plural} to tier ${M.TIER_CAP} (now ${fx.maxTier})` : `Evolve ${from.plural} first`}</span>`}</div>
       </div>`;
     }
     const kT = game.keepUpIf(st.id, 'tier'), kS = game.keepUpIf(st.id, 'spawn');
@@ -495,9 +498,10 @@ function zombiesHtml() {
       <img class="px face" src="${zombieIcon(st.id)}" alt="">
       <div class="s-info"><b>${st.plural}</b>
         <span class="sub">${vial(col)} +${fmtLn(lnRate)}/s · ${fmtLn(M.lnZombieHp(st.id, x.tier, x.spawn))} HP</span>
-        <span class="sub small">Tier ${fmtInt(x.tier)}${free ? `/${fmtInt(x.maxTier)}` : ''} · Spawn ${x.spawn}/${C.spawnMax} (${fmtNum(M.spawnRate(st.id, x.spawn))}/s)${varietyText(x.tier)}</span></div>
+        <span class="sub small">Tier ${fmtInt(x.tier)}${free ? `/${fmtInt(x.maxTier)}` : ''}${M.isLastForm(st.id) ? '' : ` of ${M.TIER_CAP}`} · Spawn ${x.spawn}/${C.spawnMax} (${fmtNum(M.spawnRate(st.id, x.spawn))}/s)${varietyText(x.tier)}</span></div>
       <div class="s-btns">
-        <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}${word(kT)}</button>
+        ${atCap(st.id) ? '<button class="btn sbtn ghost" disabled title="Top tier: evolve to the next form"><span>DNA</span><span class="cost">max</span></button>'
+          : `<button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}${word(kT)}</button>`}
         ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)} title="+12% ${st.plural}, each level +3% HP"><span>Spawn +</span>${amtCost(col, sp)}${word(kS)}</button>`
           : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
       </div>
@@ -517,7 +521,7 @@ function zombiesHtml() {
   }).join('');
   return `
   ${topBar()}
-  <p class="sub">Zombies come in five DNA colours, five types each. Raise a type's <b>DNA</b> or <b>Spawn</b> to earn more of its colour; it also makes those zombies tougher. Release new types with DNA of their colour.</p>
+  <p class="sub">Zombies come in five DNA colours, five types each. Raise a type's <b>DNA</b> or <b>Spawn</b> to earn more of its colour; it also makes those zombies tougher. At tier ${M.TIER_CAP} a type can <b>evolve</b> into its colour's next form. New colours join after Hordes 1–4.</p>
   ${families}
   <h3>Feral and Alpha zombies</h3>
   <p class="sub small">As you raise a type's DNA Count, tougher versions join its stream: <span class="feral">Feral</span> (from tier 20, ×${M.VARIETIES[1].hp} HP and DNA, up to ${Math.round(0.35 * 100)}%) and <span class="alpha">Alpha</span> (from tier 60, ×${M.VARIETIES[2].hp} HP and DNA, up to 15%).</p>
