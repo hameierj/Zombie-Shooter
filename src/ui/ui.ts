@@ -45,6 +45,7 @@ export function initUI() {
   game.on((evt, data) => {
     if (evt === 'loot') toastLoot(data as Loot, 'Found:');
     if (evt === 'horde-won') { const d = data as { k: number; loot: Loot }; toast(`<b>Horde ${d.k} beaten!</b><span>${esc(M.hordeDef(d.k).unlocks)}</span>`, '#ffd34d'); toastLoot(d.loot, 'Reward:'); }
+    if (evt === 'stuck') offerRollBack();
     if (evt === 'horde-lost') toast('<b>The horde was too strong</b><span>Upgrade your units and try again.</span>', '#ff6b6b');
     if (evt === 'release') { const st = M.strainById(data as StrainId); toast(`<b>${st.plural} released!</b><span>They drop ${st.dna} DNA.</span>`, st.color, zombieIcon(st.id)); }
     if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase'].includes(evt)) soft();
@@ -134,6 +135,14 @@ function act(d: ActionData): boolean {
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
     case 'sound-sfx': sfx.setSfx(!sfx.soundPrefs().sfx); openSettings(); break;
     case 'sound-music': sfx.setMusic(!sfx.soundPrefs().music); openSettings(); break;
+    case 'rollback': {
+      closeModal();
+      const lost = game.rollBack();
+      if (lost.length) toast(`<b>Zombies rolled back</b><span>${lost.map((l) => `${esc(M.strainById(l.id).plural)}${l.tiers ? ` −${l.tiers} tier${l.tiers > 1 ? 's' : ''}` : ''}${l.spawn ? ` −${l.spawn} spawn` : ''}`).join(', ')}</span>`, '#ff9a3c');
+      rollBackSnooze = performance.now() + 30000;
+      break;
+    }
+    case 'rollback-no': closeModal(); rollBackSnooze = performance.now() + 120000; break;
     case 'keep-pref': setShowKeep(!showKeep()); openSettings(); render(); break;
   }
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
@@ -560,6 +569,16 @@ function bindTree() {
 
 function openModal(html: string) { const m = $('#modal'); m.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true">${html}</div>`; m.hidden = false; }
 function closeModal() { $('#modal').hidden = true; }
+let rollBackSnooze = 0;
+/** Pop-up when the squad has been swamped for a while: roll zombies back (losing the DNA spent) or keep fighting. */
+function offerRollBack() {
+  if (performance.now() < rollBackSnooze || !$('#modal').hidden) return;
+  sfx.hordeLost();
+  openModal(`<h3>Overrun!</h3>
+    <p>Zombies have been piling up at the shredder and your squad can't keep up.</p>
+    <p class="sub">Roll the zombies back to a level your squad can handle? The tiers and Spawn levels removed are lost, along with the DNA spent on them.</p>
+    <div class="row"><button class="btn ghost grow" data-action="rollback-no">Keep fighting</button><button class="btn danger grow" data-action="rollback">Roll back</button></div>`);
+}
 function openSettings() {
   const snd = sfx.soundPrefs();
   openModal(`<h3>Settings</h3>

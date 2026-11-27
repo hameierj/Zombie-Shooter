@@ -42,7 +42,9 @@ Every released type has **its own two dials**, paid in its own colour:
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
 
 The **keep-up meter** is an option in Settings, **off by default**: players read the battlefield instead, and the
-shredder glows and pulses red while zombies are reaching it. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
+shredder glows and pulses red while zombies are reaching it. If the shredder stays swamped for 20 seconds (outside a
+horde), an **Overrun!** pop-up offers to roll the zombies back to a level the squad handles: the tiers and Spawn levels
+removed are lost along with the DNA spent on them. "Keep fighting" dismisses it for 2 minutes. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
 whether the squad would still keep up. If the squad falls behind, zombies pile up at the shredder, which grinds them
 slowly. You never lose.
 

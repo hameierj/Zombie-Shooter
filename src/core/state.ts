@@ -481,6 +481,30 @@ export class Game {
       this.s.strains[top].tier--;
     }
   }
+  /**
+   * The player is stuck (overrun for a long time): roll zombie types back until the squad keeps up comfortably.
+   * Tiers and Spawn levels are really lost (best tier too), so the DNA spent on them is gone.
+   * Lowers whichever type adds the most work for the squad first. Returns what changed.
+   */
+  rollBack(target = 1.25): { id: ZombieId; tiers: number; spawn: number }[] {
+    const lost = new Map<ZombieId, { tiers: number; spawn: number }>();
+    const squad = this.squad(), fx = this.fx;
+    for (let guard = 0; guard < 5000 && this.keepUp() < target; guard++) {
+      let worst: ZombieId | null = null, worstLoad = -1;
+      for (const z of M.activeStrains(this.s.strains)) {
+        const x = this.s.strains[z];
+        if (x.tier <= 1 && x.spawn <= 0) continue;
+        const load = M.spawnRate(z, x.spawn) * M.varietyAvg(x.tier) * Math.exp(Math.min(60, M.lnZombieHp(z, x.tier, x.spawn) - M.lnSquadDps(squad, fx, z)));
+        if (load > worstLoad) { worstLoad = load; worst = z; }
+      }
+      if (!worst) break;
+      const x = this.s.strains[worst], l = lost.get(worst) ?? { tiers: 0, spawn: 0 };
+      if (x.tier > 1) { x.tier--; x.maxTier = x.tier; l.tiers++; } else { x.spawn--; l.spawn++; }
+      lost.set(worst, l);
+    }
+    if (lost.size) { this.save(); this.emit('change'); }
+    return [...lost.entries()].map(([id, v]) => ({ id, ...v }));
+  }
   resumeAfter(seconds: number) { return this.simulateOffline(seconds); }
   hardReset() { this.s = freshSave(); this.save(); this.emit('reset'); this.emit('change'); }
   exportSave() { return btoa(unescape(encodeURIComponent(JSON.stringify(this.s)))); }

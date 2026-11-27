@@ -19,6 +19,7 @@ const ART_SHORT_SIDE = 360;  // art pixels across the field's short side (bigger
 const MAX_AMBIENT = 70;      // cap on stream zombies alive at once
 const MAX_TEXTS = 24;
 const INTRO_SEC = 1.4;
+const STUCK_SEC = 20;          // seconds of a swamped shredder before offering a roll-back
 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
@@ -47,6 +48,7 @@ export class BattleScene extends Phaser.Scene {
   private housing!: Phaser.GameObjects.TileSprite;
   private teeth!: Phaser.GameObjects.TileSprite;
   private overrun = 0;
+  private stuckT = 0;
   private capTop!: Phaser.GameObjects.Image;
   private capBot!: Phaser.GameObjects.Image;
   private fx!: Phaser.GameObjects.Graphics;
@@ -177,6 +179,9 @@ export class BattleScene extends Phaser.Scene {
     this.teeth.tilePositionY -= dt * 30 * RES;
     // overrun cue: the shredder glows red while zombies are grinding at it
     const atWall = this.zombies.filter((z) => z.alive && z.p >= 1).length;
+    // stuck detection: the shredder swamped for a long time outside a horde → ask the player to roll back
+    if (this.phase === 'stream' && atWall >= 3) this.stuckT += dt; else this.stuckT = Math.max(0, this.stuckT - dt * 3);
+    if (this.stuckT >= STUCK_SEC) { this.stuckT = 0; game.emit('stuck'); }
     this.overrun += ((atWall > 0 ? Math.min(1, 0.35 + atWall * 0.12) : 0) - this.overrun) * Math.min(1, dt * 4);
     if (this.overrun > 0.02) {
       const pulse = 0.6 + 0.4 * Math.sin(this.time.now / 140);
