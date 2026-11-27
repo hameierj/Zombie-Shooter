@@ -17,8 +17,8 @@ const app = document.getElementById('app')!;
 const field = document.getElementById('field')!;
 const AUTOSAVE_MS = 10_000;
 /** Battlefield render resolution: at most 2 device pixels per CSS pixel (a 3× iPhone draws 2.25× fewer pixels, and the
- * art is soft-shaded so it looks the same), lowered automatically to 1.5 and then 1.25 if frames stay slow. */
-const DPR_STEPS = [2, 1.5, 1.25];
+ * art is soft-shaded so it looks the same), lowered automatically to 1.75 and then 1.5 if frames stay slow. */
+const DPR_STEPS = [2, 1.75, 1.5];
 let dprStep = 0;
 
 // ---------- layout: wide vs tall, re-evaluated on every resize, rotation or fold ----------
@@ -102,7 +102,7 @@ game.on((evt) => {
   if (evt === 'change' && !saveSoon) saveSoon = window.setTimeout(() => { saveSoon = 0; game.save(); }, 400);
 });
 // Adaptive quality: watch the frame rate while the battlefield is showing; if it stays under 45 FPS for 4 s, draw it at a
-// lower resolution (one step at a time, at most every 8 s). If it then runs at 58+ FPS for 40 s, try one step back up.
+// lower resolution (one step at a time, at most every 8 s). If it then runs at 55+ FPS for 15 s, try one step back up.
 {
   let last = performance.now(), acc = 0, frames = 0, slowFor = 0, fastFor = 0, changed = 0;
   const loop = (now: number) => {
@@ -113,9 +113,9 @@ game.on((evt) => {
       const live = field.getBoundingClientRect().width > 2 && !document.querySelector('#app.menu-open');
       if (live) {
         slowFor = fps < 45 ? slowFor + 1 : 0;
-        fastFor = fps >= 58 ? fastFor + 1 : 0;
+        fastFor = fps >= 55 ? fastFor + 1 : 0;
         if (slowFor >= 4 && dprStep < DPR_STEPS.length - 1 && now - changed > 8000) { dprStep++; changed = now; slowFor = 0; fitCanvas(); }
-        else if (fastFor >= 40 && dprStep > 0 && now - changed > 30000) { dprStep--; changed = now; fastFor = 0; fitCanvas(); }
+        else if (fastFor >= 15 && dprStep > 0 && now - changed > 15000) { dprStep--; changed = now; fastFor = 0; fitCanvas(); }
       }
     }
     requestAnimationFrame(loop);

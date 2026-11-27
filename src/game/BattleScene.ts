@@ -23,13 +23,16 @@ const C = M.CONFIG;
 const FONT = '"Lilita One", system-ui, sans-serif';
 const ART_SHORT_SIDE = 400;  // art pixels across the field's short side (bigger = more zoomed out)
 const MAX_AMBIENT = 110;     // cap on stream zombies alive at once
-const MAX_TEXTS = 26;
+const MAX_TEXTS = 36;
 const NUM_FONT = '"Saira Condensed", "Arial Narrow", sans-serif';
-const MAX_PARTS = 360;
-/** Most soft lights (big additive glows, the costliest effect to draw) alive at once. */
-const MAX_GLOWS = 28;
-/** Most flame/fire puffs alive at once (large additive sprites). */
-const MAX_FIRE = 110;
+const MAX_PARTS = 700;
+/** Safety caps for soft lights and flame puffs (drawn at half resolution, so these are generous). */
+const MAX_GLOWS = 90;
+const MAX_FIRE = 420;
+/** Soft additive effects (lights, fire, flames) are drawn into a buffer at 1/LO_DIV resolution, then added over the scene in one
+ * pass: they're blurry glows anyway, so they look the same at a quarter of the drawing cost. */
+const LO_DIV = 2;
+const isLo = (k: string) => k === 'glow' || k === 'fire' || k === 'flame';
 /** The dusk grade per battleground (multiplied over the scene; lights are added on top). */
 const GRADE: Record<GroundTheme, number> = { street: 0x8f96b4, chem: 0x8fae9c, swamp: 0x8fa088, badlands: 0xb4a088, hive: 0xa090b8, neon: 0x948cc4, scrapyard: 0xa89888 };
 const INTRO_SEC = 1.4;
@@ -188,6 +191,7 @@ export class BattleScene extends Phaser.Scene {
     }
     this.dusk.setSize(this.W, this.H).setFillStyle(GRADE[theme] ?? GRADE.street);
     if (!this.decals || this.decals.width !== this.W || this.decals.height !== this.H) this.newDecals();
+    if (!this.lo || this.lo.width !== Math.ceil(this.W / LO_DIV) || this.lo.height !== Math.ceil(this.H / LO_DIV)) this.newLo();
     this.ground!.setScale(1);
     const sx = this.lay.shredX * px;
     const S = this.S;
@@ -505,6 +509,7 @@ export class BattleScene extends Phaser.Scene {
         const gk = u.evo === undefined ? `gun-${u.cls}` : `gun-${u.cls}-u${u.evo}`;
         if (s.gun.texture.key !== gk) s.gun.setTexture(gk);
         s.gun.setVisible(!!gun).setPosition(Math.round(gx), Math.round(gy)).setRotation(s.aim).setDepth(fy + 1).setScale(sc);
+        if (u.evo !== undefined && !arriving && Math.random() < dt * 1.5) this.light(fx, fy - 6 * px, 14, ULT_TINT(u), 0.3, 0.6);   // an ultimate form glows softly in its track's colour
         s.flash.setScale(sc);
         s.flashT -= dt;
         s.flash.setVisible(s.flashT > 0);
@@ -527,7 +532,7 @@ export class BattleScene extends Phaser.Scene {
     const groupShots = st.shotsPerSec * M.unitPower(r.count);
     // shots drawn per soldier: the group's real rate, but at most ~40 visible shots/s per unit type (damage is unaffected)
     // drawn shots per unit type per second (damage is unaffected): big single shots and flames fewer, so the road stays readable and fast
-    const cap = r.cls === 'rail' || r.cls === 'sniper' ? 8 : r.cls === 'flamer' ? 10 : r.cls === 'mg' || r.cls === 'rifle' ? 24 : 18;
+    const cap = r.cls === 'rail' || r.cls === 'sniper' ? 8 : r.cls === 'flamer' ? 30 : 40;
     const rate = Math.min(8, groupShots / visible, cap / visible);
     s.cd -= dt;
     while (s.cd <= 0) {
@@ -692,7 +697,7 @@ export class BattleScene extends Phaser.Scene {
     const [mx, my] = this.muzzle(s);
     const px = this.px;
     sfx.shot(cls);
-    if (cls !== 'bow' && cls !== 'drone' && cls !== 'flamer' && Math.random() < 0.2) this.light(mx, my, 22, 0xffc080, 0.5, 0.05);
+    if (cls !== 'bow' && cls !== 'drone' && Math.random() < 0.35) this.light(mx, my, 22, 0xffc080, 0.5, 0.05);
     const fly = (key: string, x2: number, y2: number, ms: number, after?: () => void) => {
       const b = this.take(key).setPosition(mx, my).setRotation(Math.atan2(y2 - my, x2 - mx)).setScale(this.S).setBlendMode(key === 'arrow' ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.ADD).setDepth(8600).setAlpha(1);
       this.tweens.add({ targets: b, x: x2, y: y2, duration: ms, onComplete: () => { this.give(b); after?.(); } });
@@ -704,7 +709,7 @@ export class BattleScene extends Phaser.Scene {
       case 'bow': { const last = this.zombieCenter(hits[hits.length - 1]); fly('arrow', last[0], last[1], 160, () => this.spark(last[0], last[1])); break; }
       case 'shotgun': s.flashT = 0.07; for (const z of hits) { const [x, y] = this.zombieCenter(z); for (let i = 0; i < 3; i++) this.tracer(mx, my, x + (Math.random() - 0.5) * 8 * px, y + (Math.random() - 0.5) * 8 * px, 0.8, 0xffc890, 0.06); this.hitFx(x, y, true); } break;
       case 'sniper': s.flashT = 0.08; this.tracer(mx, my, tx + 40 * px, ty + (ty - my) * 40 * px / Math.max(1, tx - mx), 2, 0xfff6e0, 0.1); this.hitFx(tx, ty, true); this.light(mx, my, 30, 0xffd0a0, 0.6, 0.06); break;
-      case 'flamer': this.flame(mx, my, tx + (Math.random() - 0.5) * 8 * px, ty + (Math.random() - 0.5) * 6 * px, 4); break;
+      case 'flamer': this.flame(mx, my, tx + (Math.random() - 0.5) * 8 * px, ty + (Math.random() - 0.5) * 6 * px, 5); break;
       case 'mg': { s.flashT = 0.05; const ex = tx + (Math.random() - 0.5) * 4 * px, ey = ty + (Math.random() - 0.5) * 4 * px; this.tracer(mx, my, ex, ey, 1.1, 0xffc878, 0.06); this.hitFx(ex, ey); break; }
       case 'drone': {
         const d = this.take('drone-bot').setPosition(mx, my).setScale(this.S).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
@@ -805,7 +810,7 @@ export class BattleScene extends Phaser.Scene {
   private part(kind: Part['kind'], x: number, y: number, o: Partial<Part> = {}) {
     if (kind === 'glow' && this.glows >= MAX_GLOWS) return;
     if ((kind === 'fire' || kind === 'flame') && this.fires >= MAX_FIRE) return;
-    if (this.parts.length >= MAX_PARTS) { if (kind !== 'blood' && kind !== 'spark') return; const old = this.parts.shift(); if (old?.img) this.give(old.img); }
+    if (this.parts.length >= MAX_PARTS) { if (kind !== 'blood' && kind !== 'spark') return; const old = this.parts.shift(); if (old) this.dropPart(old); }
     if (kind === 'glow') this.glows++; else if (kind === 'fire' || kind === 'flame') this.fires++;
     this.parts.push({ kind, x, y, vx: 0, vy: 0, z: 0, vz: 0, t: 0, life: 0.5, s0: 1, s1: 1, a: 1, damp: 0, rise: 0, v: 0, tint: 0xffffff, ...o });
   }
@@ -840,7 +845,7 @@ export class BattleScene extends Phaser.Scene {
   private flame(mx: number, my: number, tx: number, ty: number, n = 6) {
     const px = this.px, a = Math.atan2(ty - my, tx - mx), dist = Math.hypot(tx - mx, ty - my), v = Math.max(140, dist * 2.2);
     for (let i = 0; i < n; i++) { const aa = a + (Math.random() - 0.5) * 0.2, vv = v * (0.85 + Math.random() * 0.3); this.part('flame', mx, my, { vx: Math.cos(aa) * vv, vy: Math.sin(aa) * vv, life: 0.42 + Math.random() * 0.16, s0: (2.5 * px) / 48, s1: (17 * px) / 48, damp: 1.4, rise: -24 * px }); }
-    if (Math.random() < 0.35) this.light((mx + tx) / 2, (my + ty) / 2, 46, 0xff9a40, 0.45, 0.1);
+    this.light((mx + tx) / 2, (my + ty) / 2, 70, 0xff9a40, 0.45, 0.08);
   }
   private tracer(x1: number, y1: number, x2: number, y2: number, w = 1, col = 0xffd69a, life = 0.07) { if (this.tracers.length < 160) this.tracers.push({ x1, y1, x2, y2, t: 0, life, w, col }); }
   /** A bullet hit: a spark, a puff of blood (not every hit, so a machine gun doesn't flood the screen). */
@@ -851,6 +856,17 @@ export class BattleScene extends Phaser.Scene {
   }
   private glows = 0;
   private fires = 0;
+  private lo?: Phaser.GameObjects.RenderTexture;
+  private loPool: Phaser.GameObjects.Image[] = [];
+  private loDraw: Phaser.GameObjects.Image[] = [];
+  /** Pure additive blending (ONE, ONE) for drawing into the light layer, so overlapping glows build up exactly as on screen. */
+  private addBlend = -1;
+  private newLo() {
+    if (this.addBlend < 0 && this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) { const gl = this.renderer.gl; this.addBlend = this.renderer.addBlendMode([gl.ONE, gl.ONE], gl.FUNC_ADD); }
+    this.lo?.destroy();
+    this.lo = this.add.renderTexture(0, 0, Math.ceil(this.W / LO_DIV), Math.ceil(this.H / LO_DIV)).setOrigin(0, 0).setDisplaySize(this.W, this.H).setDepth(8560).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+  }
+  private dropPart(p: Part) { if (!p.img) return; if (isLo(p.kind)) { p.img.setVisible(false); this.loPool.push(p.img); } else this.give(p.img); p.img = undefined; }
   private tickParts(dt: number) {
     const keep: Part[] = [];
     let glows = 0, fires = 0;
@@ -859,21 +875,23 @@ export class BattleScene extends Phaser.Scene {
     for (const p of this.parts) {
       p.t += dt;
       if (p.t < 0) { keep.push(p); continue; }
-      if (p.t >= p.life) { if (p.img) this.give(p.img); continue; }
+      if (p.t >= p.life) { this.dropPart(p); continue; }
       if (p.damp) { const f = Math.exp(-p.damp * dt); p.vx *= f; p.vy *= f; }
       p.x += p.vx * dt; p.y += (p.vy + p.rise) * dt;
       if (p.kind === 'spark' || p.kind === 'blood' || p.kind === 'debris') {
         p.vz -= 520 * this.px * dt; p.z += p.vz * dt;
         if (p.z < 0) {
           p.z = 0;
-          if (p.kind === 'blood') { this.stampAt(`fx-blood${Math.floor(Math.random() * 2)}`, p.x, p.y, this.px / 2 * (0.18 + Math.random() * 0.25), 0.7); if (p.img) this.give(p.img); continue; }
+          if (p.kind === 'blood') { this.stampAt(`fx-blood${Math.floor(Math.random() * 2)}`, p.x, p.y, this.px / 2 * (0.18 + Math.random() * 0.25), 0.7); this.dropPart(p); continue; }
           p.vz *= -0.3; p.vx *= 0.6; p.vy *= 0.6;
         }
       }
       const f = p.t / p.life;
       if (!p.img) {
         const key = p.kind === 'fire' || p.kind === 'flame' ? 'fx-fire0' : p.kind === 'smoke' ? `fx-smoke${p.v}` : p.kind === 'gas' ? 'fx-gas' : p.kind === 'spark' ? 'fx-spark' : p.kind === 'glow' ? 'fx-glow' : 'pix';
-        p.img = this.take(key).setOrigin(0.5);
+        if (isLo(p.kind)) { const im = this.loPool.pop() ?? this.make.image({ x: 0, y: 0, key }, false); p.img = im.setTexture(key).setVisible(true).setRotation(0); }
+        else p.img = this.take(key);
+        p.img.setOrigin(0.5);
         const add = p.kind === 'fire' || p.kind === 'flame' || p.kind === 'spark' || p.kind === 'glow';
         p.img.setBlendMode(add ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL)
           .setDepth(p.kind === 'smoke' || p.kind === 'gas' ? 8450 : p.kind === 'blood' || p.kind === 'debris' ? 8400 : p.kind === 'glow' ? 8550 : 8600);
@@ -891,9 +909,17 @@ export class BattleScene extends Phaser.Scene {
         case 'debris': img.setScale(p.s0 * 1.6 / 1, p.s0).setRotation(p.t * 9).setAlpha(1 - f); break;
       }
       if (p.kind === 'flame' && f > 0.9 && !p.landed) { p.landed = true; if (Math.random() < 0.25) this.part('smoke', p.x, p.y, { vx: p.vx * 0.2, vy: -8 * this.px, life: 0.9 + Math.random() * 0.6, s0: (6 * this.px) / 56, s1: (16 * this.px) / 56, damp: 1, rise: -12 * this.px, v: 2, a: 0.6 }); if (Math.random() < 0.06) this.stampAt('fx-scorch', p.x, p.y + 6 * this.px, this.px * 0.12, 0.25); }
+      if (isLo(p.kind)) { if (this.addBlend >= 0) img.setBlendMode(this.addBlend); img.setPosition(img.x / LO_DIV, img.y / LO_DIV).setScale(img.scaleX / LO_DIV, img.scaleY / LO_DIV); this.loDraw.push(img); }
       keep.push(p);
     }
     this.parts = keep;
+    // the half-resolution light/fire layer: black (adds nothing), plus this frame's soft effects, added over the scene
+    const lo = this.lo;
+    if (lo) {
+      lo.setVisible(this.loDraw.length > 0);
+      if (this.loDraw.length) { lo.fill(0x000000, 1); lo.beginDraw(); lo.batchDraw(this.loDraw); lo.endDraw(); }
+      this.loDraw.length = 0;
+    }
     for (const t of this.tracers) t.t += dt;
     this.tracers = this.tracers.filter((t) => t.t < t.life);
     for (const r of this.rings) r.t += dt;
