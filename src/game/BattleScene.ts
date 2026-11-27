@@ -12,7 +12,7 @@ import type { ClassId, Gun, SpecialId, VarietyId, ZombieId } from '../core/model
 import { game } from '../core/state.ts';
 import { fmtLn } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
-import { buildArt, drawGround, GUN_H, GUN_W, HERO_GRIP, HERO_H, HERO_W, RARITY_TRIM, RES, ZOMBIE_FRAMES } from './art.ts';
+import { buildArt, drawGround, type GroundTheme, GUN_H, GUN_W, HERO_GRIP, HERO_H, HERO_W, RARITY_TRIM, RES, ZOMBIE_FRAMES } from './art.ts';
 
 const C = M.CONFIG;
 const FONT = '"Lilita One", system-ui, sans-serif';
@@ -28,6 +28,11 @@ interface Zombie {
   shredded?: boolean;  // killed by the shredder: no DNA (only the squad's kills pay)
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
   back?: number;       // drawing only: art px pushed back up the road so a pile at the shredder forms a visible queue
+  bossKind?: M.BossKind; look?: ZombieId; scale?: number; tint?: number;
+  armour?: number;     // Iron Juggernaut: armour left (in HP units); it takes half damage until it breaks
+  fog?: boolean;       // Fog March: hidden (and can't be shot) until halfway down the road
+  air?: number;        // Leaper: >0 while in the air (can't be hit); hop timer and lift
+  hopT?: number; spawnT?: number; stepT?: number;
 }
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
 interface FloatText { obj: Phaser.GameObjects.Text; t: number; vy: number }
@@ -72,7 +77,7 @@ export class BattleScene extends Phaser.Scene {
   private phaseT = 0;
   private zombies: Zombie[] = [];
   private spawnTimers = new Map<ZombieId, number>();
-  private horde = { k: 0, queue: [] as Zombie[], t: 0, spawnT: 0, breaches: 0, bossThrough: false };
+  private horde = { k: 0, queue: [] as Zombie[], t: 0, spawnT: 0, breaches: 0, bossThrough: false, kind: 'classic' as M.HordeKind, spawned: 0 };
   private hordeText!: Phaser.GameObjects.Text;
   private ready = false;
 
@@ -95,7 +100,8 @@ export class BattleScene extends Phaser.Scene {
     this.hordeText = this.add.text(0, 0, '', { fontFamily: FONT, color: '#ffd34d', stroke: '#140c1c' }).setOrigin(0, 0).setDepth(9500).setVisible(false);
     game.on((evt) => {
       if (evt === 'horde-start' && this.phase === 'stream') this.startHorde();
-      if (evt === 'reset') { this.clearZombies(); this.setPhase('stream'); }
+      if (evt === 'reset') { this.clearZombies(); this.setPhase('stream'); this.relayout(); }
+      if (evt === 'horde-won') this.newGround = true;   // the map changes to the next boss's battleground once the dust settles
     });
     this.ready = true;
     this.relayout();
@@ -109,6 +115,9 @@ export class BattleScene extends Phaser.Scene {
   }
 
   // ---------- layout ----------
+  private newGround = false;
+  /** The battleground matches the boss of the next horde. */
+  private theme(): GroundTheme { return M.BOSSES[M.hordeDef(game.nextHorde).boss].ground as GroundTheme; }
   private relayout() {
     this.px = Math.max(1, Math.min(8, Math.min(this.W, Math.max(this.H, this.W * 0.55)) / ART_SHORT_SIDE));
     const px = this.px;
@@ -117,9 +126,10 @@ export class BattleScene extends Phaser.Scene {
     const bunkerRight = Math.max(44, Math.round(this.AW * 0.16));
     const roadTop = Math.round(this.AH * 0.1), roadBot = Math.round(this.AH * 0.96);
     this.lay = { bunkerRight, shredX: bunkerRight + 1, stopX: bunkerRight + 36, spawnX: this.AW + 16, laneTop: roadTop + 26, laneBot: roadBot - 2, roadTop, roadBot };
-    const key = `ground-${this.AW}x${this.AH}@${px.toFixed(3)}`;
+    const theme = this.theme();
+    const key = `ground-${theme}-${this.AW}x${this.AH}@${px.toFixed(3)}`;
     if (key !== this.groundKey) {
-      if (!this.textures.exists(key)) this.textures.addCanvas(key, drawGround({ w: this.AW, h: this.AH, roadTop, roadBot, bunkerRight: bunkerRight - 1 }, px));
+      if (!this.textures.exists(key)) this.textures.addCanvas(key, drawGround({ w: this.AW, h: this.AH, roadTop, roadBot, bunkerRight: bunkerRight - 1 }, px, theme));
       const old = this.groundKey;
       if (this.ground) this.ground.setTexture(key); else this.ground = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(0);
       this.groundKey = key;
@@ -165,12 +175,26 @@ export class BattleScene extends Phaser.Scene {
   private startHorde() {
     const k = game.nextHorde;
     const h = M.hordeDef(k);
-    const mix = M.hordeMix(k);
-    const queue = Array.from({ length: C.hordeZombies }, () => this.makeZombie(mix[Math.floor(Math.random() * mix.length)], h.tier, 0, true));
+    const mix = M.hordeMix(k), kd = M.HORDE_KINDS[h.kind], bd = M.BOSSES[h.boss];
+    const queue = Array.from({ length: kd.count }, (_, i) => {
+      const medic = h.kind === 'hospital' && i % 10 === 4;   // 6 medics spread through the horde
+      const z = this.makeZombie(mix[Math.floor(Math.random() * mix.length)], h.tier, 0, true, false, h.kind === 'armoured' ? 'armored' : medic ? 'medic' : null);
+      z.lnHp += Math.log(kd.hp) - (z.special ? Math.log(M.specialById(z.special).hp) : 0);   // the kind sets the HP, not the special
+      z.speed *= kd.speed;
+      if (h.kind === 'fog') z.fog = true;
+      z.announced = true;   // no pop-up for every armoured zombie / medic
+      return z;
+    });
     // the boss comes last: kill it before it reaches the shredder to win
-    queue.push(this.makeZombie(M.hordeBoss(k), h.tier, 0, true, true));
-    this.horde = { k, t: 0, spawnT: 0, queue, breaches: 0, bossThrough: false };
-    this.showBanner(h.name.toUpperCase(), `HORDE ${k} · TIER ${h.tier}`);
+    const boss = this.makeZombie(M.hordeBoss(k), h.tier, 0, true, true);
+    boss.bossKind = h.boss; boss.look = bd.look; boss.scale = bd.scale; boss.tint = bd.tint;
+    boss.lnHp += Math.log(bd.hp); boss.speed *= bd.speed;
+    if (h.boss === 'juggernaut') boss.armour = 0.6 / bd.hp;      // armour pool on top of HP (in units of the boss's HP)
+    if (h.boss === 'leaper') { boss.hopT = 1.2; boss.air = 0; }
+    if (h.boss === 'brood') boss.spawnT = 2.5;
+    queue.push(boss);
+    this.horde = { k, t: 0, spawnT: 0, queue, breaches: 0, bossThrough: false, kind: h.kind, spawned: 0 };
+    this.showBanner(h.name.toUpperCase(), `${kd.name.toUpperCase()} · BOSS: ${bd.name.toUpperCase()}`);
     sfx.hordeStart();
     this.setPhase('intro');
   }
@@ -217,17 +241,29 @@ export class BattleScene extends Phaser.Scene {
         }
         this.spawnTimers.set(sid, t);
       }
-      if (this.phase === 'end' && this.phaseT > 1.5) this.setPhase('stream');
+      if (this.phase === 'end' && this.phaseT > 1.5) {
+        this.setPhase('stream');
+        if (this.newGround) {
+          this.newGround = false; this.relayout();
+          const bd = M.BOSSES[M.hordeDef(game.nextHorde).boss];
+          this.cameras.main.flash(500, 255, 255, 255);
+          this.showBanner(`NEW BATTLEGROUND: ${bd.place.toUpperCase()}`, `NEXT BOSS: ${bd.name.toUpperCase()}`);
+        }
+      }
     } else if (this.phase === 'intro') {
       if (this.phaseT >= INTRO_SEC) this.setPhase('horde');
     } else if (this.phase === 'horde') {
       const h = this.horde;
       h.t += dt;
       h.spawnT -= dt;
+      const kd = M.HORDE_KINDS[h.kind];
       while (h.queue.length && h.spawnT <= 0) {
-        h.spawnT += 1 / C.hordeSpawnPerSec;
+        h.spawnT += 1 / kd.perSec;
         const z = h.queue.shift()!;
-        if (z.boss) { this.showBanner('BOSS INCOMING', M.strainById(z.strain).name.toUpperCase()); sfx.hordeStart(); }
+        h.spawned++;
+        // Waves: a breather after each wave
+        if (kd.waves && !z.boss && h.spawned % Math.ceil(kd.count / kd.waves) === 0 && h.spawned < kd.count) { h.spawnT += kd.gap ?? 0; this.showBanner(`WAVE ${Math.round(h.spawned / Math.ceil(kd.count / kd.waves)) + 1} INCOMING`, ''); }
+        if (z.boss) { const bd = M.BOSSES[z.bossKind!]; this.showBanner(bd.name.toUpperCase(), bd.desc.toUpperCase()); sfx.hordeStart(); if (z.bossKind === 'titan') this.cameras.main.shake(400, 0.006); }
         this.zombies.push(z);
       }
       // you lose if the boss reaches the shredder, or if 10 horde zombies get to it
@@ -258,6 +294,7 @@ export class BattleScene extends Phaser.Scene {
     // special zombies' auras: screamers speed up, medics heal the zombies around them
     const screamers = this.zombies.filter((z) => z.alive && z.special === 'screamer');
     const medics = this.zombies.filter((z) => z.alive && z.special === 'medic');
+    const king = this.zombies.some((z) => z.alive && z.bossKind === 'screamer' && z.p > 0);   // Screamer King: the whole horde runs faster
     for (const m of medics) for (const z of this.zombies) if (z.alive && z !== m && this.dist(z, m) < 0.14) z.hp = Math.min(1, z.hp + 0.06 * dt);
     for (const z of this.zombies) {
       if (!z.alive) continue;
@@ -268,10 +305,13 @@ export class BattleScene extends Phaser.Scene {
         this.floatText(`${M.specialById(z.special).name.toUpperCase()}!`, ax, ay - 18 * this.px, z.special === 'golden');
       }
       if (z.p < 1) {
-        z.slow = Math.max(0, z.slow - dt * 0.5);
-        const boost = screamers.some((s) => s !== z && this.dist(z, s) < 0.16) ? 1.4 : 1;
+        z.slow = z.bossKind === 'titan' ? 0 : Math.max(0, z.slow - dt * 0.5);   // the Titan ignores slows
+        const boost = (screamers.some((s) => s !== z && this.dist(z, s) < 0.16) ? 1.4 : 1) * (king && z.horde && !z.boss ? 1.35 : 1);
         const sp = z.speed * (1 - z.slow) * boost;
-        z.p = Math.min(1, z.p + sp * dt); z.phase += dt * 6 * sp * C.walkSec;
+        if (z.bossKind === 'leaper') this.leap(z, sp, dt);
+        else { z.p = Math.min(1, z.p + sp * dt); z.phase += dt * 6 * sp * C.walkSec; }
+        if (z.bossKind === 'titan' && z.p > 0 && (z.stepT = (z.stepT ?? 0.9) - dt) <= 0) { z.stepT = 0.9; this.cameras.main.shake(140, 0.004); const [tx, ty] = this.zScreen(z); this.burst(tx, ty, 0x8a7a60, 5); }
+        if (z.bossKind === 'brood' && z.p > 0.02 && (z.spawnT = (z.spawnT ?? 2.5) - dt) <= 0) { z.spawnT = 2.5; this.broodSpawn(z, 2, 0.3, 1.2); }
         if (z.burn > 0) { z.burn -= dt; if (Math.random() < dt * 8) { const [bx, by] = this.zombieCenter(z); this.burst(bx, by + 8 * this.px, 0xff7a2a, 1); } }
         if (z.p > 0.6 && Math.random() < dt * 0.15) sfx.groan();
       }
@@ -389,7 +429,7 @@ export class BattleScene extends Phaser.Scene {
       // target: the zombie closest to the shredder within range (horde zombies first during a horde)
       let target: Zombie | undefined, best = -Infinity;
       for (const z of this.zombies) {
-        if (!z.alive || z.p < Math.max(0.02, 1 - st.range)) continue;
+        if (!z.alive || z.p < Math.max(0.02, 1 - st.range) || !this.hittable(z)) continue;
         const score = z.p + (z.horde ? 1 : 0) + Math.log(M.matchMult(e, z.strain, game.fx)) * 0.3;
         if (score > best) { best = score; target = z; }
       }
@@ -398,7 +438,7 @@ export class BattleScene extends Phaser.Scene {
       // this soldier's share of the group's DPS, per shot (expected value matches the model; crits carry the multiplier)
       const lnShot = st.lnDps + Math.log(M.unitPower(r.count) / visible) - Math.log(rate) - Math.log(1 + st.crit * (st.critDmg - 1)) + (crit ? Math.log(st.critDmg) : 0);
       // extra targets: the nearest other zombies to the main target (pierce, spread, splash)
-      const hits = [target, ...this.zombies.filter((z) => z.alive && z !== target && z.p >= 1 - st.range)
+      const hits = [target, ...this.zombies.filter((z) => z.alive && z !== target && z.p >= 1 - st.range && this.hittable(z))
         .sort((a, b) => this.dist(a, target!) - this.dist(b, target!)).slice(0, Math.max(0, st.targets - 1))
         .filter((z) => this.dist(z, target!) < 0.25)];
       this.shoot(s, r.cls, hits);
@@ -419,6 +459,33 @@ export class BattleScene extends Phaser.Scene {
       }
     }
   }
+  /** Leaper: how high it is in its leap (art px). */
+  private lift(z: Zombie) { return z.air && z.air > 0 ? Math.sin(Math.PI * (1 - z.air / 0.8)) * 34 : 0; }
+  /** Can the squad shoot this zombie right now? (not while a Leaper is in the air, or a Fog March zombie is hidden) */
+  private hittable(z: Zombie) { return !(z.air && z.air > 0) && !(z.fog && z.p < 0.5); }
+  /** Leaper: crouch (can be shot), then a long leap (can't), averaging its walking speed. */
+  private leap(z: Zombie, sp: number, dt: number) {
+    const CROUCH = 1.6, AIR = 0.8;
+    if (z.air && z.air > 0) {
+      z.air -= dt;
+      z.p = Math.min(1, z.p + (sp * (CROUCH + AIR) / AIR) * dt);
+      if (z.air <= 0) { z.air = 0; z.hopT = CROUCH; const [lx, ly] = this.zScreen(z); this.burst(lx, ly, 0x8a7a60, 12); this.cameras.main.shake(160, 0.006); sfx.boom(); }
+    } else {
+      z.hopT = (z.hopT ?? CROUCH) - dt;
+      if (z.p <= 0) z.p = Math.min(1, z.p + sp * dt);   // walk onto the road first
+      else if (z.hopT <= 0) z.air = AIR;
+    }
+  }
+  /** Brood Mother / Giant Exploder: small, fast zombies appear around the boss and join the horde. */
+  private broodSpawn(boss: Zombie, n: number, hpFrac: number, speed: number) {
+    for (let i = 0; i < n; i++) {
+      const c = this.makeZombie('crawler', boss.tier, 0, true);
+      c.lnHp = boss.lnHp - Math.log(C.bossHpMult) - Math.log(M.BOSSES[boss.bossKind!].hp) + Math.log(hpFrac);
+      c.p = Math.max(0, boss.p - 0.02 + (Math.random() - 0.5) * 0.06); c.l = Math.max(-1, Math.min(1, boss.l + (Math.random() - 0.5) * 1.4));
+      c.speed = (M.strainById('crawler').speed * speed) / C.walkSec;
+      this.zombies.push(c);
+    }
+  }
   private dist(a: Zombie, b: Zombie) { return Math.hypot(a.p - b.p, (a.l - b.l) * 0.5); }
 
   /** Where a zombie is drawn: its road position plus its place in the queue at the shredder. */
@@ -432,6 +499,16 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private damage(z: Zombie, frac: number, label: string, crit: boolean) {
+    if (z.armour && z.armour > 0) {
+      // Iron Juggernaut: the armour soaks hits at half effect until it breaks; the rest goes to HP
+      z.armour -= frac * 0.5;
+      if (z.armour > 0) frac = 0;
+      else {
+        frac = -z.armour * 2; z.armour = 0;
+        const [ax, ay] = this.zombieCenter(z);
+        this.floatText('ARMOUR BROKEN!', ax, ay - 30 * this.px, true); this.burst(ax, ay, 0xa8b4c8, 18); sfx.boom(); this.cameras.main.shake(200, 0.005);
+      }
+    }
     z.hp -= frac;
     if (z.flash <= -0.12) z.flash = 0.05;
     if (label && (this.textCd <= 0 || crit)) {
@@ -464,6 +541,13 @@ export class BattleScene extends Phaser.Scene {
         sfx.boom();
         for (const n of this.zombies) if (n.alive && n !== z && this.dist(n, z) < 0.13) this.damage(n, 0.6, '', false);
       }
+    }
+    if (z.bossKind === 'exploder') {
+      const b = this.take('boom').setPosition(x, y).setScale(this.S * 3).setBlendMode(Phaser.BlendModes.ADD).setDepth(8700).setAlpha(1);
+      this.tweens.add({ targets: b, scale: this.S * 9, alpha: 0, duration: 500, onComplete: () => this.give(b) });
+      sfx.boom(); this.cameras.main.shake(350, 0.01);
+      this.floatText('IT BURST!', x, y - 30 * this.px, true);
+      this.broodSpawn(z, 10, 0.3, 1.7);
     }
     const vm = M.VARIETIES[z.variety].dna;
     const loot = game.zombieKilled(z.strain, z.tier, { shredded: !!z.shredded, mult: (sp?.dna ?? 1) * vm * (z.shredded ? C.shredDna * Math.min(1, this.keepCache) ** 2 : 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
@@ -638,12 +722,17 @@ export class BattleScene extends Phaser.Scene {
     const px = this.px;
     this.layoutQueue();
     for (const z of this.zombies) {
-      const [x, y] = this.zScreen(z);
-      if (!z.sprite) z.sprite = this.add.sprite(x, y, `z-${z.strain}-0`).setOrigin(0.5, 1);
-      const frame = z.p >= 1 ? (Math.floor(z.phase) % 2) * 2 : Math.floor(z.phase) % ZOMBIE_FRAMES;
-      z.sprite.setTexture(`z-${z.strain}-${frame}`).setPosition(x, y).setScale((z.boss ? 2 : 1 + 0.12 * z.variety) * this.S).setDepth(y);
+      const [x, y0] = this.zScreen(z);
+      const y = y0 - this.lift(z) * px;
+      const look = z.look ?? z.strain;
+      if (!z.sprite) z.sprite = this.add.sprite(x, y, `z-${look}-0`).setOrigin(0.5, 1);
+      const crouch = z.bossKind === 'leaper' && !(z.air && z.air > 0);
+      const frame = z.p >= 1 || crouch ? (Math.floor(z.phase) % 2) * 2 : Math.floor(z.phase) % ZOMBIE_FRAMES;
+      const sc = z.scale ?? (z.boss ? 2 : 1 + 0.12 * z.variety);
+      z.sprite.setTexture(`z-${look}-${frame}`).setPosition(x, y).setScale(sc * this.S, sc * this.S * (crouch && (z.hopT ?? 1) < 0.5 ? 0.85 : 1)).setDepth(y0)
+        .setAlpha(z.fog && z.p < 0.5 ? 0.22 : 1);
       if (z.flash > 0) z.sprite.setTintFill(0xffffff);
-      else if (z.boss) z.sprite.setTint(0xff9a9a);
+      else if (z.boss) z.sprite.setTint(z.tint ?? 0xff9a9a);
       else if (z.special) z.sprite.setTint(M.specialById(z.special).tint);
       else if (z.variety === 1) z.sprite.setTint(0xffb4a4);
       else if (z.variety === 2) z.sprite.setTint(0xc8b8ff);
@@ -689,6 +778,22 @@ export class BattleScene extends Phaser.Scene {
     const g = this.fx, px = this.px;
     g.clear();
     this.drawRanges(g);
+    // Fog March: a bank of fog over the far half of the road
+    if ((this.phase === 'horde' || this.phase === 'intro') && this.horde.kind === 'fog') {
+      const [fx0] = this.toScreen(0.5, 0), top = this.lay.roadTop * px, h = (this.lay.roadBot - this.lay.roadTop) * px;
+      for (let i = 0; i < 8; i++) g.fillStyle(0xc8d0d8, 0.06 + i * 0.012).fillRect(fx0 + i * 6 * px, top, this.W - fx0 - i * 6 * px, h);
+    }
+    for (const z of this.zombies) {
+      if (!z.alive || !z.bossKind) continue;
+      const [bx, by] = this.zScreen(z);
+      // Leaper: a shadow on the ground while it's in the air
+      if (z.air && z.air > 0) g.fillStyle(0x000000, 0.35).fillEllipse(bx, by - px, 26 * px, 7 * px);
+      // Screamer King: a pulsing ring (the whole horde runs faster while it lives)
+      if (z.bossKind === 'screamer' && z.p > 0) {
+        const pu = (this.time.now / 600) % 1;
+        g.lineStyle(2 * px, 0xff80e0, 0.6 * (1 - pu)).strokeCircle(bx, by - 30 * px, (20 + pu * 60) * px);
+      }
+    }
     if (this.overrun > 0.02) {
       const pulse = 0.6 + 0.4 * Math.sin(this.time.now / 140);
       const x0 = (this.lay.shredX + 26) * px;
@@ -712,8 +817,13 @@ export class BattleScene extends Phaser.Scene {
     for (const z of this.zombies) {
       if (!z.alive || z.hp >= 1 || !z.sprite) continue;
       const [x, y] = this.zScreen(z);
-      const sc = z.boss ? 2 : 1 + 0.12 * z.variety;
-      const bw = (z.boss ? 30 : 14) * px, top = y - 29 * sc * px;
+      if (z.fog && z.p < 0.5) continue;
+      const sc = z.scale ?? (z.boss ? 2 : 1 + 0.12 * z.variety);
+      const bw = (z.boss ? 30 : 14) * px, top = y - this.lift(z) * px - 29 * sc * px;
+      if (z.armour && z.armour > 0) {   // Iron Juggernaut's armour bar above its HP bar
+        g.fillStyle(0x140c1c, 1).fillRect(x - bw / 2 - px, top - 5 * px, bw + 2 * px, 3 * px);
+        g.fillStyle(0xa8b4c8, 1).fillRect(x - bw / 2, top - 4 * px, Math.ceil((bw * Math.min(1, z.armour / (0.6 / M.BOSSES.juggernaut.hp))) / px) * px, 2 * px);
+      }
       g.fillStyle(0x140c1c, 1).fillRect(x - bw / 2 - px, top - px, bw + 2 * px, 3 * px);
       g.fillStyle(z.horde ? 0xff4a4a : 0xe04848, 1).fillRect(x - bw / 2, top, Math.ceil((bw * Math.max(0, z.hp)) / px) * px, z.boss ? 2 * px : px);
     }

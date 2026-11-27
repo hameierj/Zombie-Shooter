@@ -99,6 +99,7 @@ document.addEventListener('dblclick', (e) => e.preventDefault());
 
 // Debug handle for testing in the console.
 (window as unknown as { zgame: typeof game }).zgame = game;
+(window as unknown as { zscene: BattleScene }).zscene = scene;
 (window as unknown as { __TREE: string[] }).__TREE = TREE.map((n) => n.id);
 
 

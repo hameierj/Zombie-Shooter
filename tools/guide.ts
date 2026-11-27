@@ -218,8 +218,8 @@ function hordes() {
     <div class="shotcol narrow">
       <div><img class="phone" src="${SHOT('hordes')}" alt=""></div>
       <div>
-        <p class="lede" style="margin-top:0">Hordes are optional boss fights and the way to unlock new units. The normal stream pauses, ${C.hordeZombies} tougher
-        zombies charge in, and the <b>boss comes last</b>: the toughest zombie of the horde with <b>×${C.bossHpMult} HP</b>, walking slowly, and immune to knockback.</p>
+        <p class="lede" style="margin-top:0">Hordes are optional boss fights and the way to unlock new units. The normal stream pauses and a horde
+        charges in. Every horde has a <b>type</b> (Stampede, Swarm, Fog March…) and ends with a <b>boss</b> with its own trick. The map changes to match the next boss.</p>
         <div class="rules">
           <div class="card"><div class="big">Win</div><span class="small">Kill every horde zombie and the boss.</span></div>
           <div class="card"><div class="big" style="color:var(--bad)">Lose</div><span class="small">The boss reaches the shredder, or <b>${C.breachLimit}</b> horde zombies get to it.</span></div>
@@ -232,8 +232,8 @@ function hordes() {
       </div>
     </div>
     <h3 style="margin-top:12px">The hordes</h3>
-    <div class="hl-list">${ks.map((k) => { const h = M.hordeDef(k); const boss = M.hordeBoss(k);
-      return `<div class="hz ${h.elite ? 'elite' : ''}"><div class="k">${k}</div><div><b>${h.name}</b><span>Tier ${h.tier} · unlocks ${h.unlocks.replace(/^An /, 'an ').replace(/^The /, 'the ')}</span></div><img class="boss px" src="${zombieIcon(boss)}" title="Boss: ${M.strainById(boss).name}" alt=""></div>`; }).join('')}</div>`);
+    <div class="hl-list">${ks.map((k) => { const h = M.hordeDef(k); const bd = M.BOSSES[h.boss];
+      return `<div class="hz ${h.elite ? 'elite' : ''}"><div class="k">${k}</div><div><b>${h.name}</b><span>${M.HORDE_KINDS[h.kind].name} · boss: ${bd.name}</span><span>Tier ${h.tier} · unlocks ${h.unlocks.replace(/^An /, 'an ').replace(/^The /, 'the ')}</span></div><img class="boss px" src="${zombieIcon(bd.look)}" title="Boss: ${bd.name}" alt=""></div>`; }).join('')}</div>`);
 }
 
 // ---------- 7. tree ----------
@@ -253,7 +253,7 @@ function tree() {
       <div><img class="phone" src="${SHOT('tree')}" alt=""></div>
       <div>
         <p class="lede" style="margin-top:0">Squad-wide perks bought with DNA. Each passive costs a little more than the last (×${C.treeCostGrowth}), and you can only take
-        passives connected to ones you already own. Start in Basic Training; every early horde opens a new region. View it as a <b>List</b> (what you can take now) or a <b>Web</b> (the full map).</p>
+        passives connected to ones you already own. Start in Basic Training; every early horde opens a new region. Each region is a checklist: three steps, two paths side by side, then the keystone goal.</p>
         <div class="card"><h4>Node types</h4><ul class="tight small">
           <li><b>Small</b>: steady boosts (+% damage, speed, range...).</li>
           <li><b>Notable</b>: a stronger effect, often unique to a unit type.</li>

@@ -264,17 +264,44 @@ export const logSub = (a: number, b: number): number =>
 export const logSumExp = (xs: number[]) => xs.reduce(logAdd, -Infinity);
 
 // ---------- Hordes ----------
-export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean }
+export type HordeKind = 'classic' | 'swarm' | 'stampede' | 'armoured' | 'waves' | 'fog' | 'hospital';
+export type BossKind = 'titan' | 'exploder' | 'leaper' | 'brood' | 'juggernaut' | 'screamer';
+/** How a horde plays. count × hp is the horde's total toughness; diff covers what HP alone misses (speed, healing, fog). */
+export interface HordeKindDef { id: HordeKind; name: string; desc: string; count: number; hp: number; speed: number; perSec: number; waves?: number; gap?: number; diff: number }
+export const HORDE_KINDS: Record<HordeKind, HordeKindDef> = {
+  classic:  { id: 'classic',  name: 'Horde',           desc: 'A steady march of 60 zombies.',                              count: 60,  hp: 1,    speed: 1,    perSec: 3,   diff: 1 },
+  swarm:    { id: 'swarm',    name: 'Swarm',           desc: '120 weak zombies pouring in fast.',                          count: 120, hp: 0.45, speed: 1.15, perSec: 6,   diff: 1.3 },
+  stampede: { id: 'stampede', name: 'Stampede',        desc: 'Everything charges in at 1.6× speed.',                       count: 60,  hp: 0.8,  speed: 1.6,  perSec: 4,   diff: 1.1 },
+  armoured: { id: 'armoured', name: 'Armoured Column', desc: '24 armoured zombies: slow, very tough.',                      count: 24,  hp: 2.6,  speed: 0.8,  perSec: 1.5, diff: 1 },
+  waves:    { id: 'waves',    name: 'Waves',           desc: 'Three waves of 20, with a breather between them.',           count: 60,  hp: 1,    speed: 1,    perSec: 5,   waves: 3, gap: 6, diff: 1 },
+  fog:      { id: 'fog',      name: 'Fog March',       desc: 'Zombies stay hidden in fog until they are halfway down the road.', count: 50, hp: 1, speed: 1, perSec: 3,   diff: 1.25 },
+  hospital: { id: 'hospital', name: 'Field Hospital',  desc: 'Medics march with the horde and heal it.',                   count: 60,  hp: 0.9,  speed: 1,    perSec: 3,   diff: 1.15 },
+};
+/** Every horde ends with one of these. hp is on top of the ×bossHpMult every boss has; work adds what HP alone misses. */
+export interface BossDef { id: BossKind; name: string; desc: string; hp: number; speed: number; scale: number; look: ZombieId; tint: number; work: number;
+  /** The battleground while this boss's horde is next (see drawGround's themes) and its name. */ ground: string; place: string }
+export const BOSSES: Record<BossKind, BossDef> = {
+  exploder:   { id: 'exploder',   name: 'Giant Exploder', desc: 'Bursts into 10 fast crawlers when it dies.',                 hp: 0.7, speed: 1,    scale: 2.6, look: 'bloater',     tint: 0xffa060, work: 3, ground: 'chem', place: 'Chem Works' },
+  leaper:     { id: 'leaper',     name: 'Leaper',         desc: "Doesn't walk: crouches, then leaps far. Can't be hit in the air.", hp: 0.8, speed: 1.3, scale: 2.2, look: 'athlete', tint: 0xa8ff9a, work: 2, ground: 'swamp', place: 'The Swamp' },
+  titan:      { id: 'titan',      name: 'Titan',          desc: 'Massive and very slow. Shakes the ground; ignores slows.',  hp: 1.9, speed: 0.75, scale: 3.4, look: 'brute',       tint: 0xd8ccb8, work: 0, ground: 'badlands', place: 'Badlands Quarry' },
+  brood:      { id: 'brood',      name: 'Brood Mother',   desc: 'Keeps spawning small zombies as she walks.',               hp: 0.9, speed: 0.9,  scale: 2.6, look: 'abomination', tint: 0xd8a8ff, work: 7, ground: 'hive', place: 'The Hive' },
+  screamer:   { id: 'screamer',   name: 'Screamer King',  desc: 'While alive, every horde zombie runs 35% faster.',         hp: 0.8, speed: 1,    scale: 2.3, look: 'spitter',     tint: 0xff80e0, work: 2, ground: 'neon', place: 'Neon District' },
+  juggernaut: { id: 'juggernaut', name: 'Iron Juggernaut', desc: 'Armour plating takes half damage until it breaks.',        hp: 0.6, speed: 0.9,  scale: 2.6, look: 'juggernaut',  tint: 0xa8b4c8, work: 1.2, ground: 'scrapyard', place: 'The Scrapyard' },
+};
+const BOSS_ORDER: BossKind[] = ['exploder', 'leaper', 'titan', 'brood', 'screamer', 'juggernaut'];
+const KIND_ORDER: HordeKind[] = ['classic', 'stampede', 'armoured', 'swarm', 'waves', 'fog', 'hospital'];   // matches the first seven horde names
+export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean; kind: HordeKind; boss: BossKind }
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
 const HORDE_TIERS = [6, 20, 40, 70, 110, 160, 220];
 export function hordeDef(k: number): HordeDef {
   const cls = CLASSES.find((c) => c.horde === k)?.id;
   if (k <= 7) {
     const unlocks = cls ? `${classById(cls).plural} + the ${['', 'Marksman', 'Breacher', 'Suppression', 'Deadeye', 'Inferno', 'Demolition'][k]} tree region` : 'The Command tree region';
-    return { index: k, name: HORDE_NAMES[k - 1], tier: HORDE_TIERS[k - 1], unlocks, cls, region: k, elite: false };
+    return { index: k, name: HORDE_NAMES[k - 1], tier: HORDE_TIERS[k - 1], unlocks, cls, region: k, elite: false, kind: KIND_ORDER[k - 1], boss: BOSS_ORDER[(k - 1) % BOSS_ORDER.length] };
   }
   const n = k - 7;
-  return { index: k, name: `Elite Horde ${n}`, tier: HORDE_TIERS[6] + 30 * n, unlocks: cls ? `${classById(cls).plural} (new recruits)` : 'An epic item', cls, region: -1, elite: true };
+  const kind = KIND_ORDER[1 + ((n - 1) % (KIND_ORDER.length - 1))];   // elites never use the plain march
+  return { index: k, name: `Elite ${HORDE_KINDS[kind].name} ${n}`, tier: HORDE_TIERS[6] + 30 * n, unlocks: cls ? `${classById(cls).plural} (new recruits)` : 'An epic item', cls, region: -1, elite: true, kind, boss: BOSS_ORDER[(k - 1) % BOSS_ORDER.length] };
 }
 /** Hordes bring a fixed mix of zombie types for their tier (it doesn't depend on which types you've released). */
 export const hordeMix = (k: number) => STRAINS.filter((s) => s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only
@@ -424,15 +451,18 @@ export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains): Record<St
 /** The toughest zombie type in horde k: it becomes the boss. */
 export const hordeBoss = (k: number) => hordeMix(k).reduce((a, b) => (strainById(b).hp > strainById(a).hp ? b : a));
 export const comboMult = (n: number) => 1 + C.combo.bonus * Math.min(n, C.combo.max) / C.combo.max;
-/** Can the squad beat horde k? It must kill 60 zombies (an even mix) plus the boss in the timer, after ~10 s of walk-in. */
+/** Can the squad beat horde k? It must kill the horde (an even mix of its zombie types, shaped by the horde's kind)
+ * plus the boss before the boss reaches the shredder. */
 export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number) {
-  const h = hordeDef(k), mix = hordeMix(k), boss = hordeBoss(k);
+  const h = hordeDef(k), mix = hordeMix(k), boss = hordeBoss(k), kd = HORDE_KINDS[h.kind], bd = BOSSES[h.boss];
   let secPerZombie = 0;
   for (const s of mix) secPerZombie += Math.exp(Math.min(60, lnZombieHp(s, h.tier, 0) - lnSquadDps(squad, fx, s))) / mix.length;
-  const bossSec = C.bossHpMult * Math.exp(Math.min(60, lnZombieHp(boss, h.tier, 0) - lnSquadDps(squad, fx, boss)));
-  // the boss comes last: you have the time it takes to arrive (after the rest of the horde) plus its slow walk,
-  // and in that time the squad must get through the horde and the boss
-  const time = C.hordeZombies / C.hordeSpawnPerSec + C.walkSec / C.bossSpeed;
+  const bossSec = C.bossHpMult * bd.hp * Math.exp(Math.min(60, lnZombieHp(boss, h.tier, 0) - lnSquadDps(squad, fx, boss)));
+  // the boss comes last: you have the time it takes to arrive (after the rest of the horde, and any breathers between
+  // waves) plus its walk, and in that time the squad must get through the horde, the boss and anything the boss adds
+  const spawnSec = kd.count / kd.perSec + (kd.waves ? (kd.waves - 1) * (kd.gap ?? 0) : 0);
+  const time = spawnSec + C.walkSec / (C.bossSpeed * bd.speed);
+  const work = kd.count * kd.hp * kd.diff * secPerZombie + bossSec + bd.work * secPerZombie;
   // ×1.28: a few zombies may slip past (up to 10 breaches); calibrated in browser play tests so ~1.0 is a coin flip
-  return (1.28 * (time - C.walkSec)) / (C.hordeZombies * secPerZombie + bossSec);
+  return (1.28 * (time - C.walkSec)) / work;
 }

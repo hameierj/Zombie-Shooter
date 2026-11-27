@@ -87,12 +87,13 @@ slowly. You never lose.
   win guarantees a rare-or-better item (the new unit type's gun for hordes 1–6).
 
 ## 4. Passive tree (Tree tab)
-A **List** view by default ("Available now" cards and collapsible regions) or the pan/zoom **Web**. Unit upgrades
-live on the Squad page, not here.
+One **checklist per region**, one region open at a time. Each region shows a progress ring (n/10), how many passives
+are ready, the DNA colour it's paid in, and its keystone up front as the **goal**. Inside: steps 1–3, then **Path A and
+Path B** side by side (3 steps each), then the keystone, which opens once either path is done. Each passive raises the
+price of the next one (×1.9). Locked regions say which horde opens them. Unit upgrades live on the Squad page.
 
-### Global passive tree
-A POE2-style web you pan (drag) and zoom (pinch, scroll wheel, or the + / − buttons). It has eight regions around the
-Command Post; each has small nodes, two notables and a keystone, and neighbouring regions are linked.
+Each region is a straight path from the Command Post: there are no links between regions (older saves keep any
+passive they took through the old cross-region links).
 
 | Region | Opens with | Highlights |
 |---|---|---|
@@ -108,13 +109,40 @@ Command Post; each has small nodes, two notables and a keystone, and neighbourin
 Allocate a node next to one you own. Each region is paid in its own DNA colour (Basic Training Green, Marksman and Suppression Yellow, Breacher and Deadeye Red, Inferno Teal, Demolition and Command Purple); each allocation costs ×1.9 more than the last. Tap a node to see what it does.
 
 ## 5. Hordes (Hordes tab)
-Optional fights: **60 zombies, then a boss**. The stream pauses while you fight. The boss is a giant version of the
-toughest zombie type in the horde (×10 HP) and comes last, walking slowly. **You lose if the boss reaches the shredder
-or 10 horde zombies reach it** (no timer). The field shows zombies left, breaches, the boss's distance from the
-shredder, and a distance bar along the bottom. With **Difficulty meters** on (Settings), each card shows your odds
-(calibrated in play tests: 1.15 wins, 0.95 loses; War Drums starts at 1.10); off by default. Hordes 1–7 are at tiers 6, 20, 40, 70, 110,
-160 and 220, and unlock the unit types and regions above. After that come endless **Elite hordes** every 30 tiers
-(some unlock the newer recruits, the rest give an epic+ item). Losing costs nothing; try again when stronger.
+Optional fights. The stream pauses while you fight. Every horde has a **type** and ends with a **boss** (×10 HP, plus
+its own mechanic) that comes last. **You lose if the boss reaches the shredder or 10 horde zombies reach it** (no
+timer). The field shows zombies left, breaches, the boss's distance from the shredder, and a distance bar along the
+bottom. Losing costs nothing; try again when stronger.
+
+**Horde types** (horde 1–7 in this order; Elite hordes cycle through all but the plain march):
+| Type | What changes |
+|---|---|
+| Horde | 60 zombies at a steady march |
+| Stampede | 60 zombies at 1.6× speed (0.8× HP) |
+| Armoured Column | 24 armoured zombies: 2.6× HP, slow |
+| Swarm | 120 weak zombies (0.45× HP), spawning twice as fast |
+| Waves | 3 waves of 20 with a 6 s breather between them |
+| Fog March | 50 zombies hidden in fog (and impossible to shoot) until halfway down the road |
+| Field Hospital | 60 zombies with 6 medics that heal the horde |
+
+**Bosses** (rotating, one per horde):
+| Boss | Mechanic | Battleground |
+|---|---|---|
+| Giant Exploder | Bursts into 10 fast crawlers when it dies | Chem Works |
+| Leaper | Crouches, then leaps far; can't be hit in the air | The Swamp |
+| Titan | 1.9× boss HP, very slow, shakes the ground, ignores slows | Badlands Quarry |
+| Brood Mother | Spawns 2 small zombies every 2.5 s | The Hive |
+| Screamer King | Every horde zombie runs 35% faster while it lives | Neon District |
+| Iron Juggernaut | An armour bar that takes half damage until it breaks | The Scrapyard |
+
+**Battlegrounds:** the map always matches the boss of your next horde, and changes (with a "New battleground"
+banner) right after you beat a horde.
+
+The odds (shown with **Difficulty meters** on) account for the type and boss: count × HP × a difficulty factor for
+speed, fog or healing, plus the extra zombies a boss brings, against the time until the boss arrives and walks in.
+Browser play tests: every horde type and boss won at 1.3, and 5 of 6 lost at 0.85. War Drums starts at 1.10.
+Hordes 1–7 are at tiers 6, 20, 40, 70, 110, 160 and 220, and unlock the unit types and regions above. After that come
+endless **Elite hordes** every 30 tiers (some unlock the newer recruits, the rest give an epic+ item).
 
 ## 5b. Combo
 Every kill while you're playing adds 1 to the **combo**, shown over the battlefield. DNA from kills is multiplied by

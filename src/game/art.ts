@@ -705,36 +705,110 @@ const ICONS: Record<string, () => HTMLCanvasElement> = {
 // ---------- ground ----------
 export interface GroundLayout { w: number; h: number; roadTop: number; roadBot: number; bunkerRight: number }
 
+/** A battleground: the map changes after each horde to match the next horde's boss. */
+export type GroundTheme = 'street' | 'chem' | 'swamp' | 'badlands' | 'hive' | 'neon' | 'scrapyard';
+interface ThemeSpec {
+  verge: [string, string, string]; blobs: [string, string]; blades: [string, string] | null;
+  road: [string, string, string]; dash: string | null; decos: (() => HTMLCanvasElement)[]; roadDecos: (() => HTMLCanvasElement)[];
+  extras?: (ctx: Ctx, L: GroundLayout, r: () => number) => void;
+}
+/** A pool on the ground; `glow` = 'r,g,b' (and alpha) for a soft halo around it. */
+const puddle = (ctx: Ctx, x: number, y: number, w: number, h: number, inner: string, rim: string, glow?: [string, number]) => {
+  if (glow) { const gg = ctx.createRadialGradient(x, y, 0, x, y, w * 1.6); gg.addColorStop(0, `rgba(${glow[0]},${glow[1]})`); gg.addColorStop(1, `rgba(${glow[0]},0)`); ctx.fillStyle = gg; ctx.fillRect(x - w * 1.6, y - w * 1.6, w * 3.2, w * 3.2); }
+  ell(ctx, x, y, w, h); ctx.fillStyle = rim; ctx.fill(); ell(ctx, x - w * 0.08, y - h * 0.1, w * 0.82, h * 0.72); ctx.fillStyle = inner; ctx.fill();
+  ell(ctx, x - w * 0.3, y - h * 0.35, w * 0.25, h * 0.14); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fill();
+};
+const verges = (L: GroundLayout, r: () => number, n: number, f: (x: number, y: number) => void, onRoad = false) => {
+  for (let i = 0; i < n; i++) {
+    const x = L.bunkerRight + 8 + r() * (L.w - L.bunkerRight - 12);
+    const top = r() < 0.5;
+    const y = onRoad ? L.roadTop + 6 + r() * (L.roadBot - L.roadTop - 12) : top ? 3 + r() * Math.max(1, L.roadTop - 8) : L.roadBot + 5 + r() * Math.max(1, L.h - L.roadBot - 8);
+    f(x, y);
+  }
+};
+let THEMES_: Record<GroundTheme, ThemeSpec> | null = null;
+const themes = (): Record<GroundTheme, ThemeSpec> => (THEMES_ ??= {
+  street: { verge: ['#3f6a2c', '#4a7a34', '#3a6228'], blobs: ['96,150,60', '40,80,30'], blades: ['rgba(120,180,70,.7)', 'rgba(60,110,40,.7)'], road: ['#3a3d45', '#454852', '#383b42'], dash: 'rgba(240,215,110,.8)',
+    decos: [drawTire, drawBarrel, drawCone, drawBones, drawSkull], roadDecos: [drawBones, drawSkull, drawTire] },
+  // Giant Exploder: a leaking chemical works, toxic puddles glowing on the ground
+  chem: { verge: ['#4e4f2a', '#5c5a2e', '#47472a'], blobs: ['150,150,60', '60,60,30'], blades: ['rgba(170,170,80,.55)', 'rgba(90,90,40,.6)'], road: ['#3c3b36', '#47463f', '#393833'], dash: 'rgba(255,170,60,.75)',
+    decos: [() => drawBarrel('#d8b020'), () => drawBarrel('#d8b020'), drawBarrel, drawCone, drawSkull], roadDecos: [() => drawBarrel('#d8b020'), drawBones],
+    extras: (ctx, L, r) => {
+      verges(L, r, Math.ceil(L.w / 22), (x, y) => puddle(ctx, x, y, 4 + r() * 6, 2 + r() * 2.5, 'rgba(160,240,60,.85)', 'rgba(90,160,30,1)', ['160,240,60', 0.25]));
+      verges(L, r, Math.ceil(L.w / 18), (x, y) => puddle(ctx, x, y, 3 + r() * 7, 1.5 + r() * 2.5, 'rgba(150,230,60,.7)', 'rgba(80,140,30,.9)', ['150,230,60', 0.2]), true);
+      verges(L, r, Math.ceil(L.w / 10), (x, y) => { ell(ctx, x, y, 3 + r() * 6, 1 + r() * 2); ctx.fillStyle = 'rgba(200,170,40,.12)'; ctx.fill(); }, true);
+    } },
+  // Leaper: a swamp. Murky pools with lily pads, reeds, a muddy track
+  swamp: { verge: ['#23402f', '#2c4a36', '#20392a'], blobs: ['60,110,80', '20,50,35'], blades: ['rgba(110,150,70,.8)', 'rgba(60,100,50,.8)'], road: ['#3e382c', '#4a4334', '#3a3429'], dash: null,
+    decos: [drawReeds, drawReeds, drawLily, drawSkull], roadDecos: [drawLily, drawBones],
+    extras: (ctx, L, r) => {
+      verges(L, r, Math.ceil(L.w / 14), (x, y) => puddle(ctx, x, y, 7 + r() * 9, 3 + r() * 3, 'rgba(30,70,70,.9)', 'rgba(20,45,40,1)'));
+      verges(L, r, Math.ceil(L.w / 12), (x, y) => puddle(ctx, x, y, 5 + r() * 10, 2 + r() * 3, 'rgba(40,62,52,.8)', 'rgba(32,40,30,1)'), true);
+      verges(L, r, Math.ceil(L.w / 6), (x, y) => { ell(ctx, x, y, 2 + r() * 5, 1 + r() * 1.5); ctx.fillStyle = 'rgba(30,24,14,.25)'; ctx.fill(); }, true);
+      verges(L, r, Math.ceil(L.w / 40), (x, y) => { ell(ctx, x, y, 2.6, 1.4); ctx.fillStyle = '#4f9a44'; ctx.fill(); }, true);
+    } },
+  // Titan: badlands quarry. Dust, boulders, deep cracks
+  badlands: { verge: ['#7c6646', '#8a7350', '#735e40'], blobs: ['170,140,100', '90,70,45'], blades: null, road: ['#5e5040', '#6a5a48', '#594b3c'], dash: null,
+    decos: [drawRock, drawRock, drawRock, drawBones, drawSkull], roadDecos: [drawRock, drawBones],
+    extras: (ctx, L, r) => { ctx.strokeStyle = 'rgba(40,28,18,.55)'; ctx.lineWidth = 0.8; for (let i = 0; i < L.w / 10; i++) { let x = L.bunkerRight + r() * L.w, y = r() * L.h; ctx.beginPath(); ctx.moveTo(x, y); for (let k = 0; k < 6; k++) { x += 2 + r() * 4; y += (r() - 0.5) * 4; ctx.lineTo(x, y); } ctx.stroke(); } } },
+  // Brood Mother: an infested hive. Purple goo, egg sacs
+  hive: { verge: ['#30243a', '#3a2c46', '#2a2034'], blobs: ['150,90,180', '50,30,60'], blades: null, road: ['#2f2b35', '#38333f', '#2b2731'], dash: 'rgba(200,140,255,.45)',
+    decos: [drawEggs, drawEggs, drawSkull, drawBones], roadDecos: [drawEggs, drawBones],
+    extras: (ctx, L, r) => {
+      verges(L, r, Math.ceil(L.w / 12), (x, y) => puddle(ctx, x, y, 5 + r() * 9, 2.5 + r() * 3, 'rgba(160,90,200,.7)', 'rgba(90,50,120,1)', ['170,100,220', 0.18]));
+      verges(L, r, Math.ceil(L.w / 14), (x, y) => puddle(ctx, x, y, 4 + r() * 8, 1.5 + r() * 2.5, 'rgba(140,80,180,.55)', 'rgba(80,40,100,.9)', ['170,100,220', 0.12]), true);
+      ctx.strokeStyle = 'rgba(150,90,190,.35)'; ctx.lineWidth = 0.7;
+      verges(L, r, Math.ceil(L.w / 8), (x, y) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 6, y + (r() - 0.5) * 8, x + 12 + r() * 10, y + (r() - 0.5) * 6); ctx.stroke(); }, true);
+    } },
+  // Screamer King: a city at night, wet asphalt with neon reflections
+  neon: { verge: ['#1b1f2c', '#222739', '#191c28'], blobs: ['60,70,120', '10,12,24'], blades: null, road: ['#1f2028', '#272832', '#1c1d24'], dash: 'rgba(255,90,210,.85)',
+    decos: [drawCone, drawTire, drawSkull, drawBarrel], roadDecos: [drawTire],
+    extras: (ctx, L, r) => {
+      const cols = ['255,80,210', '60,220,255', '255,200,60'];
+      verges(L, r, Math.ceil(L.w / 12), (x, y) => { const c = cols[Math.floor(r() * cols.length)]; puddle(ctx, x, y, 5 + r() * 9, 1.4 + r() * 2, `rgba(${c},.35)`, `rgba(30,32,44,.9)`, [c, 0.22]); }, true);
+      verges(L, r, Math.ceil(L.w / 26), (x, y) => { const c = cols[Math.floor(r() * cols.length)]; ctx.fillStyle = `rgba(${c},.85)`; ctx.fillRect(x, y, 10 + r() * 10, 1.6); });
+      for (let i = 0; i < L.w / 5; i++) { ctx.fillStyle = `rgba(${cols[i % 3]},.07)`; ctx.fillRect(L.bunkerRight + r() * L.w, L.roadTop + r() * (L.roadBot - L.roadTop), 0.6, 6 + r() * 10); }
+    } },
+  // Iron Juggernaut: a scrapyard. Gravel, oil stains, steel plates on the road
+  scrapyard: { verge: ['#4e4d48', '#5a5952', '#47463f'], blobs: ['120,120,110', '40,40,36'], blades: null, road: ['#3d4046', '#4a4d54', '#393c42'], dash: 'rgba(240,200,80,.7)',
+    decos: [drawTire, drawTire, drawScrap, drawScrap, drawBarrel], roadDecos: [drawScrap, drawTire],
+    extras: (ctx, L, r) => {
+      verges(L, r, Math.ceil(L.w / 24), (x, y) => puddle(ctx, x, y, 4 + r() * 7, 2 + r() * 2, 'rgba(10,10,14,.8)', 'rgba(30,30,36,1)'), true);
+      for (let i = 0; i < L.w / 40; i++) { const x = L.bunkerRight + 20 + r() * (L.w - L.bunkerRight - 40), y = L.roadTop + 6 + r() * (L.roadBot - L.roadTop - 20); rr(ctx, x, y, 14, 9, 1); ctx.fillStyle = 'rgba(120,126,136,.55)'; ctx.fill(); ctx.strokeStyle = 'rgba(20,20,24,.6)'; ctx.lineWidth = 0.4; ctx.stroke(); for (const [dx, dy] of [[1.5, 1.5], [12.5, 1.5], [1.5, 7.5], [12.5, 7.5]]) { ell(ctx, x + dx, y + dy, 0.5, 0.5); ctx.fillStyle = 'rgba(30,30,34,.8)'; ctx.fill(); } }
+    } },
+});
+
 /** Paint the whole battlefield background. `scale` = device pixels per art unit (the canvas is drawn at screen res). */
-export function drawGround(L: GroundLayout, scale = 1): HTMLCanvasElement {
+export function drawGround(L: GroundLayout, scale = 1, theme: GroundTheme = 'street'): HTMLCanvasElement {
+  const T = themes()[theme];
   const [c, ctx] = makeCanvas(L.w * scale, L.h * scale);
   ctx.scale(scale, scale);
   const r = rng(1337);
   const roadH = L.roadBot - L.roadTop;
   // grass verges with soft tonal variation
   let g = ctx.createLinearGradient(0, 0, 0, L.h);
-  g.addColorStop(0, '#3f6a2c'); g.addColorStop(0.5, '#4a7a34'); g.addColorStop(1, '#3a6228');
+  g.addColorStop(0, T.verge[0]); g.addColorStop(0.5, T.verge[1]); g.addColorStop(1, T.verge[2]);
   ctx.fillStyle = g; ctx.fillRect(0, 0, L.w, L.h);
   for (let i = 0; i < (L.w * L.h) / 260; i++) {
     const x = r() * L.w, y = r() * L.h, rad = 4 + r() * 10;
     const gg = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    const col = r() < 0.5 ? '96,150,60' : '40,80,30';
+    const col = r() < 0.5 ? T.blobs[0] : T.blobs[1];
     gg.addColorStop(0, `rgba(${col},.18)`); gg.addColorStop(1, `rgba(${col},0)`);
     ctx.fillStyle = gg; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
   }
   // grass blades
   ctx.lineCap = 'round';
-  for (let i = 0; i < L.w * 1.4; i++) {
+  for (let i = 0; T.blades && i < L.w * 1.4; i++) {
     const x = L.bunkerRight + r() * (L.w - L.bunkerRight);
     const top = r() < 0.5;
     const y = top ? r() * (L.roadTop - 2) : L.roadBot + 2 + r() * (L.h - L.roadBot - 2);
-    ctx.strokeStyle = r() < 0.5 ? 'rgba(120,180,70,.7)' : 'rgba(60,110,40,.7)';
+    ctx.strokeStyle = r() < 0.5 ? T.blades[0] : T.blades[1];
     ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.quadraticCurveTo(x + 0.4, y + 1, x + (r() - 0.5) * 2, y); ctx.stroke();
   }
   // asphalt road with soft lighting and fine grain
   g = ctx.createLinearGradient(0, L.roadTop, 0, L.roadBot);
-  g.addColorStop(0, '#3a3d45'); g.addColorStop(0.5, '#454852'); g.addColorStop(1, '#383b42');
+  g.addColorStop(0, T.road[0]); g.addColorStop(0.5, T.road[1]); g.addColorStop(1, T.road[2]);
   ctx.fillStyle = g; ctx.fillRect(0, L.roadTop, L.w, roadH);
   for (let i = 0; i < (L.w * roadH) / 3; i++) {
     ctx.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.08)';
@@ -757,7 +831,8 @@ export function drawGround(L: GroundLayout, scale = 1): HTMLCanvasElement {
   curb(L.roadBot, true);
   // centre dashes
   const mid = (L.roadTop + L.roadBot) / 2;
-  for (let x = L.bunkerRight + 8; x < L.w; x += 16) { rr(ctx, x, mid - 0.6, 8, 1.2, 0.6); ctx.fillStyle = r() < 0.3 ? 'rgba(220,200,110,.45)' : 'rgba(240,215,110,.8)'; ctx.fill(); }
+  for (let x = L.bunkerRight + 8; T.dash && x < L.w; x += 16) { rr(ctx, x, mid - 0.6, 8, 1.2, 0.6); ctx.fillStyle = T.dash; ctx.globalAlpha = r() < 0.3 ? 0.55 : 1; ctx.fill(); ctx.globalAlpha = 1; }
+  T.extras?.(ctx, L, r);
   // cracks
   ctx.strokeStyle = 'rgba(20,20,24,.6)'; ctx.lineWidth = 0.45;
   for (let i = 0; i < L.w / 16; i++) {
@@ -783,7 +858,7 @@ export function drawGround(L: GroundLayout, scale = 1): HTMLCanvasElement {
   for (let y = 0; y < L.h; y += 10) for (let x = (y / 10) % 2 ? 6 : 0; x < L.bunkerRight; x += 12) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 10); ctx.stroke(); }
   for (let i = 0; i < (L.bunkerRight * L.h) / 40; i++) { ctx.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.07)'; ctx.fillRect(r() * L.bunkerRight, r() * L.h, 0.8, 0.8); }
   // props on the verges and a few on the road
-  const decos = [drawTire, drawBarrel, drawCone, drawBones, drawSkull];
+  const decos = T.decos;
   const put = (cv: HTMLCanvasElement, x: number, y: number) => ctx.drawImage(cv, x, y, cv.width / RES, cv.height / RES);
   const place = (y0: number, y1: number, n: number) => {
     for (let i = 0; i < n; i++) {
@@ -795,7 +870,7 @@ export function drawGround(L: GroundLayout, scale = 1): HTMLCanvasElement {
   place(0, L.roadTop - 2.4, Math.max(2, Math.floor(L.w / 34)));
   place(L.roadBot + 2.4, L.h, Math.max(2, Math.floor(L.w / 34)));
   for (let i = 0; i < L.w / 70; i++) {
-    const d = [drawBones, drawSkull, drawTire][Math.floor(r() * 3)]();
+    const d = T.roadDecos[Math.floor(r() * T.roadDecos.length)]();
     put(d, L.bunkerRight + 20 + r() * (L.w - L.bunkerRight - 30), L.roadTop + 3 + r() * (roadH - 10));
   }
   // sandbag wall along the bunker edge
@@ -811,7 +886,12 @@ export function drawGround(L: GroundLayout, scale = 1): HTMLCanvasElement {
   return c;
 }
 const drawTire = () => sprite(10, 7, (c) => { ell(c, 5, 3.5, 4.4, 2.8); shade(c, '#2a2a30', 0.6, 0.7, 8.8, 5.6); ell(c, 5, 3.5, 1.8, 1); c.fillStyle = '#15151a'; c.fill(); }, { outline: 0.35 });
-const drawBarrel = () => sprite(8, 10, (c) => { rr(c, 1, 0.8, 6, 8.6, 1); shade(c, '#a8452a', 1, 0.8, 6, 8.6); c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(1, 3.2, 6, 0.6); c.fillRect(1, 6.4, 6, 0.6); ell(c, 4, 1.4, 2.8, 0.7); c.fillStyle = '#c86a4a'; c.fill(); }, { outline: 0.35 });
+const drawBarrel = (col = '#a8452a') => sprite(8, 10, (c) => { rr(c, 1, 0.8, 6, 8.6, 1); shade(c, col, 1, 0.8, 6, 8.6); c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(1, 3.2, 6, 0.6); c.fillRect(1, 6.4, 6, 0.6); ell(c, 4, 1.4, 2.8, 0.7); c.fillStyle = col === '#a8452a' ? '#c86a4a' : '#f0d060'; c.fill(); if (col !== '#a8452a') { c.fillStyle = '#1a1a1a'; c.beginPath(); c.moveTo(4, 4.4); c.lineTo(5.4, 6.8); c.lineTo(2.6, 6.8); c.closePath(); c.fill(); } }, { outline: 0.35 });
+const drawRock = () => sprite(12, 9, (c) => { c.beginPath(); c.moveTo(1, 8); c.lineTo(2.4, 3); c.lineTo(5.6, 1); c.lineTo(9.4, 2.4); c.lineTo(11, 8); c.closePath(); shade(c, '#9a8a70', 1, 1, 10, 7); }, { outline: 0.4 });
+const drawReeds = () => sprite(8, 12, (c) => { c.lineCap = 'round'; for (const [x, h, col] of [[2, 10, '#6f8f3a'], [4, 11.5, '#83a444'], [6, 9, '#5f7f32']] as const) { c.strokeStyle = col; c.lineWidth = 0.8; c.beginPath(); c.moveTo(x, 12); c.quadraticCurveTo(x + 0.6, 12 - h / 2, x + 0.2, 12 - h); c.stroke(); } rr(c, 3.4, 0.6, 1.4, 3.4, 0.7); shade(c, '#6a4428', 3.4, 0.6, 1.4, 3.4); }, { outline: 0.3 });
+const drawLily = () => sprite(9, 6, (c) => { c.beginPath(); c.moveTo(4.5, 3); c.arc(4.5, 3, 3.6, 0.3, Math.PI * 2 - 0.3); c.closePath(); c.save(); c.scale(1, 0.62); c.restore(); shade(c, '#4f9a44', 1, 0, 7, 6); ell(c, 6.2, 2.2, 0.9, 0.9); c.fillStyle = '#ff9ac8'; c.fill(); }, { outline: 0.3 });
+const drawEggs = () => sprite(11, 8, (c) => { for (const [x, y, rx] of [[3, 5, 2.4], [6.4, 4.6, 2.7], [8.6, 5.8, 1.8], [5, 2.6, 2]] as const) { ell(c, x, y, rx, rx * 0.85); const g = c.createRadialGradient(x - rx / 3, y - rx / 3, 0.2, x, y, rx); g.addColorStop(0, '#f4d8ff'); g.addColorStop(0.5, '#c890e8'); g.addColorStop(1, '#7a4a98'); c.fillStyle = g; c.fill(); } }, { outline: 0.35 });
+const drawScrap = () => sprite(12, 7, (c) => { c.beginPath(); c.moveTo(0.6, 6); c.lineTo(3, 1.4); c.lineTo(8, 0.8); c.lineTo(11.4, 4); c.lineTo(9, 6.4); c.closePath(); shade(c, '#7e8490', 0.6, 0.8, 11, 5.6); c.strokeStyle = 'rgba(160,80,40,.7)'; c.lineWidth = 0.5; c.beginPath(); c.moveTo(3, 3); c.lineTo(8, 4); c.stroke(); }, { outline: 0.35 });
 const drawCone = () => sprite(7, 9, (c) => { c.beginPath(); c.moveTo(3.5, 0.6); c.lineTo(5.6, 7.4); c.lineTo(1.4, 7.4); c.closePath(); shade(c, '#ff7a2a', 1.4, 0.6, 4.2, 6.8); c.fillStyle = '#f4f4f4'; c.fillRect(2.3, 3.6, 2.4, 1.2); rr(c, 0.6, 7.2, 5.8, 1.2, 0.4); shade(c, '#d65a1a', 0.6, 7.2, 5.8, 1.2); }, { outline: 0.35 });
 const drawBones = () => sprite(9, 5, (c) => { c.strokeStyle = '#ece6d2'; c.lineWidth = 1; c.beginPath(); c.moveTo(2, 2.5); c.lineTo(7, 2.5); c.stroke(); for (const [x, y] of [[1.6, 1.8], [1.6, 3.2], [7.4, 1.8], [7.4, 3.2]]) { ell(c, x, y, 0.8, 0.8); c.fillStyle = '#ece6d2'; c.fill(); } }, { outline: 0.35 });
 const drawSkull = () => sprite(7, 7, (c) => { ell(c, 3.5, 3, 2.7, 2.4); shade(c, '#ece6d2', 0.8, 0.6, 5.4, 4.8); rr(c, 2.2, 4.4, 2.6, 1.6, 0.4); shade(c, '#d8d2bc', 2.2, 4.4, 2.6, 1.6); for (const x of [2.5, 4.5]) { ell(c, x, 3.2, 0.7, 0.8); c.fillStyle = '#2a2420'; c.fill(); } }, { outline: 0.35 });

@@ -531,7 +531,7 @@ function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()];
-  return `<p class="sub">Hordes are optional fights: ${C.hordeZombies} zombies, then a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
+  return `<p class="sub">Hordes are optional fights: each has its own style, and ends with a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
   ${warDrumsHtml()}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);
@@ -541,7 +541,8 @@ function hordesHtml() {
     return `<div class="horde ${beaten ? 'beaten' : isNext ? 'next' : 'locked'}">
       <div class="h-head"><b>${k}. ${esc(h.name)}</b><span class="tier">Tier ${h.tier}</span></div>
       <div class="h-faces">${mix.map((id) => `<img class="px" src="${zombieIcon(id)}" alt="${M.strainById(id).name}">`).join('')}</div>
-      <p class="sub small">Boss: a giant ${M.strainById(M.hordeBoss(k)).name} with ×${C.bossHpMult} HP</p>
+      <div class="h-kind"><b>${esc(M.HORDE_KINDS[h.kind].name)}</b><span>${esc(M.HORDE_KINDS[h.kind].desc)}</span></div>
+      <div class="h-boss"><img class="px" src="${zombieIcon(M.BOSSES[h.boss].look)}" alt="" style="filter: drop-shadow(0 0 4px #${M.BOSSES[h.boss].tint.toString(16).padStart(6, '0')})"><div><b>Boss: ${esc(M.BOSSES[h.boss].name)}</b><span>${esc(M.BOSSES[h.boss].desc)}</span><span class="h-place">Battleground: ${esc(M.BOSSES[h.boss].place)}</span></div></div>
       <p class="sub">Reward: <b>${esc(h.unlocks)}</b>${h.cls ? ` · a rare+ ${M.classById(h.cls).gun}` : ''}</p>
       ${beaten ? '<p class="good">✓ Beaten</p>' : isNext ? `
         ${showKeep() ? `<div class="meter small"><i style="width:${Math.min(100, (odds / 2) * 100)}%"></i><span class="mark"></span></div>
