@@ -22,6 +22,7 @@ export interface SaveData {
   autoSell: AutoSell;
   nextUid: number;
   kills: number;
+  bossKills?: number;                 // bosses killed (kept through prestige, like kills)
   newItems: number[];
   lastSeen: number;
   /** Total time actually played (seconds, only while the app is open and visible). */
@@ -32,7 +33,7 @@ export interface SaveData {
   econ?: number;
   /** Tutorial steps already shown. */
   tut?: string[];
-  globals?: Partial<Record<M.ColourId, number>>;   // global upgrade levels per DNA colour
+  globals?: Partial<Record<M.ColourId | 'all', number>>;   // global upgrade levels per DNA colour
 }
 /** A dropped item; `sold` is set when auto-sell turned it straight into DNA. */
 export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale; alsoSold?: number };
@@ -100,6 +101,7 @@ function migrate(data: { version: number }): SaveData {
   if (s.econ !== 2) out.strains = toEcon2(out.strains);
   out.econ = 2;
   // saves from before the tutorial existed: don't teach the basics to someone well into a run
+  if (out.bossKills === undefined) out.bossKills = out.hordes;   // every horde won so far killed its boss
   if (!out.tut && out.kills > 300) out.tut = ['welcome', 'shredder', 'range', 'tier', 'squad', 'combo', ...(out.hordes > 0 ? ['horde', 'colour', 'tree'] : [])];
   // colours are horde rewards: make sure every colour you've earned is out
   for (const [id, k] of Object.entries(M.COLOUR_HORDE) as [M.ZombieId, number][]) if (out.hordes >= k) out.strains[id].unlocked = true;
@@ -234,6 +236,18 @@ export class Game {
     if (k) this.emit('change');
     return k;
   }
+
+  scavengerLevel() { return this.s.globals?.all ?? 0; }
+  canBuyScavenger() { const l = this.scavengerLevel(); return M.scavengerOpen(this.s.strains) && M.COLOURS.every((c) => this.canAfford(c, M.lnScavengerCost(c, l))); }
+  buyScavenger() {
+    if (!this.canBuyScavenger()) return false;
+    const l = this.scavengerLevel();
+    for (const c of M.COLOURS) this.pay(c, M.lnScavengerCost(c, l));
+    this.s.globals = { ...(this.s.globals ?? {}), all: l + 1 };
+    this.emit('change');
+    return true;
+  }
+  bossKilled() { this.s.bossKills = (this.s.bossKills ?? 0) + 1; }
 
   // ---------- zombie ultimate forms ----------
   zombieUltCost(s: ZombieId) { return M.lnZombieUltCost(s, this.s.strains[s]); }
@@ -462,28 +476,23 @@ export class Game {
   // ---------- the stream ----------
   /** A zombie was shredded: bank its DNA (silently) and maybe drop an item. */
   // ---------- combo (live play only; not saved) ----------
-  // Each zombie type has its OWN combo: kills of that type build it and multiply that type's DNA. It drops after a few
-  // seconds without a kill of that type (longer for rare types), and halves when one of that type reaches the shredder.
-  private combos = new Map<ZombieId, { n: number; idle: number }>();
+  // One combo for the whole squad: every kill builds it, up to ×2 DNA at CONFIG.combo.max kills (a long streak). It drops
+  // to 0 after a few seconds without a kill, and halves whenever a zombie reaches the shredder.
+  private comboState = { n: 0, idle: 0, last: null as ZombieId | null };
   comboBest = 0;
   private comboBonus() { return 0.1 * M.plv(this.s.prestige, 'combo'); }
-  comboOf(s: ZombieId) { return this.combos.get(s)?.n ?? 0; }
-  comboMultOf(s: ZombieId) { return M.comboMult(this.comboOf(s), this.comboBonus()); }
-  /** The best running combo (for the badge): its type and count. */
-  get topCombo(): { id: ZombieId | null; n: number } { let id: ZombieId | null = null, n = 0; for (const [k, v] of this.combos) if (v.n > n) { n = v.n; id = k; } return { id, n }; }
-  get combo() { return this.topCombo.n; }
-  get comboMult() { return M.comboMult(this.combo, this.comboBonus()); }
-  /** Average combo multiplier over the zombie types out (used for the steady income during a horde). */
-  get comboMultAvg() { const ids = M.activeStrains(this.s.strains); return ids.length ? ids.reduce((a, s) => a + this.comboMultOf(s), 0) / ids.length : 1; }
-  /** Called every frame by the battle: a type's combo drops to 0 after a few seconds without a kill of it. */
-  comboTick(dt: number) {
-    for (const [s, c] of this.combos) {
-      const x = this.s.strains[s], rate = x ? M.spawnRate(s, x.spawn) : 1;
-      if ((c.idle += dt) >= M.CONFIG.combo.timeoutSec + 2 / Math.max(0.2, rate)) this.combos.delete(s);
-    }
-  }
-  /** A zombie of this type reached the shredder: that type's combo halves. */
-  comboBreak(s?: ZombieId) { if (!s) return; const c = this.combos.get(s); if (c) c.n = Math.floor(c.n / 2); }
+  comboOf(_s?: ZombieId) { return this.comboState.n; }
+  comboMultOf(_s?: ZombieId) { return M.comboMult(this.comboState.n, this.comboBonus()); }
+  /** The running combo for the badge (and the type of the last kill, for its face). */
+  get topCombo(): { id: ZombieId | null; n: number } { return { id: this.comboState.last, n: this.comboState.n }; }
+  get combo() { return this.comboState.n; }
+  get comboMult() { return M.comboMult(this.comboState.n, this.comboBonus()); }
+  /** Used for the steady income during a horde. */
+  get comboMultAvg() { return this.comboMult; }
+  /** Called every frame by the battle: the combo drops to 0 after a few seconds without any kill. */
+  comboTick(dt: number) { const c = this.comboState; if (c.n && (c.idle += dt) >= M.CONFIG.combo.timeoutSec) { c.n = 0; c.idle = 0; } }
+  /** A zombie reached the shredder: the combo halves. */
+  comboBreak(_s?: ZombieId) { this.comboState.n = Math.floor(this.comboState.n / 2); }
 
   /** The colour a kill pays in: its family's, or (for horde zombies of a family you haven't released yet) the nearest
    * released colour it descends from, so you never get DNA you can't see or use. */
@@ -501,7 +510,7 @@ export class Game {
   zombieKilled(strain: ZombieId, tier: number, opts: { silent?: boolean; mult?: number; lootMult?: number; shredded?: boolean } = {}): Loot | null {
     const paid = (opts.mult ?? 1) > 0;
     // shredded zombies don't count for the combo
-    if (!opts.silent && !opts.shredded) { const c = this.combos.get(strain) ?? { n: 0, idle: 0 }; c.n++; c.idle = 0; this.combos.set(strain, c); this.comboBest = Math.max(this.comboBest, c.n); }
+    if (!opts.silent && !opts.shredded) { const c = this.comboState; c.n++; c.idle = 0; c.last = strain; this.comboBest = Math.max(this.comboBest, c.n); }
     const col = this.payColour(strain);
     if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + (this.s.strains[strain]?.ult ? Math.log(M.CONFIG.zUltDna) : 0) + Math.log((opts.silent ? 1 : this.comboMultOf(strain)) * (opts.mult ?? 1))));
     this.s.kills++;
@@ -640,9 +649,9 @@ export class Game {
       const d = M.perkById(id);
       for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
     }
-    const playSec = this.s.playSec, tut = this.s.tut;
+    const playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills;
     this.s = freshSave();
-    this.s.prestige = p; this.s.playSec = playSec; this.s.tut = tut;
+    this.s.prestige = p; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills;
     this.applyHeadStart();
     this.fxCache = null; this.syncLive();
     this.save();

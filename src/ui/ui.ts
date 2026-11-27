@@ -268,10 +268,10 @@ function tickCombo() {
   const face = $('#combo-face') as HTMLImageElement;
   if (top.id && face.dataset.id !== top.id) { face.dataset.id = top.id; face.src = zombieIcon(top.id); face.alt = M.strainById(top.id).plural; }
   $('#combo-n').textContent = fmtInt(n);
-  $('#combo-x').textContent = `×${game.comboMult.toFixed(2)} ${top.id ? M.strainById(top.id).plural : ''} DNA`;
+  $('#combo-x').textContent = `×${game.comboMult.toFixed(2)} DNA`;
   $('#combo-bar').style.width = `${Math.min(100, (n / max) * 100)}%`;
   el.classList.toggle('max', n >= max);
-  if (Math.floor(n / 50) > Math.floor(lastCombo / 50)) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+  if (Math.floor(n / 250) > Math.floor(lastCombo / 250)) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
   lastCombo = n;
 }
 
@@ -317,6 +317,7 @@ function act(d: ActionData): boolean {
     case 'release': game.release(sid); break;
     case 'zombie-ult': game.zombieUlt(sid); break;
     case 'global': game.buyGlobal(arg as M.ColourId, 1); break;
+    case 'scavenger': game.buyScavenger(); break;
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
@@ -379,7 +380,7 @@ function act(d: ActionData): boolean {
   if (a === 'tier-up') sfx.tierUp();
   else if (a === 'allocate') { if (paid) sfx.allocate(); }
   else if (a === 'sell' || a === 'sell-matching') sfx.buy();
-  else if (['buy-node', 'buy-stages', 'hire', 'spawn', 'release', 'global'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
+  else if (['buy-node', 'buy-stages', 'hire', 'spawn', 'release', 'global', 'scavenger'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
   else if (a.startsWith('equip')) sfx.equip();
   else if (a !== 'horde') sfx.click();
   // the tap is finished, so a re-render the action asked for can happen right now (no waiting)
@@ -425,6 +426,7 @@ function refresh() {
     el.disabled = !ok;
     if ((el.classList.contains('mu') || el.classList.contains('evolve') || el.classList.contains('evolve-big') || el.classList.contains('gl-buy')) && el.classList.contains('afford') !== ok) { el.classList.toggle('afford', ok); flipped = true; }
   }
+  for (const el of document.querySelectorAll<HTMLButtonElement>('[data-action="scavenger"]')) { const ok = game.canBuyScavenger(); el.disabled = !ok; el.classList.toggle('afford', ok); }
   // recruit cards: grow the progress bar, and switch to the Unlock button once it's affordable
   for (const bar of document.querySelectorAll<HTMLElement>('.rc-bar[data-need]')) {
     const col = bar.dataset.col as StrainId, need = Number(bar.dataset.need), have = game.dna(col);
@@ -795,7 +797,12 @@ function globalsHtml() {
     return `<div class="gl-row ${open ? '' : 'locked'}" style="--dna:${st.color}"><img class="px" src="${vialIcon(c)}" alt="">
       <div class="gl-t"><b>${esc(d.name)} <small>Lv ${lv}${d.max ? `/${d.max}` : ''}</small></b><span>${lv ? esc(d.desc(lv)) : 'none yet'}${maxed || !open ? '' : ` → ${esc(d.desc(lv + 1))}`}</span></div>${act}</div>`;
   }).join('');
-  return `<div class="gl-card"><div class="gl-head"><b>Global upgrades</b><span>Endless, squad-wide, one per DNA colour. Opens when that colour's first zombie type reaches tier ${M.TIER_CAP}; each level costs ×${C.globalCostGrowth} more.</span></div>${rows}</div>`;
+  const sl = game.scavengerLevel(), sOpen = M.scavengerOpen(game.s.strains), sCan = game.canBuyScavenger();
+  const scav = `<div class="gl-row scav ${sOpen ? '' : 'locked'}" style="--dna:#ffd34d"><img class="px" src="${crateIcon('legendary')}" alt="">
+      <div class="gl-t"><b>${M.SCAVENGER.name} <small>Lv ${sl}</small></b><span>${sl ? esc(M.SCAVENGER.desc(sl)) : 'none yet'}${sOpen ? ` → ${esc(M.SCAVENGER.desc(sl + 1))}` : ''}</span>
+      ${sOpen ? `<span class="scav-cost">${M.COLOURS.map((c) => `<i class="${game.canAfford(c, M.lnScavengerCost(c, sl)) ? '' : 'short'}">${vial(c)}${fmtLn(M.lnScavengerCost(c, sl))}</i>`).join('')}</span>` : ''}</div>
+      ${sOpen ? `<button class="btn gl-buy ${sCan ? 'afford' : ''}" data-action="scavenger" ${sCan ? '' : 'disabled'}>Buy</button>` : '<span class="gl-lock">🔒 all five colours to tier 50</span>'}</div>`;
+  return `<div class="gl-card"><div class="gl-head"><b>Global upgrades</b><span>Endless, squad-wide, one per DNA colour. Opens when that colour's first zombie type reaches tier ${M.TIER_CAP}; each level costs ×${C.globalCostGrowth} more.</span></div>${rows}${scav}</div>`;
 }
 
 // ---------- Hordes tab ----------
@@ -850,11 +857,15 @@ function openPrestige() {
       <div class="trow static"><div><b>Reset this run for +${gain} point${gain === 1 ? '' : 's'}</b><span>${gain ? `${game.s.hordes} horde${game.s.hordes === 1 ? '' : 's'} cleared this run` : 'Clear at least one horde first'}</span></div>
       <button class="btn danger sm" data-action="prestige-go" ${gain ? '' : 'disabled'}>Prestige</button></div></div>`);
 }
+/** Lifetime kill counters (kept through prestige). */
+function killsHtml() {
+  return `<div class="kills"><div><b>${fmtInt(game.s.kills)}</b><span>zombies killed</span></div><div><b>${fmtInt(game.s.bossKills ?? 0)}</b><span>bosses killed</span></div><div><b>${fmtInt(game.s.hordes)}</b><span>hordes beaten</span></div><div><b>${fmtInt(game.comboBest)}</b><span>best combo</span></div></div>`;
+}
 function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()];
-  return `${prestigeCard()}<p class="sub">Hordes are optional fights: each has its own style, and ends with a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
+  return `${killsHtml()}${prestigeCard()}<p class="sub">Hordes are optional fights: each has its own style, and ends with a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
   ${warDrumsHtml()}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);

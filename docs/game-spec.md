@@ -172,7 +172,9 @@ attack speed.
 first zombie type reaches tier 50. Green *Firepower* ×1.04 damage per level · Yellow *Rate of Fire* +2% attack speed ·
 Red *Lethality* +5% crit damage · Teal *Precision* +0.5% crit chance (100 levels) · Purple *Harvest* ×1.03 DNA from
 kills. The first level costs the colour's tier-100 price (so it can't be farmed early), and each level ×1.25 more.
-Both reset with a prestige, like the rest of the run.
+**Scavenger** (the sixth global) is paid in all five colours at once (each at half that colour's global price, ×1.3 per
+level) and adds +15% item drop chance per level; it opens once all five colours have reached tier 50.
+All of these reset with a prestige, like the rest of the run.
 
 ## 5. Hordes (Hordes tab)
 Optional fights. The stream pauses while you fight. Every horde has a **type** and ends with a **boss** (×10 HP, plus
@@ -216,11 +218,11 @@ combo and specials as ×1.4 income). If the next horde is far
 above your toughest zombies, its card says so and points you at raising zombie tiers.
 
 ## 5b. Combo
-**Each zombie type has its own combo.** Every squad kill of a type adds 1 to that type's combo, and that type's DNA is
-multiplied by up to **×1.5** at a 150 combo. A type's combo resets after a few seconds without a kill of that type
-(3 s plus 2 s ÷ its spawn rate, so rare types aren't punished) and **halves whenever one of that type reaches the
-shredder**. The badge over the battlefield shows your best running combo with that zombie's face. During a horde the
-steady income uses your average combo from when the horde started.
+**One combo for the whole squad.** Every kill adds 1 and the combo multiplies **all** DNA, climbing slowly to **×2 at
+1,500 kills in a row** (Combo Master prestige perk: up to +0.5 more). It drops to 0 after 3 s without any kill, and halves
+whenever a zombie reaches the shredder. The badge over the battlefield shows the count, the multiplier and a bar to ×2.
+The Hordes tab shows lifetime counters: zombies killed, bosses killed, hordes beaten and best combo (kills and bosses are
+kept through prestige).
 
 ## 6. Automation and time away
 **Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are

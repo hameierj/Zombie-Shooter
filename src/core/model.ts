@@ -286,7 +286,7 @@ export const CONFIG = {
   hordeWinOdds: 1.1,
   /** Combo: every live kill adds 1; DNA earned is multiplied by up to ×1.5 at 300. It drops to 0 after 3 s
    * without a kill, and halves whenever a zombie reaches the shredder. Offline time earns no combo. */
-  combo: { max: 150, bonus: 0.5, timeoutSec: 3 },   // per zombie type (see GameState.comboOf)
+  combo: { max: 1500, bonus: 1, timeoutSec: 3 },   // one squad-wide combo: up to ×2 DNA at 1500 kills in a row (see GameState.comboOf)
   rarities: [
     { id: 'common',    weight: 62, power: 1.0, attach: 0.10, charm: 0.20 },
     { id: 'uncommon',  weight: 25, power: 1.3, attach: 0.18, charm: 0.35 },
@@ -385,7 +385,16 @@ export const GLOBALS: Record<ColourId, GlobalDef> = {
 };
 export const lnGlobalCost = (col: ColourId, lv: number) => lnTierCost(col as ZombieId, TIER_CAP) + 50 * lnR + Math.log(C.globalCost0) + lv * Math.log(C.globalCostGrowth);
 export const globalOpen = (st: Strains, col: ColourId) => st[col as ZombieId].unlocked && st[col as ZombieId].maxTier >= TIER_CAP;
-export function applyGlobals(fx: Fx, g: Partial<Record<ColourId, number>> | undefined) { for (const c of COLOURS) { const l = g?.[c] ?? 0; if (l) GLOBALS[c].apply(fx, l); } return fx; }
+/** Scavenger: the one global upgrade paid in every colour at once (+15% item drop chance per level). Opens once all five
+ * colours have their own global upgrade open; each level costs half of every colour's global price at that level, ×1.3. */
+export const SCAVENGER = { name: 'Scavenger', perLevel: 0.15, desc: (l: number) => `+${Math.round(15 * l)}% item drop chance` };
+export const scavengerOpen = (st: Strains) => COLOURS.every((c) => globalOpen(st, c));
+export const lnScavengerCost = (col: ColourId, lv: number) => lnTierCost(col as ZombieId, TIER_CAP) + 50 * lnR + Math.log(0.5) + lv * Math.log(1.3);
+export function applyGlobals(fx: Fx, g: Partial<Record<ColourId | 'all', number>> | undefined) {
+  for (const c of COLOURS) { const l = g?.[c] ?? 0; if (l) GLOBALS[c].apply(fx, l); }
+  if (g?.all) fx.drop += SCAVENGER.perLevel * g.all;
+  return fx;
+}
 
 /** Zombie ultimate form: once a type is at tier 50 with its spawn rate maxed, a one-off upgrade doubles its DNA and HP. */
 export const zombieUltReady = (x: StrainState) => x.unlocked && !x.ult && x.maxTier >= TIER_CAP && x.spawn >= C.spawnMax;

@@ -93,6 +93,8 @@ export class BattleScene extends Phaser.Scene {
   private banner!: Phaser.GameObjects.Text;
   private sub!: Phaser.GameObjects.Text;
   private shooters = new Map<string, Shooter>();
+  /** Drone Operators' drones: each soldier has one that hovers over the road, drifts toward its target and fires. */
+  private drones = new Map<Shooter, { img: Phaser.GameObjects.Image; x: number; y: number; hx: number; hy: number; tx: number; ty: number; aim: number; seed: number }>();
   private texts: FloatText[] = [];
   /** The boss's health bar, pinned under the horde status line so it's never lost in the crowd. */
   private bossBar!: Phaser.GameObjects.Graphics;
@@ -444,7 +446,7 @@ export class BattleScene extends Phaser.Scene {
   private syncShooters() {
     const want = new Set<string>();
     for (const u of game.owned) for (let k = 0; k < Math.min(u.count, BattleScene.VISIBLE_PER_TYPE); k++) want.add(`${u.cls}-${k}`);
-    for (const [key, s] of this.shooters) if (!want.has(key)) { s.body.destroy(); s.gun.destroy(); s.flash.destroy(); this.shooters.delete(key); this.spots.delete(key); }
+    for (const [key, s] of this.shooters) if (!want.has(key)) { s.body.destroy(); s.gun.destroy(); s.flash.destroy(); this.drones.get(s)?.img.destroy(); this.drones.delete(s); this.shooters.delete(key); this.spots.delete(key); }
     if (this.squadSynced && ![...this.shooters.values()].some((s) => s.wait !== undefined)) this.arrivals = 0;
     for (const key of want) {
       if (this.shooters.has(key)) continue;
@@ -519,6 +521,7 @@ export class BattleScene extends Phaser.Scene {
         s.flashT -= dt;
         s.flash.setVisible(s.flashT > 0);
         if (s.flashT > 0) { const [mx, my] = this.muzzle(s); s.flash.setPosition(mx, my).setDepth(fy + 2); }
+        if (u.cls === 'drone') this.tickDrone(s, fx, fy, dt, arriving || !gun);
         if (gun && this.phase !== 'intro' && !arriving) this.fire(u, gun, s, visible, dt);
       }
     }
@@ -639,6 +642,7 @@ export class BattleScene extends Phaser.Scene {
 
   private kill(z: Zombie) {
     z.alive = false;
+    if (z.boss && !z.shredded) game.bossKilled();
     const [x, y] = this.zombieCenter(z);
     const [fx0, fy0] = this.zScreen(z);
     this.bloodSpray(x, y, z.boss ? 18 : 8);
@@ -717,9 +721,21 @@ export class BattleScene extends Phaser.Scene {
       case 'flamer': this.flame(mx, my, tx + (Math.random() - 0.5) * 8 * px, ty + (Math.random() - 0.5) * 6 * px, 5); break;
       case 'mg': { s.flashT = 0.05; const ex = tx + (Math.random() - 0.5) * 4 * px, ey = ty + (Math.random() - 0.5) * 4 * px; this.tracer(mx, my, ex, ey, 1.1, 0xffc878, 0.06); this.hitFx(ex, ey); break; }
       case 'drone': {
-        const d = this.take('drone-bot').setPosition(mx, my).setScale(this.S * 1.8).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
-        this.tweens.add({ targets: d, x: tx, duration: 420, onUpdate: (tw) => { d.y = my + (ty - my) * tw.progress - Math.sin(tw.progress * Math.PI) * 24 * px; },
-          onComplete: () => { this.give(d); this.hitFx(tx, ty, true); this.light(tx, ty, 26, 0xff8a6a, 0.6, 0.1); } });
+        const dr = this.drones.get(s);
+        if (evo === 0 || !dr) {
+          // Kamikaze Swarm: an extra drone dives into the target and blows up
+          const d = this.take('drone-bot').setPosition(dr?.x ?? mx, dr?.y ?? my).setScale(this.S * 1.8).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
+          const sx = d.x, sy = d.y;
+          this.tweens.add({ targets: d, x: tx, duration: 420, onUpdate: (tw) => { d.y = sy + (ty - sy) * tw.progress - Math.sin(tw.progress * Math.PI) * 24 * px; },
+            onComplete: () => { this.give(d); this.hitFx(tx, ty, true); this.light(tx, ty, 26, 0xff8a6a, 0.6, 0.1); } });
+          break;
+        }
+        // the soldier's hovering drone drifts toward the fight and fires a laser bolt from where it is
+        dr.tx = tx - 34 * px; dr.ty = ty - 26 * px;
+        const col = evo === 1 ? 0xff5ad8 : 0xff6a6a;
+        this.tracer(dr.x, dr.y + 2 * px, tx, ty, evo === 1 ? 1.3 : 1.1, col, 0.08);
+        this.spark(tx, ty);
+        if (Math.random() < 0.4) this.light(dr.x, dr.y, 14, col, 0.5, 0.06);
         break;
       }
       case 'mortar': {
@@ -803,6 +819,25 @@ export class BattleScene extends Phaser.Scene {
       s.hop = 0.24;
     }
     this.cameras.main.flash(250, 255, 255, 255, false);
+  }
+
+  /** Keep a Drone Operator's drone hovering: it bobs, drifts back toward its station over the road between shots, and
+   * eases toward the last target it fired at. */
+  private tickDrone(s: Shooter, fx: number, fy: number, dt: number, hidden: boolean) {
+    const px = this.px;
+    let d = this.drones.get(s);
+    const hx = fx + (34 + ((d?.seed ?? Math.random()) * 40)) * px, hy = fy - 30 * px;
+    if (!d) { const img = this.add.image(hx, hy, 'drone-bot').setScale(this.S * 1.8).setDepth(8650); d = { img, x: hx, y: hy, hx, hy, tx: hx, ty: hy, aim: 0, seed: Math.random() }; this.drones.set(s, d); }
+    d.hx = hx; d.hy = hy;
+    if (hidden) { d.img.setVisible(false); d.x = hx; d.y = hy; return; }
+    // go part of the way toward the target (they don't leave the squad's side), then ease home
+    const gx = d.hx + (d.tx - d.hx) * 0.45, gy = d.hy + (d.ty - d.hy) * 0.45;
+    const k = Math.min(1, dt * 3);
+    d.x += (gx - d.x) * k; d.y += (gy - d.y) * k;
+    d.tx += (d.hx - d.tx) * Math.min(1, dt * 0.8); d.ty += (d.hy - d.ty) * Math.min(1, dt * 0.8);
+    const t = this.time.now / 1000 + d.seed * 10;
+    d.img.setVisible(true).setPosition(d.x + Math.sin(t * 1.3) * 3 * px, d.y + Math.sin(t * 3.1) * 2.5 * px).setScale(this.S * 1.8 * this.crowd)
+      .setRotation(Math.sin(t * 2) * 0.08).setDepth(8650);
   }
 
   // ---------- rooftop-siege effects ----------
