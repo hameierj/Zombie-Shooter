@@ -57,10 +57,10 @@ const nodePrev = (c: ClassId, id: UnitNodeId) => {
  * progressive buttons that buy their next stage. Each shows icon, name, level and the price for the buy amount. */
 type UpBtn = { key: string; name: string; icon: string; stages: UnitNodeId[] };
 const UP_BUTTONS: UpBtn[] = [
-  { key: 'spd', name: 'Speed', icon: 'spd', stages: ['spd'] },
-  { key: 'range', name: 'Range', icon: 'range', stages: ['range'] },
   { key: 'crit', name: 'Crit', icon: 'crit', stages: ['crit'] },
   { key: 'critx', name: 'Crit ×', icon: 'critdmg', stages: ['critx'] },
+  { key: 'spd', name: 'Speed', icon: 'spd', stages: ['spd'] },
+  { key: 'range', name: 'Range', icon: 'range', stages: ['range'] },
   { key: 'slots', name: 'Gear', icon: 'slot-mod', stages: ['attach', 'charm'] },
   { key: 'ab', name: 'Ability', icon: '', stages: ['ab1', 'ab2', 'ab3'] },
 ];
@@ -101,7 +101,7 @@ function gearShelf(c: ClassId) {
 }
 function upgradeRow(c: ClassId) {
   const u = game.unit(c), cd = M.classById(c);
-  return `<div class="ugrid">${hireBtn(c)}${damageBtn(c)}${UP_BUTTONS.map((b) => {
+  return `<div class="ugrid pairs">${hireBtn(c)}${damageBtn(c)}${UP_BUTTONS.map((b) => {
     const multi = b.stages.length > 1;
     const owned = b.stages.filter((id) => game.node(c, id).maxed).length;
     const sp = multi ? stagePrev(c, b.stages) : null;

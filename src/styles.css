@@ -689,6 +689,8 @@ textarea.code { background: #0a0d12; border: 1px solid var(--line); border-radiu
 .ucard .ugrid, .ucard .shelf { grid-column: 1 / -1; }
 .ugrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .ugrid .mu { max-width: none; padding: 7px 2px 6px; }
+/* buttons come in stacked pairs, left to right: Hire/Damage, Crit/Crit ×, Speed/Range, Gear/Ability */
+.ugrid.pairs { grid-template-rows: auto auto; grid-auto-flow: column; }
 .ugrid .hint { grid-column: 2 / -1; align-self: center; margin: 0 4px; }
 .shelf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .sh { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 6px 7px; border-radius: 10px; background: rgba(255,255,255,.03); border: 0;
