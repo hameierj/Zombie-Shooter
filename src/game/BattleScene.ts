@@ -151,7 +151,7 @@ export class BattleScene extends Phaser.Scene {
     return {
       strain, variety, special, announced: false, tier, horde, boss, atWall: false, lnHp: M.lnZombieHp(strain, tier, spawnLv) + (boss ? Math.log(C.bossHpMult) : 0) + (sp ? Math.log(sp.hp) : 0) + Math.log(M.VARIETIES[variety].hp), hp: 1, slow: 0, burn: 0,
       p: -0.02 - Math.random() * 0.05, l: boss ? 0 : Math.random() * 2 - 1,
-      speed: (M.strainById(strain).speed * (sp?.speed ?? 1) * (boss ? C.bossSpeed : (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1))) / C.walkSec,
+      speed: (boss ? C.bossSpeed : M.strainById(strain).speed * (sp?.speed ?? 1) * (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1)) / C.walkSec,   // every boss walks at the same pace
       flash: -1, phase: Math.random() * 4, alive: true,
     };
   }
@@ -161,8 +161,8 @@ export class BattleScene extends Phaser.Scene {
     const h = M.hordeDef(k);
     const mix = M.hordeMix(k);
     const queue = Array.from({ length: C.hordeZombies }, () => this.makeZombie(mix[Math.floor(Math.random() * mix.length)], h.tier, 0, true));
-    // the boss joins two-thirds of the way in, so its slow walk doesn't decide the fight on its own
-    queue.splice(Math.round(queue.length * 2 / 3), 0, this.makeZombie(M.hordeBoss(k), h.tier, 0, true, true));
+    // the boss comes last: kill it before it reaches the shredder to win
+    queue.push(this.makeZombie(M.hordeBoss(k), h.tier, 0, true, true));
     this.horde = { k, t: 0, spawnT: 0, queue, breaches: 0, bossThrough: false };
     this.showBanner(h.name.toUpperCase(), `HORDE ${k} · TIER ${h.tier}`);
     sfx.hordeStart();
@@ -224,7 +224,8 @@ export class BattleScene extends Phaser.Scene {
         if (z.boss) { this.showBanner('BOSS INCOMING', M.strainById(z.strain).name.toUpperCase()); sfx.hordeStart(); }
         this.zombies.push(z);
       }
-      const lost = h.t >= C.hordeTimerSec ? 'TIME RAN OUT' : h.bossThrough ? 'THE BOSS BROKE THROUGH' : h.breaches >= C.breachLimit ? 'THE WALL WAS OVERRUN' : '';
+      // the only way to lose: the boss reaches the shredder
+      const lost = h.bossThrough ? 'THE BOSS REACHED THE SHREDDER' : '';
       if (!lost && !h.queue.length && !this.zombies.some((z) => z.alive && z.horde)) {
         this.showBanner('HORDE BEATEN!', M.hordeDef(h.k).unlocks.toUpperCase());
         sfx.hordeWon();
@@ -269,7 +270,7 @@ export class BattleScene extends Phaser.Scene {
         if (z.p > 0.6 && Math.random() < dt * 0.15) sfx.groan();
       }
       else if (z.horde) {
-        // a horde zombie broke through: the wall takes a breach (the boss breaking through loses the horde)
+        // a horde zombie reached the shredder: only the boss getting there loses the horde
         if (z.boss) this.horde.bossThrough = true;
         else this.horde.breaches++;
         z.alive = false;
@@ -686,15 +687,18 @@ export class BattleScene extends Phaser.Scene {
     if (show) {
       const left = h.queue.length + this.zombies.filter((z) => z.alive && z.horde).length;
       const boss = h.queue.length ? 'BOSS COMING' : this.zombies.some((z) => z.alive && z.boss) ? 'BOSS ON THE FIELD' : 'BOSS DOWN';
-      this.hordeText.setText(`HORDE ${h.k}  ${Math.max(0, Math.ceil(C.hordeTimerSec - h.t))}S\n${left} LEFT · ${boss}\nBREACHES ${h.breaches}/${C.breachLimit}`)
+      const bz = this.zombies.find((z) => z.alive && z.boss);
+      this.hordeText.setText(`HORDE ${h.k}  ·  ${left} LEFT\n${boss}${bz ? ` · ${Math.round(Math.max(0, 1 - bz.p) * 100)}% FROM THE SHREDDER` : ''}`)
         .setFontSize(Math.max(12, Math.round(px * 6))).setStroke('#140c1c', Math.max(3, px * 1.4)).setLineSpacing(2)
         .setPosition(Math.round(this.lay.shredX * px + 8 * px), Math.round(this.lay.roadTop * px + 6 * px))
-        .setColor(h.breaches >= C.breachLimit * 0.7 ? '#ff6b6b' : '#ffd34d');
+        .setColor(bz && bz.p > 0.65 ? '#ff6b6b' : '#ffd34d');
     }
-    if (this.phase === 'horde') {
-      const f = Math.min(1, this.horde.t / C.hordeTimerSec);
-      g.fillStyle(0x140c1c, 1).fillRect(0, this.H - 3 * px, this.W, 3 * px);
-      g.fillStyle(f > 0.75 ? 0xe04848 : 0xe0a548, 1).fillRect(0, this.H - 3 * px, Math.round((this.W * (1 - f)) / px) * px, 3 * px);
+    // boss distance bar along the bottom: empties as the boss nears the shredder
+    const bossZ = this.phase === 'horde' ? this.zombies.find((z) => z.alive && z.boss) : undefined;
+    if (bossZ) {
+      const f = Math.max(0, Math.min(1, bossZ.p));
+      g.fillStyle(0x140c1c, 1).fillRect(0, this.H - 4 * px, this.W, 4 * px);
+      g.fillStyle(f > 0.65 ? 0xe04848 : 0xe0a548, 1).fillRect(0, this.H - 4 * px, Math.round((this.W * (1 - f)) / px) * px, 4 * px);
     }
   }
 }

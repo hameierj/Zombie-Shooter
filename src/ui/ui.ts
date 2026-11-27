@@ -601,7 +601,7 @@ function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()];
-  return `<p class="sub">Hordes are optional fights: ${C.hordeZombies} zombies and a <b>boss</b> in ${C.hordeTimerSec} seconds. The stream pauses while you fight. You lose if time runs out, the boss reaches the shredder, or ${C.breachLimit} horde zombies break through. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
+  return `<p class="sub">Hordes are optional fights: ${C.hordeZombies} zombies, then a <b>boss</b>. The stream pauses while you fight. <b>Kill the boss before it reaches the shredder</b>; that's the only way to lose. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
   ${warDrumsHtml()}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);

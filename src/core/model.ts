@@ -234,7 +234,7 @@ export const CONFIG = {
   hordeSpawnPerSec: 3,
   /** Each horde ends with a boss: the toughest zombie type in the horde with this many times the HP, walking slowly.
    * If the boss reaches the shredder, or too many horde zombies break through, the horde is lost. */
-  bossHpMult: 10, bossSpeed: 0.45, breachLimit: 10,
+  bossHpMult: 10, bossSpeed: 0.35, breachLimit: 10,
   /** The shredder grinds every zombie that reaches it by 1% of its HP per second, so the road always clears.
    * Shredded zombies pay `shredDna` of their DNA, times keep-up² (when the squad is hopelessly overrun on purpose
    * they pay almost nothing, so pushing tiers sky-high and letting the shredder grind can't be farmed). No combo. */
@@ -429,5 +429,9 @@ export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number) {
   let secPerZombie = 0;
   for (const s of mix) secPerZombie += Math.exp(Math.min(60, lnZombieHp(s, h.tier, 0) - lnSquadDps(squad, fx, s))) / mix.length;
   const bossSec = C.bossHpMult * Math.exp(Math.min(60, lnZombieHp(boss, h.tier, 0) - lnSquadDps(squad, fx, boss)));
-  return (C.hordeTimerSec - C.walkSec) / (C.hordeZombies * secPerZombie + bossSec);
+  // the boss comes last: you have the time it takes to arrive (after the rest of the horde) plus its slow walk,
+  // and in that time the squad must get through the horde and the boss
+  const time = C.hordeZombies / C.hordeSpawnPerSec + C.walkSec / C.bossSpeed;
+  // ×1.35: zombies that slip past don't have to be killed, only the boss does (calibrated in browser play tests)
+  return (1.35 * (time - C.walkSec)) / (C.hordeZombies * secPerZombie + bossSec);
 }

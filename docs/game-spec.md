@@ -108,12 +108,13 @@ Command Post; each has small nodes, two notables and a keystone, and neighbourin
 Allocate a node next to one you own. Each region is paid in its own DNA colour (Basic Training Green, Marksman and Suppression Yellow, Breacher and Deadeye Red, Inferno Teal, Demolition and Command Purple); each allocation costs ×1.9 more than the last. Tap a node to see what it does.
 
 ## 5. Hordes (Hordes tab)
-Optional fights: **60 zombies plus a boss in 66 seconds** at a fixed tier. The stream pauses while you fight. The boss
-is a giant version of the toughest zombie type in the horde (×10 HP, slow) and joins two-thirds of the way in.
-**You lose** if time runs out, the boss reaches the shredder, or 10 horde zombies break through (a status line on the
-field shows time, zombies left, the boss and breaches). Each card shows your odds before you start. Hordes 1–7 are at
-tiers 6, 20, 40, 70, 110, 160 and 220, and unlock the unit types and regions above. After that come endless
-**Elite hordes** every 30 tiers, each rewarding an epic+ item. Losing costs nothing; try again when stronger.
+Optional fights: **60 zombies, then a boss**. The stream pauses while you fight. The boss is a giant version of the
+toughest zombie type in the horde (×10 HP) and comes last, walking slowly. **The only way to lose is the boss reaching
+the shredder** (no timer, no breach limit); ordinary horde zombies that slip through just break the combo. The field
+shows zombies left, the boss's distance from the shredder, and a distance bar along the bottom. Each card shows your
+odds (calibrated in play tests: about 1.05+ wins, 0.85 or less loses). Hordes 1–7 are at tiers 6, 20, 40, 70, 110,
+160 and 220, and unlock the unit types and regions above. After that come endless **Elite hordes** every 30 tiers
+(some unlock the newer recruits, the rest give an epic+ item). Losing costs nothing; try again when stronger.
 
 ## 5b. Combo
 Every kill while you're playing adds 1 to the **combo**, shown over the battlefield. DNA from kills is multiplied by
