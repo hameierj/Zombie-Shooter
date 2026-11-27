@@ -14,6 +14,7 @@ export interface Fx {
   targets: Partial<Record<ClassId, number>>;      // extra targets per shot
   vs: Partial<Record<StrainId, number>>;          // multiplicative vs a strain, whole squad
   more: number;                                   // multiplicative damage, whole squad
+  dnaMore?: number;                               // multiplicative DNA from kills (prestige)
   // Automations never spend DNA: they only do things that are free (equipping gear, starting hordes).
   autoEquip: boolean; autoHorde: boolean;
 }

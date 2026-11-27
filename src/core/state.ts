@@ -26,6 +26,8 @@ export interface SaveData {
   lastSeen: number;
   /** Total time actually played (seconds, only while the app is open and visible). */
   playSec: number;
+  /** Prestige: kept through resets (runs, unspent points, perks). */
+  prestige: M.Prestige;
 }
 /** A dropped item; `sold` is set when auto-sell turned it straight into DNA. */
 export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale; alsoSold?: number };
@@ -44,7 +46,7 @@ function freshSave(): SaveData {
   return {
     version: 6, dna: emptyDna(), strains: emptyStrains(), units,
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
-    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(), playSec: 0,
+    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(), playSec: 0, prestige: M.emptyPrestige(),
   };
 }
 
@@ -106,9 +108,14 @@ export class Game {
 
   // ---------- DNA ----------
   get fx(): Fx {
-    const key = this.s.alloc.join(',');
-    if (this.fxCache?.key !== key) this.fxCache = { key, fx: treeFx(this.s.alloc) };
+    const key = this.s.alloc.join(',') + '|' + JSON.stringify(this.s.prestige?.perks ?? {});
+    if (this.fxCache?.key !== key) { this.fxCache = { key, fx: M.applyPerks(treeFx(this.s.alloc), this.s.prestige) }; this.syncLive(); }
     return this.fxCache.fx;
+  }
+  /** Perk effects that aren't part of the squad's modifiers: spawn rate and special-zombie chance. */
+  syncLive() {
+    M.live.spawnMult = 1 + 0.1 * M.plv(this.s.prestige, 'spawn');
+    M.live.specialMult = 1 + 0.5 * M.plv(this.s.prestige, 'gold');
   }
   dna(c: StrainId) { return this.s.dna[c] ?? -Infinity; }
   private setDna(c: StrainId, v: number) { this.s.dna[c] = v === -Infinity ? null : v; }
@@ -129,7 +136,7 @@ export class Game {
   }
   squad(): M.SquadEntry[] { return this.owned.map((u) => this.entry(u)); }
   get best() { return M.bestTier(this.s.strains); }
-  get unitCap() { return M.unitCap(this.best); }
+  get unitCap() { return Math.min(M.CONFIG.maxPerType, M.unitCap(this.best) + 2 * M.plv(this.s.prestige, 'barracks')); }
   classUnlocked(c: ClassId) { return M.classById(c).horde <= this.s.hordes; }
   stats(u: Unit) { return M.unitStats(this.entry(u), this.fx); }
   /** Total DPS of a unit type, averaged over the zombie types currently in the stream (ln). */
@@ -393,7 +400,7 @@ export class Game {
   combo = 0;
   comboBest = 0;
   private comboIdle = 0;
-  get comboMult() { return M.comboMult(this.combo); }
+  get comboMult() { return M.comboMult(this.combo, 0.1 * M.plv(this.s.prestige, 'combo')); }
   /** Called every frame by the battle: the combo drops to 0 after a few seconds without a kill. */
   comboTick(dt: number) { if (this.combo && (this.comboIdle += dt) >= M.CONFIG.combo.timeoutSec) this.combo = 0; }
   /** A zombie reached the shredder: the combo halves. */
@@ -474,6 +481,7 @@ export class Game {
       if (old < 6) this.settleTiers();
       this.refitGuns();   // guns keep up with your toughest zombie tier
       this.autoEquip();   // units always carry their best gear
+      this.fxCache = null; this.syncLive();
       try { localStorage.setItem(`${SAVE_KEY}-last-good`, raw); } catch { /* storage full */ }
       this.s.lastSeen = Date.now();
     } catch {
@@ -515,6 +523,34 @@ export class Game {
     if (lost.size) { this.save(); this.emit('change'); }
     return [...lost.entries()].map(([id, v]) => ({ id, ...v }));
   }
+  // ---------- prestige ----------
+  get prestigeGain() { return M.prestigeGain(this.s.hordes, this.s.prestige); }
+  /** Reset the run for points. Keeps perks, points, play time. Head Start gives DNA of every colour. */
+  prestige() {
+    const gain = this.prestigeGain;
+    if (gain < 1) return;
+    const p: M.Prestige = { ...this.s.prestige, perks: { ...this.s.prestige.perks } };
+    p.runs++; p.points += gain; p.earned += gain;
+    const playSec = this.s.playSec;
+    this.s = freshSave();
+    this.s.prestige = p; this.s.playSec = playSec;
+    this.applyHeadStart();
+    this.fxCache = null; this.syncLive();
+    this.save();
+    this.emit('reset'); this.emit('prestige', gain); this.emit('change');
+  }
+  private applyHeadStart() {
+    const hs = M.plv(this.s.prestige, 'headstart');
+    if (hs) for (const c of M.STRAIN_IDS) this.setDna(c, M.logAdd(this.dna(c), Math.log(500 * 4 ** hs)));
+  }
+  buyPerk(id: M.PerkId) {
+    const d = M.perkById(id), p = this.s.prestige, lv = M.plv(p, id);
+    if (lv >= d.max || p.points < d.cost) return;
+    p.points -= d.cost; p.perks[id] = lv + 1;
+    if (id === 'headstart') this.setDna('shambler', M.logAdd(this.dna('shambler'), Math.log(500 * 4 ** (lv + 1))));   // a taste right away
+    this.fxCache = null; this.syncLive();
+    this.emit('change');
+  }
   hardReset() { this.s = freshSave(); this.save(); this.emit('reset'); this.emit('change'); }
   exportSave() { return btoa(unescape(encodeURIComponent(JSON.stringify(this.s)))); }
   /** Read a save code without loading it (throws on an invalid code). */
@@ -527,7 +563,7 @@ export class Game {
   importSave(code: string) {
     this.s = Game.decode(code);
     this.s.lastSeen = Date.now();   // a loaded save starts fresh: no offline time from when it was made
-    this.refitGuns(); this.autoEquip();
+    this.refitGuns(); this.autoEquip(); this.fxCache = null; this.syncLive();
     this.save();
     this.emit('reset');
     this.emit('change');

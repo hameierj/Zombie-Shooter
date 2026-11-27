@@ -260,6 +260,10 @@ function act(d: ActionData): boolean {
     case 'hire': for (let i = 0, t = -1; i < amtN() && t !== game.unit(cls).count; i++) { t = game.unit(cls).count; game.hire(cls); } break;
     case 'allocate': { const had = game.s.alloc.length; game.allocate(arg); if (game.s.alloc.length > had) { const n = treeNode(arg); treeFresh = arg; toast(`<b>${esc(n.size === 'small' ? n.desc : n.name)}</b><span>${esc(n.size === 'small' ? REGIONS[n.region].name : n.desc)}</span>`, REGIONS[n.region].color); } break; }
     case 'horde': game.startHorde(); tab = null; render(); break;
+    case 'prestige': openPrestige(); break;
+    case 'perk': game.buyPerk(arg as M.PerkId); openPrestige(); break;
+    case 'prestige-go': confirmBox(`Prestige for +${game.prestigeGain} point${game.prestigeGain === 1 ? '' : 's'}?`, `Your run starts over: zombie tiers and types, units, gear, DNA, the passive tree and hordes reset. You keep your perks, points and play time. Your current game is copied to the Backup save slot first.`, 'Prestige', 'prestige-yes', '', true); break;
+    case 'prestige-yes': { const gain = game.prestigeGain; slotWrite('backup', game.exportSave()); closeModal(); game.prestige(); tab = null; render(); toast(`<b>Prestige! +${gain} point${gain === 1 ? '' : 's'}</b><span>Spend them on perks in the Hordes tab</span>`, '#ffd34d'); break; }
     case 'toggle': game.s.autoHordeOn = !game.s.autoHordeOn; render(); break;
     case 'settings': openSettings(); break;
     case 'modal-close': closeModal(); break;
@@ -320,7 +324,7 @@ function refresh() {
     const badge = b.dataset.arg === 'tree' ? game.allocatableCount() > 0
       : b.dataset.arg === 'squad' ? game.keyUpgradeAffordable
       : b.dataset.arg === 'zombies' ? game.canReleaseAny
-      : b.dataset.arg === 'hordes' ? showKeep() && game.hordeOdds() >= C.hordeWinOdds : false;
+      : b.dataset.arg === 'hordes' ? (showKeep() && game.hordeOdds() >= C.hordeWinOdds) || M.PERKS.some((d) => M.plv(game.s.prestige, d.id) < d.max && game.s.prestige.points >= d.cost) : false;
     b.classList.toggle('badge', badge);
   }
   // keep buttons live as DNA comes in: enable + highlight the moment one becomes affordable (or stops being), and
@@ -550,11 +554,34 @@ function warDrumsHtml() {
     : `Waiting: Horde ${game.nextHorde} starts by itself once your squad should win${game.hordeFailOdds ? ' (a bit stronger than when it was last lost)' : ''}.`;
   return `<div class="card drums"><label class="switch"><input type="checkbox" data-action="toggle" ${game.s.autoHordeOn ? 'checked' : ''}> <b>War Drums</b>: start the next horde automatically when your squad should win</label><p class="sub small">${status}</p></div>`;
 }
+// ---------- prestige ----------
+function prestigeCard() {
+  const p = game.s.prestige, gain = game.prestigeGain;
+  return `<div class="card pcard"><div class="pc-head"><b>Prestige</b><span class="pc-pts">◆ ${p.points} point${p.points === 1 ? '' : 's'}</span></div>
+    <p class="sub small">${p.runs ? `Run ${p.runs + 1} · ${p.earned} points earned in total. ` : ''}Reset your run for <b>1 point per horde cleared</b>, then spend points on permanent perks that stack every time.</p>
+    <div class="row"><button class="btn grow" data-action="prestige">Perks</button><button class="btn ghost grow" data-action="prestige-go" ${gain ? '' : 'disabled'}>${gain ? `Prestige now · +${gain}` : 'Clear a horde first'}</button></div></div>`;
+}
+function openPrestige() {
+  const p = game.s.prestige, gain = game.prestigeGain;
+  const rows = M.PERKS.map((d) => {
+    const lv = M.plv(p, d.id), maxed = lv >= d.max, can = !maxed && p.points >= d.cost;
+    return `<div class="perk ${maxed ? 'maxed' : ''}"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div class="pk-main"><b>${d.name} <small>${lv}/${d.max}</small></b>
+      <span>${lv ? d.desc(lv) : 'Not taken yet'}${maxed ? '' : `<em> → ${d.desc(lv + 1)}</em>`}</span></div>
+      ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'}" data-action="perk" data-arg="${d.id}" ${can ? '' : 'disabled'}>◆ ${d.cost}</button>`}</div>`;
+  }).join('');
+  openModal(`<div class="set-head"><h3>Prestige</h3><button class="xbtn" data-action="modal-close" aria-label="Close">✕</button></div>
+    <div class="pk-top"><span class="pc-pts big">◆ ${p.points}</span><span class="sub small">points to spend · ${p.earned} earned over ${p.runs} prestige${p.runs === 1 ? '' : 's'}</span></div>
+    <p class="sub small">Perks are permanent and stack across every run.</p>
+    <div class="perks">${rows}</div>
+    <div class="set-sec danger-zone"><h4>Prestige now</h4>
+      <div class="trow static"><div><b>Reset this run for +${gain} point${gain === 1 ? '' : 's'}</b><span>${gain ? `${game.s.hordes} horde${game.s.hordes === 1 ? '' : 's'} cleared this run` : 'Clear at least one horde first'}</span></div>
+      <button class="btn danger sm" data-action="prestige-go" ${gain ? '' : 'disabled'}>Prestige</button></div></div>`);
+}
 function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()];
-  return `<p class="sub">Hordes are optional fights: each has its own style, and ends with a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
+  return `${prestigeCard()}<p class="sub">Hordes are optional fights: each has its own style, and ends with a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
   ${warDrumsHtml()}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);

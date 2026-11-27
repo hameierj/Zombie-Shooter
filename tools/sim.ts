@@ -23,7 +23,10 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   const strains = Object.fromEntries(M.ZOMBIE_IDS.map((s) => [s, { unlocked: s === 'shambler', tier: 1, maxTier: 1, spawn: 0 }]));
   const units = Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: c.id === 'pistol' ? 1 : 0, nodes: {}, gun: c.id === 'pistol' ? 1 : null, attach: null, charm: null }]));
   const s = { t: 0, dna: Object.fromEntries(M.STRAIN_IDS.map((x) => [x, -Infinity])), hordes: 0, nextUid: 2, guns: [{ uid: 1, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [], alloc: [], drops: 0 };
-  const fx = () => treeFx(s.alloc);
+  // PERKS='{"dmg":3,"dna":3,"warchest":1}' simulates a run after prestiging with those perks
+  const prestige = { runs: 1, points: 0, earned: 0, perks: JSON.parse(process.env.PERKS ?? '{}') };
+  M.live.spawnMult = 1 + 0.1 * M.plv(prestige, 'spawn');
+  const fx = () => M.applyPerks(treeFx(s.alloc), prestige);
   const owned = () => Object.values(units).filter((u) => u.count > 0);
   const squad = () => owned().map((u) => ({ u, gun: s.guns.find((g) => g.uid === u.gun), attach: s.gear.find((g) => g.uid === u.attach), charm: s.gear.find((g) => g.uid === u.charm) }));
   const keep = (st = strains) => M.keepUp(squad(), fx(), st);

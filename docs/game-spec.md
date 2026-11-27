@@ -234,3 +234,30 @@ while the app is in the background).
   suit), Pyro (firefighter coat, gas mask, fuel tank), Grenadier (beret, grenade bandolier), Machine Gunner
   (sleeveless, bandana, shades, ammo belt), Drone Operator (hoodie, glowing visor), Mortar Team (desert tan, boonie,
   ear defenders), Tesla Trooper (rubber suit, copper coils, brass goggles), Railgunner (white power armour).
+
+## 13. Prestige
+On the **Hordes tab**: once you've cleared at least one horde in a run you can **prestige**: the run starts over (zombie
+tiers and types, units, gear, DNA, passive tree and hordes reset) for **1 point per horde cleared this run**. Perks,
+points and total play time are kept, and the current game is copied to the Backup save slot first. Points are spent on
+**permanent perks that stack across every run** (Hordes tab → Perks):
+
+| Perk | Per level | Max | Cost |
+|---|---|---|---|
+| DNA Surge | ×1.25 DNA from every kill | 20 | 1 |
+| Firepower | ×1.15 damage, whole squad | 30 | 1 |
+| Trigger Discipline | +5% attack speed | 10 | 1 |
+| Long Range | +2% range | 5 | 1 |
+| Deadeye | +2% crit chance | 10 | 1 |
+| Heavy Hitter | +20% crit damage | 10 | 1 |
+| Spawn Surge | +10% spawn rate of every zombie type | 10 | 1 |
+| Head Start | start each run with 500 × 4^level DNA of every colour | 5 | 1 |
+| War Chest | Damage upgrades 5% cheaper | 10 | 1 |
+| Big Barracks | +2 soldiers per unit type (to the max of 20) | 5 | 2 |
+| Lucky Finds | +15% item drop chance | 10 | 1 |
+| Gold Rush | special zombies +50% as common | 4 | 2 |
+| Combo Master | +0.1 to the combo's top multiplier | 5 | 2 |
+| Bounty Hunter | +1 extra point per 5 hordes cleared in a run | 3 | 3 |
+
+Balance sim (`PERKS='{"dmg":3,"dna":3,"warchest":1}' node tools/sim.ts 3`): a first run reaches Horde 7 at ~109 min and
+8 hordes in 3 h; after 7 points, Horde 7 at ~68 min and 17 hordes in 3 h; after 30 points, 26 hordes in ~90 min.
+"Erase progress" in Settings wipes prestige too.

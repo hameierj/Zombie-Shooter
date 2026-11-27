@@ -870,3 +870,22 @@ button.tc-head { cursor: pointer; }
 .mu.best::after { content: "★"; position: absolute; top: 3px; right: 5px; font: 700 12px Inter, system-ui, sans-serif; color: #ffd34d; text-shadow: 0 1px 0 #3a2a00; opacity: 1; }
 .mu.best:not(.afford) { opacity: .85; border-color: rgba(255,211,77,.55); }
 .h-tip { margin: 6px 0 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,211,77,.08); border: 1px solid rgba(255,211,77,.35); font-size: 12.5px; color: #e8dcb0; }
+
+/* ---------- prestige ---------- */
+.pcard { border-color: rgba(255,211,77,.45); background: linear-gradient(180deg, rgba(255,211,77,.08), transparent 70%), var(--card); margin-bottom: 12px; }
+.pc-head { display: flex; justify-content: space-between; align-items: baseline; }
+.pc-head b { font: 400 18px var(--display); color: var(--accent); }
+.pc-pts { font: 700 14px Inter, system-ui, sans-serif; color: #ffd34d; white-space: nowrap; }
+.pc-pts.big { font: 400 30px var(--display); }
+.pk-top { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 4px; }
+.perks { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); }
+.perk { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 10px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
+.perk img { width: 26px; height: 26px; object-fit: contain; flex: none; }
+.perk .pk-main { flex: 1; min-width: 0; }
+.perk .pk-main b { display: block; font: 600 13.5px Inter, system-ui, sans-serif; }
+.perk .pk-main small { color: var(--accent); font-weight: 700; margin-left: 4px; }
+.perk .pk-main span { display: block; font-size: 12px; color: var(--muted); }
+.perk .pk-main em { font-style: normal; color: #8be39f; }
+.perk .btn.sm { min-height: 34px; padding: 0 12px; flex: none; }
+.perk.maxed { opacity: .7; }
+.pk-max { font: 700 12px Inter, system-ui, sans-serif; color: var(--accent); flex: none; padding: 0 6px; }

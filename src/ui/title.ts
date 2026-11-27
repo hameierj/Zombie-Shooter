@@ -28,7 +28,7 @@ export function showTitle() {
       <h1><span class="t-z">ZOMBIE</span><span class="t-i">IDLE</span></h1>
       <p class="t-tag">HOLD THE WALL</p>
       <p class="t-start">PRESS START</p>
-      <p class="t-save">${fresh ? 'NEW GAME' : `CONTINUE · TIER ${best} · ${s.hordes} HORDE${s.hordes === 1 ? '' : 'S'}${(s.playSec ?? 0) >= 60 ? ` · ${fmtTime(s.playSec)} PLAYED` : ''}`}</p>
+      <p class="t-save">${s.prestige?.runs ? `PRESTIGE ${s.prestige.runs} · ` : ''}${fresh ? 'NEW GAME' : `CONTINUE · TIER ${best} · ${s.hordes} HORDE${s.hordes === 1 ? '' : 'S'}${(s.playSec ?? 0) >= 60 ? ` · ${fmtTime(s.playSec)} PLAYED` : ''}`}</p>
     </div>
     <div class="t-scan"></div>`;
   document.body.appendChild(el);

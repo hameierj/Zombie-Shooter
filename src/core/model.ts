@@ -125,8 +125,10 @@ export const SPECIALS: SpecialDef[] = [
 export const specialById = (id: SpecialId) => SPECIALS.find((x) => x.id === id)!;
 /** Chance that a zombie in the endless stream is special. */
 export const SPECIAL_CHANCE = 0.03;
+/** Live multipliers set from prestige perks (spawn rate of every zombie type, special-zombie chance). */
+export const live = { spawnMult: 1, specialMult: 1 };
 export function rollSpecial(rng: () => number): SpecialId | null {
-  if (rng() >= SPECIAL_CHANCE) return null;
+  if (rng() >= SPECIAL_CHANCE * live.specialMult) return null;
   let x = rng() * SPECIALS.reduce((a, d) => a + d.weight, 0);
   for (const d of SPECIALS) if ((x -= d.weight) < 0) return d.id;
   return null;
@@ -317,11 +319,11 @@ export const gunFloor = (strains: Strains) => bestTier(strains);
 export const hordeMix = (k: number) => STRAINS.filter((s) => s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only
 
 // ---------- Zombies ----------
-export const spawnRate = (s: ZombieId, spawn: number) => strainById(s).baseRate * (1 + C.spawnPerLevel * spawn);
+export const spawnRate = (s: ZombieId, spawn: number) => strainById(s).baseRate * (1 + C.spawnPerLevel * spawn) * live.spawnMult;
 export const lnZombieHp = (s: ZombieId, tier: number, spawn: number) =>
   Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (tier - 1) * lnR;
 export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
-  Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna)) + (tier - 1) * lnR;
+  Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna) * (fx.dnaMore ?? 1)) + (tier - 1) * lnR;
 /** Releasing a new zombie type costs about `releaseSec` (3 min) of your current income in the colour you pay with (never less
  * than its listed minimum), so every release is a similar wait instead of a ×1000 jump. */
 export const lnReleaseCost = (s: ZombieId, lnRate: number) =>
@@ -465,7 +467,36 @@ export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains): Record<St
 }
 /** The toughest zombie type in horde k: it becomes the boss. */
 export const hordeBoss = (k: number) => hordeMix(k).reduce((a, b) => (strainById(b).hp > strainById(a).hp ? b : a));
-export const comboMult = (n: number) => 1 + C.combo.bonus * Math.min(n, C.combo.max) / C.combo.max;
+export const comboMult = (n: number, extraBonus = 0) => 1 + (C.combo.bonus + extraBonus) * Math.min(n, C.combo.max) / C.combo.max;
+
+// ---------- Prestige: reset a run for points (1 per horde cleared), spend them on permanent perks that stack ----------
+export type PerkId = 'dna' | 'dmg' | 'spd' | 'range' | 'crit' | 'critx' | 'spawn' | 'headstart' | 'warchest' | 'barracks' | 'lucky' | 'gold' | 'combo' | 'bounty';
+export interface PerkDef { id: PerkId; name: string; icon: string; max: number; cost: number; desc: (lv: number) => string; apply?: (fx: Fx, lv: number) => void }
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+const mult = (x: number) => (x >= 100 ? `×${Math.round(x)}` : `×${x.toFixed(x < 10 ? 2 : 1)}`);
+export const PERKS: PerkDef[] = [
+  { id: 'dna', name: 'DNA Surge', icon: 'dna', max: 20, cost: 1, desc: (l) => `${mult(1.25 ** l)} DNA from every kill`, apply: (f, l) => { f.dnaMore = (f.dnaMore ?? 1) * 1.25 ** l; } },
+  { id: 'dmg', name: 'Firepower', icon: 'dmg', max: 30, cost: 1, desc: (l) => `${mult(1.15 ** l)} damage for the whole squad`, apply: (f, l) => { f.more *= 1.15 ** l; } },
+  { id: 'spd', name: 'Trigger Discipline', icon: 'spd', max: 10, cost: 1, desc: (l) => `+${pct(0.05 * l)} attack speed`, apply: (f, l) => { f.spd += 0.05 * l; } },
+  { id: 'range', name: 'Long Range', icon: 'range', max: 5, cost: 1, desc: (l) => `+${pct(0.02 * l)} range`, apply: (f, l) => { f.range += 0.02 * l; } },
+  { id: 'crit', name: 'Deadeye', icon: 'crit', max: 10, cost: 1, desc: (l) => `+${pct(0.02 * l)} crit chance`, apply: (f, l) => { f.crit += 0.02 * l; } },
+  { id: 'critx', name: 'Heavy Hitter', icon: 'critdmg', max: 10, cost: 1, desc: (l) => `+${pct(0.2 * l)} crit damage`, apply: (f, l) => { f.critDmg += 0.2 * l; } },
+  { id: 'spawn', name: 'Spawn Surge', icon: 'spawn', max: 10, cost: 1, desc: (l) => `+${pct(0.1 * l)} spawn rate on every zombie type` },
+  { id: 'headstart', name: 'Head Start', icon: 'dna', max: 5, cost: 1, desc: (l) => (l ? `start each run with ${Math.round(500 * 4 ** l).toLocaleString('en-US')} DNA of every colour` : 'start each run with DNA of every colour') },
+  { id: 'warchest', name: 'War Chest', icon: 'dmg', max: 10, cost: 1, desc: (l) => `Damage upgrades ${pct(0.05 * l)} cheaper`, apply: (f, l) => { f.trainDiscount = Math.min(0.6, f.trainDiscount + 0.05 * l); } },
+  { id: 'barracks', name: 'Big Barracks', icon: 'equip', max: 5, cost: 2, desc: (l) => `+${2 * l} soldiers per unit type (up to ${C.maxPerType})` },
+  { id: 'lucky', name: 'Lucky Finds', icon: 'luck', max: 10, cost: 1, desc: (l) => `+${pct(0.15 * l)} item drop chance`, apply: (f, l) => { f.drop += 0.15 * l; } },
+  { id: 'gold', name: 'Gold Rush', icon: 'loot', max: 4, cost: 2, desc: (l) => `special zombies ${mult(1 + 0.5 * l)} as common` },
+  { id: 'combo', name: 'Combo Master', icon: 'fast', max: 5, cost: 2, desc: (l) => `combo bonus up to ×${(1 + C.combo.bonus + 0.1 * l).toFixed(1)} (from ×${1 + C.combo.bonus})` },
+  { id: 'bounty', name: 'Bounty Hunter', icon: 'auto', max: 3, cost: 3, desc: (l) => `+${l} extra point${l === 1 ? '' : 's'} for every 5 hordes cleared in a run` },
+];
+export const perkById = (id: PerkId) => PERKS.find((p) => p.id === id)!;
+export interface Prestige { runs: number; points: number; earned: number; perks: Partial<Record<PerkId, number>> }
+export const emptyPrestige = (): Prestige => ({ runs: 0, points: 0, earned: 0, perks: {} });
+export const plv = (p: Prestige | undefined, id: PerkId) => p?.perks[id] ?? 0;
+/** Points for prestiging now: 1 per horde cleared this run (+ Bounty Hunter). */
+export const prestigeGain = (hordes: number, p: Prestige | undefined) => hordes + Math.floor(hordes / 5) * plv(p, 'bounty');
+export function applyPerks(fx: Fx, p: Prestige | undefined) { for (const d of PERKS) { const l = plv(p, d.id); if (l && d.apply) d.apply(fx, l); } return fx; }
 /** Can the squad beat horde k? It must kill the horde (an even mix of its zombie types, shaped by the horde's kind)
  * plus the boss before the boss reaches the shredder. */
 export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number) {
