@@ -198,10 +198,10 @@ function render() {
 /** The keep-up meter, pinned to the top of the Zombies menu while you scroll (refresh() keeps it live). */
 function keepCardHtml(k: number) {
   const cls = k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad';
-  return `<div class="card keep sticky ${cls}">
-    <div class="keep-row"><b>${k >= 1.1 ? 'Keeping up' : k >= 0.9 ? 'Barely keeping up' : 'Zombies piling up'}</b><span class="keep-x">${fmtMult(k)}</span></div>
+  return `<div class="keep sticky slim ${cls}" title="${fmtNum(game.totalSpawnRate)} zombies/s arriving · the squad can handle ${fmtMult(k)} of that">
+    <b>${k >= 1.1 ? 'Keeping up' : k >= 0.9 ? 'Barely' : 'Overrun'}</b>
     <div class="meter"><i style="width:${Math.min(100, (k / 2) * 100)}%"></i><span class="mark"></span></div>
-    <span class="sub small">${fmtNum(game.totalSpawnRate)} zombies/s arriving · the squad can handle ${fmtMult(k)} of that</span>
+    <span class="keep-x">${fmtMult(k)}</span>
   </div>`;
 }
 function zombiesHtml() {
@@ -266,7 +266,7 @@ function squadHtml() {
   const items = [...s.guns.map((g) => ({ uid: g.uid, icon: gunIcon(g.cls), rarity: g.rarity, label: `T${fmtInt(g.ilvl)}`, power: M.lnGunPower(g) })),
     ...s.gear.map((g) => ({ uid: g.uid, icon: g.kind === 'attach' ? modIcon(g.stat) : charmIcon(g.bane), rarity: g.rarity, label: g.kind === 'attach' ? g.stat.toUpperCase() : 'CHARM', power: g.value * 10 }))]
     .sort((a, b) => M.CONFIG.rarities.findIndex((r) => r.id === b.rarity) - M.CONFIG.rarities.findIndex((r) => r.id === a.rarity) || b.power - a.power);
-  return `<p class="sub">Tap a unit type to open its own upgrade tree, gear and ability. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
+  return `${keepCardHtml(game.keepUp())}<p class="sub">Tap a unit type to open its own upgrade tree, gear and ability. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
   <div class="grid2">${cards}</div>
   <h3>Items <small>${items.length}/60 · guns, attachments and charms (rare drops and horde rewards)</small></h3>
   ${autoSellHtml()}
@@ -338,7 +338,7 @@ function unitScreenHtml(cls: ClassId) {
       <button class="btn grow" data-action="buy-node" data-cls="${cls}" data-arg="${unitNode}" ${costAttr(ns.colour, ns.lnCost)}>${def.kind === 'unlock' ? 'Unlock' : 'Upgrade'} · ${cost(ns.colour, ns.lnCost)}</button>
       ${def.kind === 'unlock' ? '' : `<button class="btn ghost" data-action="buy-node" data-cls="${cls}" data-arg="${unitNode}" data-n="1000" ${costAttr(ns.colour, ns.lnCost)}>Max</button>`}</div>`}
   </div>`;
-  return `<button class="btn ghost back" data-action="units">‹ All unit types</button>
+  return `${keepCardHtml(game.keepUp())}<button class="btn ghost back" data-action="units">‹ All unit types</button>
   <div class="unit-head">
     <img class="px portrait big" src="${classIcon(cls)}" alt="">
     <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${cap}</small></span>
