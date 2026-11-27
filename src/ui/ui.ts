@@ -301,7 +301,15 @@ function refresh() {
       : b.dataset.arg === 'hordes' ? showKeep() && game.hordeOdds() >= C.hordeWinOdds : false;
     b.classList.toggle('badge', badge);
   }
-  for (const el of document.querySelectorAll<HTMLButtonElement>('[data-cost]')) el.disabled = !game.canAfford(el.dataset.col as StrainId, Number(el.dataset.cost));
+  // keep buttons live as DNA comes in: enable + highlight the moment one becomes affordable (or stops being), and
+  // redraw so ×10 / Max previews catch up
+  let flipped = false;
+  for (const el of document.querySelectorAll<HTMLButtonElement>('[data-cost]')) {
+    const ok = game.canAfford(el.dataset.col as StrainId, Number(el.dataset.cost));
+    el.disabled = !ok;
+    if (el.classList.contains('mu') && el.classList.contains('afford') !== ok) { el.classList.toggle('afford', ok); flipped = true; }
+  }
+  if (flipped) soft();
   const kc = document.querySelector<HTMLElement>('.keep.slim');
   if (kc) kc.outerHTML = keepCardHtml(k);
 }
