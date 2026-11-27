@@ -42,7 +42,7 @@ function freshSave(): SaveData {
   return {
     version: 6, dna: emptyDna(), strains: emptyStrains(), units,
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
-    alloc: [], hordes: 0, autoHordeOn: true, autoSell: null, nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
+    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
   };
 }
 
@@ -86,7 +86,8 @@ function migrate(data: { version: number }): SaveData {
   const s = d as SaveData;
   if (s.version !== 6) throw new Error(`save version ${s.version}`);
   const f = freshSave();
-  return { ...f, ...s, dna: { ...emptyDna(), ...s.dna }, strains: { ...emptyStrains(), ...s.strains }, units: { ...emptyUnits(), ...s.units }, gear: s.gear ?? [] };
+  return { ...f, ...s, dna: { ...emptyDna(), ...s.dna }, strains: { ...emptyStrains(), ...s.strains }, units: { ...emptyUnits(), ...s.units }, gear: s.gear ?? [],
+    autoSell: s.autoSell ?? 'best' };   // auto-sell is on by default (keep the best of each kind)
 }
 
 export interface NodeState {
@@ -191,6 +192,7 @@ export class Game {
       this.s.units[c].nodes[id] = st.level + 1;
       n++;
     }
+    if (n && (id === 'attach' || id === 'charm')) this.autoEquip();   // a new gear slot gets the best spare item
     if (n) this.emit('change');
     return n;
   }
@@ -222,6 +224,7 @@ export class Game {
       u.gun = g.uid;
     }
     u.count++;
+    if (u.count === 1) this.autoEquip();
     this.emit('hire', u);
     this.emit('change');
   }
@@ -347,7 +350,7 @@ export class Game {
     this.s.guns.push(g);
     if (isDrop || minRarity) this.s.newItems.push(g.uid);
     this.trimStash();
-    if (this.fx.autoEquip) this.autoEquip();
+    this.autoEquip();   // always: units carry their best gear
     return g;
   }
   private addGear(minRarity = 0): Gear {
@@ -355,7 +358,7 @@ export class Game {
     this.s.gear.push(g);
     this.s.newItems.push(g.uid);
     this.trimStash();
-    if (this.fx.autoEquip) this.autoEquip();
+    this.autoEquip();   // always: units carry their best gear
     return g;
   }
   /** A random drop: 60% a gun for one of your unit types, 40% an attachment or charm. */
@@ -454,6 +457,7 @@ export class Game {
       const old = (JSON.parse(raw) as { version: number }).version;
       this.s = migrate(JSON.parse(raw));
       if (old < 6) this.settleTiers();
+      this.autoEquip();   // units always carry their best gear
       try { localStorage.setItem(`${SAVE_KEY}-last-good`, raw); } catch { /* storage full */ }
       this.s.lastSeen = Date.now();
     } catch {

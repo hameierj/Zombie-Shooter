@@ -57,7 +57,7 @@ const LAYOUT: Record<number, { smalls: [Spec, Spec]; n1: Spec; na: Spec; nb: Spe
     smalls: [dmg(8), spd(6)],
     n1: S('Drill Sergeant', '+15% damage for the whole squad.', (f) => { f.dmg += 0.15; }),
     na: S('War Drums', 'Auto-Horde: the next horde starts by itself when your squad should win. Costs nothing.', (f) => { f.autoHorde = true; }),
-    nb: S('Quartermaster', 'Auto-Equip: recruits always carry their best gun. Costs nothing.', (f) => { f.autoEquip = true; }),
+    nb: S('Quartermaster', '+15% item drop chance.', (f) => { f.drop += 0.15; }),
     k: S('Barracks', '+20% damage for the whole squad.', (f) => { f.dmg += 0.2; }),
   },
   1: {
