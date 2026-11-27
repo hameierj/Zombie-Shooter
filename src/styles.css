@@ -1053,3 +1053,18 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .zr-pop .zr-head .zr-rate i { display: inline; }
 .zr-pop .zr-head > div span { white-space: nowrap; }
 .zr-pop .zr-head .zr-rate.dps svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+/* pop-over head: name + stats shrink with an ellipsis, the rate pill keeps its own space */
+.zr-pop { width: min(248px, calc(100vw - 92px)); }
+.zr-pop .zr-head { gap: 8px; }
+.zr-pop .zr-head > div { flex: 1 1 auto; min-width: 0; }
+.zr-pop .zr-head > div b, .zr-pop .zr-head > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zr-pop .zr-head .zr-rate { flex: none; margin-left: 0; padding: 3px 7px; font-size: 11.5px; gap: 2px; }
+.zr-pop .zr-head .zr-rate img, .zr-pop .zr-head .zr-rate .vial { height: 11px; }
+.zr-pop .zr-head .zr-rate.dps svg { width: 11px; height: 11px; }
+/* head as a grid: icon | name | rate on top, the stats line spans the full width underneath */
+.zr-pop .zr-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ic nm rt" "ic sb sb"; column-gap: 8px; row-gap: 1px; align-items: center; }
+.zr-pop .zr-head > img { grid-area: ic; }
+.zr-pop .zr-head > div { display: contents; }
+.zr-pop .zr-head > div b { grid-area: nm; }
+.zr-pop .zr-head > div span { grid-area: sb; }
+.zr-pop .zr-head .zr-rate { grid-area: rt; justify-self: end; }
