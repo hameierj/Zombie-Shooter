@@ -247,6 +247,8 @@ export const CONFIG = {
   spawnMax: 30,
   spawnHpPerLevel: 0.03,    // …and +3% HP
   releaseSec: 180,          // (RELEASE_COST was tuned to ~3 min of a normal run's income)…
+  globalCost0: 1,           // global upgrades: the first level costs this × the colour's tier-100 price…
+  globalCostGrowth: 1.25,   // …and each level ×1.25 more
   zUltDna: 2,               // a zombie type's ultimate form: ×2 DNA per kill…
   zUltHp: 2,                // …and ×2 HP (stream zombies only; hordes are unchanged)
   zUltCost: 20,             // price: 20× its tier-50 price, in its colour
@@ -371,6 +373,20 @@ export const lnReleaseCost = (s: ZombieId, _lnRate?: number) => { const from = s
  * rate), so at the same tier and spawn level each type earns the same DNA per second, and tier prices are the same for
  * every type. Types still differ in toughness, speed and looks. */
 export const dnaPerKillMult = (s: ZombieId) => 1 / strainById(s).baseRate;
+/** Global upgrades: one endless squad-wide upgrade per DNA colour, opened once that colour's first type reaches tier 50.
+ * The ladder starts at the colour's tier-100 price, so it only becomes cheap well after the colour is established. */
+export interface GlobalDef { name: string; short: string; max?: number; desc: (lv: number) => string; apply: (fx: Fx, lv: number) => void }
+export const GLOBALS: Record<ColourId, GlobalDef> = {
+  shambler: { name: 'Firepower', short: 'Damage', desc: (l) => `×${(1.04 ** l).toFixed(2)} damage`, apply: (f, l) => { f.more *= 1.04 ** l; } },
+  runner: { name: 'Rate of Fire', short: 'Speed', desc: (l) => `+${2 * l}% attack speed`, apply: (f, l) => { f.spd += 0.02 * l; } },
+  brute: { name: 'Lethality', short: 'Crit ×', desc: (l) => `+${5 * l}% crit damage`, apply: (f, l) => { f.critDmg += 0.05 * l; } },
+  spitter: { name: 'Precision', short: 'Crit', max: 100, desc: (l) => `+${(0.5 * l).toFixed(1)}% crit chance`, apply: (f, l) => { f.crit += 0.005 * l; } },
+  bloater: { name: 'Harvest', short: 'DNA', desc: (l) => `×${(1.03 ** l).toFixed(2)} DNA from kills`, apply: (f, l) => { f.dnaMore = (f.dnaMore ?? 1) * 1.03 ** l; } },
+};
+export const lnGlobalCost = (col: ColourId, lv: number) => lnTierCost(col as ZombieId, TIER_CAP) + 50 * lnR + Math.log(C.globalCost0) + lv * Math.log(C.globalCostGrowth);
+export const globalOpen = (st: Strains, col: ColourId) => st[col as ZombieId].unlocked && st[col as ZombieId].maxTier >= TIER_CAP;
+export function applyGlobals(fx: Fx, g: Partial<Record<ColourId, number>> | undefined) { for (const c of COLOURS) { const l = g?.[c] ?? 0; if (l) GLOBALS[c].apply(fx, l); } return fx; }
+
 /** Zombie ultimate form: once a type is at tier 50 with its spawn rate maxed, a one-off upgrade doubles its DNA and HP. */
 export const zombieUltReady = (x: StrainState) => x.unlocked && !x.ult && x.maxTier >= TIER_CAP && x.spawn >= C.spawnMax;
 export const lnZombieUltCost = (s: ZombieId, x: StrainState) => lnTierCost(s, Math.max(TIER_CAP, x.maxTier)) + Math.log(C.zUltCost);

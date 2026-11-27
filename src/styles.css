@@ -1136,3 +1136,26 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .z-ult-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font: 700 10px/1.5 Inter, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase;
   color: #101216; background: linear-gradient(90deg, #d8a8ff, #9cff5a); vertical-align: middle; }
 .zr-crown { position: absolute; top: -5px; left: -4px; font-style: normal; font-size: 13px; line-height: 1; color: #ffd34d; text-shadow: 0 0 4px #000, 0 0 8px rgba(255,211,77,.7); }
+
+/* ---------- global upgrades + region mastery (Tree tab) ---------- */
+.gl-card { margin: 0 0 12px; padding: 10px; border-radius: 14px; border: 1px solid rgba(255,211,77,.35); background: linear-gradient(180deg, rgba(255,211,77,.08), rgba(0,0,0,0) 60%), var(--panel); }
+.gl-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.gl-head b { font: 400 17px var(--display); color: #ffd34d; }
+.gl-head span { font-size: 11.5px; color: #a9b1bd; line-height: 1.35; }
+.gl-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 10px; background: #15171d; border-left: 3px solid var(--dna); }
+.gl-row + .gl-row { margin-top: 5px; }
+.gl-row.locked { opacity: .55; }
+.gl-row img { width: 22px; height: auto; }
+.gl-t { display: flex; flex-direction: column; min-width: 0; }
+.gl-t b { font-size: 13.5px; } .gl-t b small { font-weight: 500; color: #9aa3b0; font-size: 11px; margin-left: 4px; }
+.gl-t span { font-size: 11.5px; color: #c0c7d0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-buy { display: flex; align-items: center; gap: 3px; padding: 6px 10px; min-height: 36px; font-size: 13px; white-space: nowrap; }
+.gl-buy:not(.afford) { opacity: .6; }
+.gl-lock { font-size: 11px; color: #9aa3b0; text-align: right; max-width: 110px; }
+.tc-mastery { display: flex; align-items: center; gap: 8px; margin: 0 10px 8px; padding: 7px 9px; border-radius: 10px; border: 1px dashed rgba(255,211,77,.4); background: rgba(255,211,77,.05); }
+.tc-mastery.on { border-style: solid; border-color: rgba(255,211,77,.7); background: linear-gradient(90deg, rgba(255,211,77,.18), rgba(255,211,77,.04)); box-shadow: 0 0 14px rgba(255,211,77,.18); }
+.tm-badge { flex: none; font: 700 10px/1.6 Inter, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; padding: 0 6px; border-radius: 6px; background: #ffd34d; color: #1a1406; }
+.tc-mastery:not(.on) .tm-badge { background: transparent; color: #ffd34d; border: 1px solid rgba(255,211,77,.5); }
+.tc-mastery div { display: flex; flex-direction: column; min-width: 0; }
+.tc-mastery b { font-size: 13px; color: #ffe08a; } .tc-mastery span { font-size: 11.5px; color: #c0c7d0; }
+.tm-star { color: #ffd34d; text-shadow: 0 0 6px rgba(255,211,77,.6); }

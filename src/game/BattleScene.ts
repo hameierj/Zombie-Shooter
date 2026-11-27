@@ -704,7 +704,7 @@ export class BattleScene extends Phaser.Scene {
     sfx.shot(cls);
     if (cls !== 'bow' && cls !== 'drone' && Math.random() < 0.35) this.light(mx, my, 22, 0xffc080, 0.5, 0.05);
     const fly = (key: string, x2: number, y2: number, ms: number, after?: () => void) => {
-      const b = this.take(key).setPosition(mx, my).setRotation(Math.atan2(y2 - my, x2 - mx)).setScale(this.S).setBlendMode(key === 'arrow' ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.ADD).setDepth(8600).setAlpha(1);
+      const b = this.take(key).setPosition(mx, my).setRotation(Math.atan2(y2 - my, x2 - mx)).setScale(this.S * (key === 'arrow' ? 1.4 : 1)).setBlendMode(key === 'arrow' ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.ADD).setDepth(8600).setAlpha(1);
       this.tweens.add({ targets: b, x: x2, y: y2, duration: ms, onComplete: () => { this.give(b); after?.(); } });
     };
     if (evo !== undefined) this.ultShot(s, cls, evo, hits, mx, my);
@@ -717,13 +717,13 @@ export class BattleScene extends Phaser.Scene {
       case 'flamer': this.flame(mx, my, tx + (Math.random() - 0.5) * 8 * px, ty + (Math.random() - 0.5) * 6 * px, 5); break;
       case 'mg': { s.flashT = 0.05; const ex = tx + (Math.random() - 0.5) * 4 * px, ey = ty + (Math.random() - 0.5) * 4 * px; this.tracer(mx, my, ex, ey, 1.1, 0xffc878, 0.06); this.hitFx(ex, ey); break; }
       case 'drone': {
-        const d = this.take('drone-bot').setPosition(mx, my).setScale(this.S).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
+        const d = this.take('drone-bot').setPosition(mx, my).setScale(this.S * 1.8).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
         this.tweens.add({ targets: d, x: tx, duration: 420, onUpdate: (tw) => { d.y = my + (ty - my) * tw.progress - Math.sin(tw.progress * Math.PI) * 24 * px; },
           onComplete: () => { this.give(d); this.hitFx(tx, ty, true); this.light(tx, ty, 26, 0xff8a6a, 0.6, 0.1); } });
         break;
       }
       case 'mortar': {
-        const sh = this.take('shell').setPosition(mx, my).setScale(this.S).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
+        const sh = this.take('shell').setPosition(mx, my).setScale(this.S * 1.6).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
         this.tweens.add({ targets: sh, x: tx, duration: 700, onUpdate: (tw) => { sh.y = my + (ty - my) * tw.progress - Math.sin(tw.progress * Math.PI) * 70 * px; sh.setRotation(-0.9 + 1.8 * tw.progress); if (Math.random() < 0.5) this.part('smoke', sh.x, sh.y, { life: 0.6 + Math.random() * 0.4, s0: (2.5 * px) / 56, s1: (7 * px) / 56, rise: -6 * px, v: 1, a: 0.6 }); },
           onComplete: () => {
             this.give(sh);
@@ -759,7 +759,7 @@ export class BattleScene extends Phaser.Scene {
         break;
       }
       case 'grenade': {
-        const g = this.take('grenade').setPosition(mx, my).setScale(this.S).setDepth(8600).setAlpha(1);
+        const g = this.take('grenade').setPosition(mx, my).setScale(this.S * 1.3).setDepth(8600).setAlpha(1);
         this.tweens.add({ targets: g, x: tx, duration: 380, onUpdate: (tw) => { g.y = my + (ty - my) * tw.progress - Math.sin(tw.progress * Math.PI) * 30 * px; if (Math.random() < 0.6) this.part('smoke', g.x, g.y, { life: 0.5 + Math.random() * 0.3, s0: (2 * px) / 56, s1: (6 * px) / 56, rise: -6 * px, v: 1, a: 0.55 }); },
           onComplete: () => {
             this.give(g);
@@ -815,7 +815,8 @@ export class BattleScene extends Phaser.Scene {
   private part(kind: Part['kind'], x: number, y: number, o: Partial<Part> = {}) {
     if (kind === 'glow' && this.glows >= MAX_GLOWS) return;
     if ((kind === 'fire' || kind === 'flame') && this.fires >= MAX_FIRE) return;
-    if (this.parts.length >= MAX_PARTS) { if (kind !== 'blood' && kind !== 'spark') return; const old = this.parts.shift(); if (old) this.dropPart(old); }
+    // full: background puffs (smoke, gas, debris, lights) are skipped; anything else replaces the oldest particle
+    if (this.parts.length >= MAX_PARTS) { if (kind === 'smoke' || kind === 'gas' || kind === 'debris' || kind === 'glow') return; const old = this.parts.shift(); if (old) this.dropPart(old); }
     if (kind === 'glow') this.glows++; else if (kind === 'fire' || kind === 'flame') this.fires++;
     this.parts.push({ kind, x, y, vx: 0, vy: 0, z: 0, vz: 0, t: 0, life: 0.5, s0: 1, s1: 1, a: 1, damp: 0, rise: 0, v: 0, tint: 0xffffff, ...o });
   }

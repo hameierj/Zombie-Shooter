@@ -160,6 +160,20 @@ passive they took through the old cross-region links).
 
 Allocate a node next to one you own. Each region is paid in its own DNA colour (Basic Training Green, Marksman and Suppression Yellow, Breacher and Deadeye Red, Inferno Teal, Demolition and Command Purple); **each region has its own price ladder**: its first passive costs 15 of its colour, scaled up by the tiers that colour has gained between the horde that brought it and the horde that opens the region (so a late region isn't an instant buy), and each passive taken in that region makes its next one ×3.5. Sim: Basic Training lasts ~48 min, Marksman starts at ~7 min (when yellow arrives) and runs to ~70 min. Tap a node to see what it does.
 
+### Region mastery and global upgrades
+
+**Mastery.** Taking all 10 passives in a region grants that region's mastery perk (a card announces it; the region shows
+a gold star): Basic Training *Veteran Squad* ×1.3 damage · Marksman *Eagle Eye* +8% crit chance · Breacher *Brutal Force*
++60% crit damage · Suppression *Rapid Fire* +15% attack speed · Deadeye *Killshot* +5% crit chance and +50% crit damage ·
+Inferno *Scorched Earth* +25% DNA · Demolition *Shockwave* ×1.3 damage · Command *Supreme Command* ×1.5 damage and +10%
+attack speed.
+
+**Global upgrades** (top of the Tree tab): one endless squad-wide upgrade per DNA colour, opened once that colour's
+first zombie type reaches tier 50. Green *Firepower* ×1.04 damage per level · Yellow *Rate of Fire* +2% attack speed ·
+Red *Lethality* +5% crit damage · Teal *Precision* +0.5% crit chance (100 levels) · Purple *Harvest* ×1.03 DNA from
+kills. The first level costs the colour's tier-100 price (so it can't be farmed early), and each level ×1.25 more.
+Both reset with a prestige, like the rest of the run.
+
 ## 5. Hordes (Hordes tab)
 Optional fights. The stream pauses while you fight. Every horde has a **type** and ends with a **boss** (×10 HP, plus
 its own mechanic) that comes last. **You lose if the boss reaches the shredder or 10 horde zombies reach it** (no

@@ -141,8 +141,23 @@ function build(): TreeNode[] {
 export const TREE = build();
 export const treeNode = (id: string) => TREE.find((n) => n.id === id)!;
 
+/** Mastery: a unique squad-wide perk for completing a region (all 10 of its passives). */
+export const MASTERY: { name: string; desc: string; apply: (fx: Fx) => void }[] = [
+  { name: 'Veteran Squad', desc: '×1.3 damage for the whole squad', apply: (f) => { f.more *= 1.3; } },
+  { name: 'Eagle Eye', desc: '+8% crit chance for the whole squad', apply: (f) => { f.crit += 0.08; } },
+  { name: 'Brutal Force', desc: '+60% crit damage for the whole squad', apply: (f) => { f.critDmg += 0.6; } },
+  { name: 'Rapid Fire', desc: '+15% attack speed for the whole squad', apply: (f) => { f.spd += 0.15; } },
+  { name: 'Killshot', desc: '+5% crit chance and +50% crit damage for the whole squad', apply: (f) => { f.crit += 0.05; f.critDmg += 0.5; } },
+  { name: 'Scorched Earth', desc: '+25% DNA from every kill', apply: (f) => { f.dna += 0.25; } },
+  { name: 'Shockwave', desc: '×1.3 damage for the whole squad', apply: (f) => { f.more *= 1.3; } },
+  { name: 'Supreme Command', desc: '×1.5 damage and +10% attack speed for the whole squad', apply: (f) => { f.more *= 1.5; f.spd += 0.1; } },
+];
+export const REGION_STEPS = ['s1', 's2', 'n1', 'a1', 'a2', 'na', 'b1', 'b2', 'nb', 'k'];
+export const regionComplete = (allocated: string[], ri: number) => REGION_STEPS.every((k) => allocated.includes(`r${ri}.${k}`));
+
 export function treeFx(allocated: string[]): Fx {
   const fx = emptyFx();
   for (const id of allocated) treeNode(id)?.apply(fx);
+  REGIONS.forEach((_, ri) => { if (regionComplete(allocated, ri)) MASTERY[ri]?.apply(fx); });
   return fx;
 }

@@ -9,7 +9,7 @@ import { showRanges, setShowRanges, showFps, setShowFps } from '../core/prefs';
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
 import { Game, game, type AutoSell, type Loot } from '../core/state.ts';
-import { REGIONS, TREE, treeNode } from '../core/tree.ts';
+import { MASTERY, REGIONS, TREE, regionComplete, treeNode } from '../core/tree.ts';
 import { charmIcon, classIcon, crateIcon, gunIcon, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import { fmtInt, fmtLn, fmtMult, fmtNum, gearDesc, gearName, gunName, RARITY_COLOR } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
@@ -316,6 +316,7 @@ function act(d: ActionData): boolean {
     case 'spawn': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].spawn; i++) { t = game.s.strains[sid].spawn; game.buySpawn(sid); } break;
     case 'release': game.release(sid); break;
     case 'zombie-ult': game.zombieUlt(sid); break;
+    case 'global': game.buyGlobal(arg as M.ColourId, 1); break;
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
@@ -331,7 +332,8 @@ function act(d: ActionData): boolean {
     }
     case 'unlock-unit': game.hire(cls); break;
     case 'hire': for (let i = 0, t = -1; i < amtN() && t !== game.unit(cls).count; i++) { t = game.unit(cls).count; game.hire(cls); } break;
-    case 'allocate': { const had = game.s.alloc.length; game.allocate(arg); if (game.s.alloc.length > had) { const n = treeNode(arg); treeFresh = arg; toast(`<b>${esc(n.size === 'small' ? n.desc : n.name)}</b><span>${esc(n.size === 'small' ? REGIONS[n.region].name : n.desc)}</span>`, REGIONS[n.region].color); } break; }
+    case 'allocate': { const had = game.s.alloc.length; game.allocate(arg); if (game.s.alloc.length > had) { const n = treeNode(arg); treeFresh = arg; toast(`<b>${esc(n.size === 'small' ? n.desc : n.name)}</b><span>${esc(n.size === 'small' ? REGIONS[n.region].name : n.desc)}</span>`, REGIONS[n.region].color);
+      if (regionComplete(game.s.alloc, n.region)) { const r = REGIONS[n.region], m = MASTERY[n.region]; showCards([{ eyebrow: `${r.name} mastered`, title: m.name, color: '#ffd34d', icon: vialIcon(r.dna), body: `All 10 passives taken. Mastery perk: <b>${esc(m.desc)}</b>.` }]); } } break; }
     case 'horde': game.startHorde(); tab = null; render(); break;
     case 'nudge-hire': game.hire(cls); tickNudge(); break;
     case 'nudge-horde': game.startHorde(); tickNudge(); break;
@@ -377,7 +379,7 @@ function act(d: ActionData): boolean {
   if (a === 'tier-up') sfx.tierUp();
   else if (a === 'allocate') { if (paid) sfx.allocate(); }
   else if (a === 'sell' || a === 'sell-matching') sfx.buy();
-  else if (['buy-node', 'buy-stages', 'hire', 'spawn', 'release'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
+  else if (['buy-node', 'buy-stages', 'hire', 'spawn', 'release', 'global'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
   else if (a.startsWith('equip')) sfx.equip();
   else if (a !== 'horde') sfx.click();
   // the tap is finished, so a re-render the action asked for can happen right now (no waiting)
@@ -421,7 +423,7 @@ function refresh() {
   for (const el of document.querySelectorAll<HTMLButtonElement>('[data-cost]')) {
     const ok = game.canAfford(el.dataset.col as StrainId, Number(el.dataset.cost));
     el.disabled = !ok;
-    if ((el.classList.contains('mu') || el.classList.contains('evolve') || el.classList.contains('evolve-big')) && el.classList.contains('afford') !== ok) { el.classList.toggle('afford', ok); flipped = true; }
+    if ((el.classList.contains('mu') || el.classList.contains('evolve') || el.classList.contains('evolve-big') || el.classList.contains('gl-buy')) && el.classList.contains('afford') !== ok) { el.classList.toggle('afford', ok); flipped = true; }
   }
   // recruit cards: grow the progress bar, and switch to the Unlock button once it's affordable
   for (const bar of document.querySelectorAll<HTMLElement>('.rc-bar[data-need]')) {
@@ -768,8 +770,9 @@ function treeChecklistHtml() {
     const released = game.s.strains[reg.dna].unlocked;
     const sub = got === 10 ? 'Complete' : !released ? `Paid in ${colour.dna} · <span class="tc-need">release ${colour.plural} first</span>` : rd ? `<span class="tc-ready">${rd} ready to take</span> · paid in ${colour.dna}` : av ? `${av} next · paid in ${colour.dna}` : `Paid in ${colour.dna}`;
     return `<div class="tc-region ${open ? 'open' : ''}" style="--rc:${reg.color}">
-      <button class="tc-head" data-action="region" data-arg="${ri}" aria-expanded="${open}">${treeRing(got, reg.color)}<div><b>${reg.name}</b><span class="tc-sub">${sub}</span></div><span class="tc-chev">▶</span></button>
+      <button class="tc-head" data-action="region" data-arg="${ri}" aria-expanded="${open}">${treeRing(got, reg.color)}<div><b>${reg.name}${got === 10 ? ' <span class="tm-star" title="Mastered">★</span>' : ''}</b><span class="tc-sub">${got === 10 ? `Mastered: ${esc(MASTERY[ri].name)}` : sub}</span></div><span class="tc-chev">▶</span></button>
       ${open ? `<div class="tc-goal"><i></i><div>Goal: <em>${esc(key.name)}</em>. ${esc(key.desc)}</div></div>
+      <div class="tc-mastery ${got === 10 ? 'on' : ''}"><span class="tm-badge">${got === 10 ? '✓ Mastery' : 'Mastery'}</span><div><b>${esc(MASTERY[ri].name)}</b><span>${esc(MASTERY[ri].desc)}${got === 10 ? '' : ' · complete all 10 passives'}</span></div></div>
       <div class="tc-body">${treeStep(ri, 's1', 1, true)}${treeStep(ri, 's2', 2)}${treeStep(ri, 'n1', 3)}
         <div class="tc-forkhead"><span>Path A</span><span>Path B</span></div>
         <div class="tc-fork"><div class="tc-col">${['a1', 'a2', 'na'].map((k, i) => treeStep(ri, k, 4 + i, i === 0)).join('')}</div><div class="tc-col">${['b1', 'b2', 'nb'].map((k, i) => treeStep(ri, k, 4 + i, i === 0)).join('')}</div></div>
@@ -777,8 +780,22 @@ function treeChecklistHtml() {
     </div>`;
   }).join('');
   treeFresh = '';
-  return `<div class="tc-summary"><span><b>${game.s.alloc.length}</b> passives${totalReady ? ` · <span class="tc-ready">${totalReady} ready</span>` : ''}</span><span>Each region has its own prices: every passive taken there makes its next one ×${C.treeCostGrowth}</span></div>
+  return `${globalsHtml()}<div class="tc-summary"><span><b>${game.s.alloc.length}</b> passives${totalReady ? ` · <span class="tc-ready">${totalReady} ready</span>` : ''}</span><span>Each region has its own prices: every passive taken there makes its next one ×${C.treeCostGrowth}</span></div>
   <div class="tc-list">${regions}</div>`;
+}
+
+// ---------- Global upgrades: one endless squad-wide upgrade per DNA colour ----------
+function globalsHtml() {
+  const rows = M.COLOURS.map((c) => {
+    const d = M.GLOBALS[c], st = M.strainById(c), lv = game.globalLevel(c), open = M.globalOpen(game.s.strains, c);
+    const maxed = game.globalMaxed(c), ln = game.globalCost(c);
+    const act = !open ? `<span class="gl-lock">🔒 ${game.s.strains[c].unlocked ? `${esc(st.plural)} to tier ${M.TIER_CAP}` : `unlock ${esc(st.plural)}`}</span>`
+      : maxed ? '<span class="gl-lock">✓ Max</span>'
+      : `<button class="btn gl-buy ${game.canAfford(c, ln) ? 'afford' : ''}" data-action="global" data-arg="${c}" ${costAttr(c, ln)}>${vial(c)}${fmtLn(ln)}</button>`;
+    return `<div class="gl-row ${open ? '' : 'locked'}" style="--dna:${st.color}"><img class="px" src="${vialIcon(c)}" alt="">
+      <div class="gl-t"><b>${esc(d.name)} <small>Lv ${lv}${d.max ? `/${d.max}` : ''}</small></b><span>${lv ? esc(d.desc(lv)) : 'none yet'}${maxed || !open ? '' : ` → ${esc(d.desc(lv + 1))}`}</span></div>${act}</div>`;
+  }).join('');
+  return `<div class="gl-card"><div class="gl-head"><b>Global upgrades</b><span>Endless, squad-wide, one per DNA colour. Opens when that colour's first zombie type reaches tier ${M.TIER_CAP}; each level costs ×${C.globalCostGrowth} more.</span></div>${rows}</div>`;
 }
 
 // ---------- Hordes tab ----------

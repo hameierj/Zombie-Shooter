@@ -32,6 +32,7 @@ export interface SaveData {
   econ?: number;
   /** Tutorial steps already shown. */
   tut?: string[];
+  globals?: Partial<Record<M.ColourId, number>>;   // global upgrade levels per DNA colour
 }
 /** A dropped item; `sold` is set when auto-sell turned it straight into DNA. */
 export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale; alsoSold?: number };
@@ -136,8 +137,8 @@ export class Game {
 
   // ---------- DNA ----------
   get fx(): Fx {
-    const key = this.s.alloc.join(',') + '|' + JSON.stringify(this.s.prestige?.perks ?? {});
-    if (this.fxCache?.key !== key) { this.fxCache = { key, fx: M.applyPerks(treeFx(this.s.alloc), this.s.prestige) }; this.syncLive(); }
+    const key = this.s.alloc.join(',') + '|' + JSON.stringify(this.s.prestige?.perks ?? {}) + '|' + JSON.stringify(this.s.globals ?? {});
+    if (this.fxCache?.key !== key) { this.fxCache = { key, fx: M.applyGlobals(M.applyPerks(treeFx(this.s.alloc), this.s.prestige), this.s.globals) }; this.syncLive(); }
     return this.fxCache.fx;
   }
   /** Perk effects that aren't part of the squad's modifiers: spawn rate and special-zombie chance. */
@@ -220,6 +221,18 @@ export class Game {
     this.s.strains[s].unlocked = true;
     this.emit('release', s);
     this.emit('change');
+  }
+
+  // ---------- global upgrades (one per DNA colour) ----------
+  globalLevel(c: M.ColourId) { return this.s.globals?.[c] ?? 0; }
+  globalCost(c: M.ColourId) { return M.lnGlobalCost(c, this.globalLevel(c)); }
+  globalMaxed(c: M.ColourId) { const m = M.GLOBALS[c].max; return m !== undefined && this.globalLevel(c) >= m; }
+  canBuyGlobal(c: M.ColourId) { return M.globalOpen(this.s.strains, c) && !this.globalMaxed(c) && this.canAfford(c, this.globalCost(c)); }
+  buyGlobal(c: M.ColourId, n = 1) {
+    let k = 0;
+    while (k < n && this.canBuyGlobal(c) && this.pay(c, this.globalCost(c))) { this.s.globals = { ...(this.s.globals ?? {}), [c]: this.globalLevel(c) + 1 }; k++; }
+    if (k) this.emit('change');
+    return k;
   }
 
   // ---------- zombie ultimate forms ----------
