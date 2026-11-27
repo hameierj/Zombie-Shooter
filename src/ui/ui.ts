@@ -174,7 +174,7 @@ let softTimer = 0;
 // ---------- init ----------
 export function initUI() {
   document.addEventListener('click', onClick);
-  document.addEventListener('pointerdown', () => { lastPointer = performance.now(); pointerDown++; }, { passive: true });
+  document.addEventListener('pointerdown', (e) => { lastPointer = performance.now(); pointerDown++; if (railPick && !(e.target as Element).closest?.('#zrail')) { railPick = null; railRender(); } }, { passive: true, capture: true });
   const release = () => { lastPointer = performance.now(); pointerDown = Math.max(0, pointerDown - 1); };
   document.addEventListener('pointerup', release, { passive: true });
   document.addEventListener('pointercancel', release, { passive: true });
@@ -240,6 +240,8 @@ function act(d: ActionData): boolean {
       render();
       break;
     case 'close': tab = null; render(); break;
+    case 'rail': railOpen = !railOpen; railPick = null; try { localStorage.setItem('zombie-idle-rail', railOpen ? '1' : '0'); } catch { /* ignore */ } railRender(); break;
+    case 'rail-pick': railPick = railPick === arg ? null : (arg as M.ZombieId); railRender(); break;
     case 'buy-amt': buyAmt = arg === 'max' ? 'max' : (Number(arg) as 1 | 10); try { localStorage.setItem('zombie-idle-buy', String(buyAmt)); } catch { /* ignore */ } render(); break;
     case 'tier-up': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].tier; i++) { t = game.s.strains[sid].tier; game.raiseTier(sid); } break;
     case 'spawn': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].spawn; i++) { t = game.s.strains[sid].spawn; game.buySpawn(sid); } break;
@@ -331,6 +333,7 @@ function refresh() {
       : b.dataset.arg === 'hordes' ? (showKeep() && game.hordeOdds() >= C.hordeWinOdds) || M.PERKS.some((d) => M.plv(game.s.prestige, d.id) < d.max && game.s.prestige.points >= d.cost) : false;
     b.classList.toggle('badge', badge);
   }
+  for (const b of document.querySelectorAll<HTMLElement>('#zrail .zr-z')) b.classList.toggle('can', railCan(b.dataset.arg as M.ZombieId));
   // keep buttons live as DNA comes in: enable + highlight the moment one becomes affordable (or stops being), and
   // redraw so ×10 / Max previews catch up
   let flipped = false;
@@ -357,6 +360,7 @@ function render() {
   const panel = $('#panel');
   document.getElementById('app')!.classList.toggle('menu-open', !!tab);
   panel.hidden = !tab;
+  railRender();
   if (!tab) { refresh(); return; }
   const body = $('#tab-body');
   const key = `${tab}:${tab === 'tree' ? treeView : ''}`;
@@ -368,6 +372,55 @@ function render() {
   body.scrollTop = scroll;
   refresh();
 }
+
+// ---------- quick zombie rail: released types down the right edge of the map; tap one for its two upgrades ----------
+let railOpen = (() => { try { return localStorage.getItem('zombie-idle-rail') !== '0'; } catch { return true; } })();
+let railPick: M.ZombieId | null = null;
+/** Can you afford either of this type's upgrades right now (a free tier counts)? */
+function railCan(id: M.ZombieId) {
+  const x = game.s.strains[id], col = M.familyOf(id);
+  if (x.tier < x.maxTier) return true;
+  return game.canAfford(col, M.lnTierCost(id, x.maxTier)) || (x.spawn < C.spawnMax && game.canAfford(col, M.lnSpawnCost(id, x.spawn)));
+}
+const CHEV = (d: string) => `<svg viewBox="0 0 24 24" class="i"><path d="${d}"/></svg>`;
+function railRender() {
+  const el = document.getElementById('zrail');
+  if (!el) return;
+  const types = M.COLOURS.flatMap((c) => M.familyMembers(c)).filter((st) => game.s.strains[st.id].unlocked);   // grouped by colour
+  el.hidden = !!tab || types.length === 0;
+  if (el.hidden) { railPick = null; return; }
+  if (railPick && !game.s.strains[railPick]?.unlocked) railPick = null;
+  const list = el.querySelector<HTMLElement>('.zr-list'), scroll = list?.scrollTop ?? 0;
+  el.className = railOpen ? 'open' : '';
+  const toggle = `<button class="zr-toggle" data-action="rail" aria-label="${railOpen ? 'Hide' : 'Show'} zombie upgrades" aria-expanded="${railOpen}">
+    ${railOpen ? CHEV('M9 5l7 7-7 7') : `<img class="px" src="${zombieIcon('shambler')}" alt="">${CHEV('M15 5l-7 7 7 7')}`}</button>`;
+  if (!railOpen) { el.innerHTML = toggle; return; }
+  const icons = types.map((st) => `<button class="zr-z ${railCan(st.id) ? 'can' : ''} ${railPick === st.id ? 'on' : ''}" data-action="rail-pick" data-arg="${st.id}" style="--dna:${st.color}" aria-label="${esc(st.plural)}, tier ${game.s.strains[st.id].tier}">
+      <img class="px" src="${zombieIcon(st.id)}" alt=""><span>${fmtInt(game.s.strains[st.id].tier)}</span></button>`).join('');
+  let pop = '';
+  if (railPick) {
+    const st = M.strainById(railPick), x = game.s.strains[railPick], col = st.family, free = x.tier < x.maxTier;
+    const tp = tierPrev(st.id), sp = spawnPrev(st.id);
+    pop = `<div class="zr-pop" style="--dna:${st.color}">
+      <div class="zr-head"><img class="px" src="${zombieIcon(st.id)}" alt=""><div><b>${esc(st.plural)}</b><span>Tier ${fmtInt(x.tier)} · Spawn ${x.spawn}/${C.spawnMax}</span></div></div>
+      <div class="s-btns">
+        <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>
+        ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)}><span>Spawn +</span>${amtCost(col, sp)}</button>`
+          : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
+      </div></div>`;
+  }
+  el.innerHTML = `${toggle}<div class="zr-list">${icons}</div>${pop}`;
+  const nl = el.querySelector<HTMLElement>('.zr-list')!;
+  nl.scrollTop = scroll;
+  // line the popover up with the tapped icon (kept inside the rail)
+  const p = el.querySelector<HTMLElement>('.zr-pop'), on = el.querySelector<HTMLElement>('.zr-z.on');
+  if (p && on) {
+    const top = on.offsetTop - nl.scrollTop + nl.offsetTop + on.offsetHeight / 2 - p.offsetHeight / 2;
+    p.style.top = `${Math.max(0, Math.min(el.clientHeight - p.offsetHeight, top))}px`;
+  }
+}
+nlScrollHook();
+function nlScrollHook() { document.addEventListener('scroll', (e) => { if (railPick && (e.target as Element)?.classList?.contains('zr-list')) { railPick = null; railRender(); } }, true); }
 
 // ---------- Zombies tab: one card per zombie type ----------
 /** The keep-up meter, pinned to the top of the Zombies menu while you scroll (refresh() keeps it live). */

@@ -210,6 +210,11 @@ in total; only Snipers can cover the whole road (others cap
 at 95%). Zombies take about 16 s to walk the road, and the view is zoomed out (~400 art units across the short side).
 See `unit-ranges.png`.
 
+**Quick zombie rail.** Down the right edge of the map, every released zombie type has an icon (grouped by colour, with
+its tier). Tap one for a pop-over with its two upgrades, **DNA +** (tier) and **Spawn +**, using the same buy amount as the
+Zombies tab. A green dot means one of them is affordable. The list scrolls; the ‹ › button collapses it to a small tab
+(remembered). It hides while a menu is open.
+
 ## 11. Settings and saves
 Settings is one screen in three sections. **Sound & display**: on/off switches for sound effects, music, range lines and
 difficulty meters. **Saves**: the current game (with when it was last saved), three slots and an automatic **Backup**,
