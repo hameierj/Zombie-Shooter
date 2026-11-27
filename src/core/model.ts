@@ -94,7 +94,18 @@ export const stageOf = (s: ZombieId) => { let v = STAGE.get(s); if (v === undefi
 export const isLastForm = (s: ZombieId) => { stageOf(s); return LAST.get(s)!; };
 export const tierCapOf = (s: ZombieId) => (isLastForm(s) ? Infinity : TIER_CAP);
 /** The tier that sets HP, DNA and prices: the type's own tier plus TIER_CAP per evolution stage. */
-export const effTier = (s: ZombieId, t: number) => t + TIER_CAP * stageOf(s);
+export const effTier = (s: ZombieId, t: number) => t + TIER_CAP * stageOf(s) + colourBase(s);
+/** A new colour starts where the street is when it arrives: just below the tier of the horde that brings it, so its
+ * zombies aren't a pushover next to the colours you've been raising (yellow ≈ 12, red ≈ 22, teal ≈ 38, purple ≈ 54). */
+const BASE = new Map<string, number>();
+export const colourBase = (s: ZombieId) => {
+  const fam = familyOf(s);
+  let b = BASE.get(fam);
+  if (b === undefined) { const k = COLOUR_HORDE[fam as ZombieId]; b = k ? Math.max(0, hordeDef(k).tier - 2) : 0; BASE.set(fam, b); }
+  return b;
+};
+/** The dial tier that puts a colour's zombie at a horde's (effective) tier. */
+export const hordeDial = (s: ZombieId, tier: number) => Math.max(1, tier - TIER_CAP * stageOf(s) - colourBase(s));
 export type DnaMap = Record<ColourId, number | null>; // ln amounts per colour; null = 0
 /** Per-type zombie dials. */
 export interface StrainState { unlocked: boolean; tier: number; maxTier: number; spawn: number }
@@ -316,10 +327,11 @@ const KIND_ORDER: HordeKind[] = ['classic', 'stampede', 'armoured', 'swarm', 'wa
 export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean; kind: HordeKind; boss: BossKind }
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
 // Horde tiers (effective tiers), set from the balance sim (which also counts combo and specials): hordes 1-7 at about
-// 7, 16, 27, 42, 57, 74 and 97 min (Hordes 1-4 also bring the yellow, red, teal and purple colours), then an Elite
-// horde about every 15-25 min. Keep-up in the sim stays ~×2-4 for the first half hour (it was ×20-50). ELITE_TIERS continue the list; past its end, +10 each.
-const HORDE_TIERS = [14, 24, 40, 56, 70, 82, 94];
-const ELITE_TIERS = [104, 114, 124, 133, 142, 151];
+// 6, 15, 28, 43, 66, 77 and 86 min (Hordes 1-4 also bring the yellow, red, teal and purple colours, each starting at
+// about the horde's tier, see colourBase), then an Elite horde about every 10-30 min. Keep-up in the sim ~×1.2-2 for
+// the first hour. ELITE_TIERS continue the list; past its end, +10 each.
+const HORDE_TIERS = [14, 26, 48, 68, 86, 100, 114];
+const ELITE_TIERS = [126, 137, 148, 158, 168, 178];
 const ELITE_STEP = 10;
 export function hordeDef(k: number): HordeDef {
   const cls = CLASSES.find((c) => c.horde === k)?.id;
@@ -336,7 +348,9 @@ export function hordeDef(k: number): HordeDef {
 /** Guns keep up with you: every gun is refitted to your toughest zombie tier. Guns cover half of each tier's HP
  * growth by design, so they must never fall behind; drops then only matter for rarity. */
 export const gunFloor = (strains: Strains) => bestTier(strains);
-export const hordeMix = (k: number) => STRAINS.filter((s) => stageOf(s.id) === 0 && s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only (a horde's tier is already the effective tier)
+/** A horde's zombies: each colour's first form whose starting tier is below the horde's (so every horde previews the
+ * colour it unlocks: Horde 1 brings Runners, Horde 2 Brutes, …). A horde's tier is an effective tier. */
+export const hordeMix = (k: number) => STRAINS.filter((s) => stageOf(s.id) === 0 && colourBase(s.id) < hordeDef(k).tier).map((s) => s.id);
 
 // ---------- Zombies ----------
 export const spawnRate = (s: ZombieId, spawn: number) => strainById(s).baseRate * (1 + C.spawnPerLevel * spawn) * live.spawnMult;
@@ -534,8 +548,8 @@ export function applyPerks(fx: Fx, p: Prestige | undefined) { for (const d of PE
 export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number, tierOverride?: number) {
   const h = tierOverride ? { ...hordeDef(k), tier: tierOverride } : hordeDef(k), mix = hordeMix(k), boss = hordeBoss(k), kd = HORDE_KINDS[h.kind], bd = BOSSES[h.boss];
   let secPerZombie = 0;
-  for (const s of mix) secPerZombie += Math.exp(Math.min(60, lnZombieHp(s, h.tier, 0) - lnSquadDps(squad, fx, s))) / mix.length;
-  const bossSec = C.bossHpMult * bd.hp * Math.exp(Math.min(60, lnZombieHp(boss, h.tier, 0) - lnSquadDps(squad, fx, boss)));
+  for (const s of mix) secPerZombie += Math.exp(Math.min(60, lnZombieHp(s, hordeDial(s, h.tier), 0) - lnSquadDps(squad, fx, s))) / mix.length;
+  const bossSec = C.bossHpMult * bd.hp * Math.exp(Math.min(60, lnZombieHp(boss, hordeDial(boss, h.tier), 0) - lnSquadDps(squad, fx, boss)));
   // the boss comes last: you have the time it takes to arrive (after the rest of the horde, and any breathers between
   // waves) plus its walk, and in that time the squad must get through the horde, the boss and anything the boss adds
   const spawnSec = kd.count / kd.perSec + (kd.waves ? (kd.waves - 1) * (kd.gap ?? 0) : 0);

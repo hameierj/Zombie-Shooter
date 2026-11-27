@@ -217,7 +217,8 @@ export class BattleScene extends Phaser.Scene {
     const mix = M.hordeMix(k), kd = M.HORDE_KINDS[h.kind], bd = M.BOSSES[h.boss];
     const queue = Array.from({ length: kd.count }, (_, i) => {
       const medic = h.kind === 'hospital' && i % 10 === 4;   // 6 medics spread through the horde
-      const z = this.makeZombie(mix[Math.floor(Math.random() * mix.length)], h.tier, 0, true, false, h.kind === 'armoured' ? 'armored' : medic ? 'medic' : null);
+      const zs = mix[Math.floor(Math.random() * mix.length)];
+      const z = this.makeZombie(zs, M.hordeDial(zs, h.tier), 0, true, false, h.kind === 'armoured' ? 'armored' : medic ? 'medic' : null);
       z.lnHp += Math.log(kd.hp) - (z.special ? Math.log(M.specialById(z.special).hp) : 0);   // the kind sets the HP, not the special
       z.speed *= kd.speed;
       if (h.kind === 'fog') z.fog = true;
@@ -225,7 +226,7 @@ export class BattleScene extends Phaser.Scene {
       return z;
     });
     // the boss comes last: kill it before it reaches the shredder to win
-    const boss = this.makeZombie(M.hordeBoss(k), h.tier, 0, true, true);
+    const boss = this.makeZombie(M.hordeBoss(k), M.hordeDial(M.hordeBoss(k), h.tier), 0, true, true);
     boss.bossKind = h.boss; boss.look = bd.look; boss.scale = bd.scale; boss.tint = bd.tint;
     boss.lnHp += Math.log(bd.hp); boss.speed *= bd.speed;
     if (h.boss === 'juggernaut') boss.armour = 0.6 / bd.hp;      // armour pool on top of HP (in units of the boss's HP)

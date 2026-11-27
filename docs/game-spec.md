@@ -14,6 +14,11 @@ unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 
 ## 2. Zombie types and their dials (Zombies tab)
 There are **25 zombie types in five DNA colour families**. Every type in a family drops that family's colour.
+**New colours start strong**: a colour's dial starts at tier 1, but its tier 1 is as tough and as rich as the street
+was when it arrived, just below the tier of the horde that brought it (`colourBase`: yellow ≈ 12, red ≈ 24, teal ≈ 46,
+purple ≈ 66 effective tiers). Each horde's zombies are the colours whose start is below its tier, so every horde
+previews the colour it unlocks (Horde 1 brings Runners, Horde 2 Brutes, …).
+
 **Colours are horde rewards**, never bought: Green from the start, Yellow (Runner) after Horde 1, Red (Brute) after
 Horde 2, Teal (Spitter) after Horde 3, Purple (Bloater) after Horde 4.
 
@@ -154,11 +159,11 @@ banner) right after you beat a horde.
 The odds (shown with **Difficulty meters** on) account for the type and boss: count × HP × a difficulty factor for
 speed, fog or healing, plus the extra zombies a boss brings, against the time until the boss arrives and walks in.
 Browser play tests: every horde type and boss won at 1.3, and 5 of 6 lost at 0.85. War Drums starts at 1.10.
-Hordes 1–7 are at effective tiers 14, 24, 40, 56, 70, 82 and 94, and unlock the unit types and regions above
-(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 104, 114, 124, 133, 142, 151,
+Hordes 1–7 are at effective tiers 14, 26, 48, 68, 86, 100 and 114, and unlock the unit types and regions above
+(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 126, 137, 148, 158, 168, 178,
 then +10 each (some unlock the newer recruits, the rest give an epic+ item). Horde zombies are always each colour's first
-form. These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde): hordes at about 9,
-16, 28, 43, 58, 75 and 97 min, then one about every 15–25 min (tier price 80·1.15^(t−1); the sim counts
+form. These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde): hordes at about 6,
+15, 28, 43, 66, 77 and 86 min, then one about every 10–30 min (tier price 80·1.15^(t−1); the sim counts
 combo and specials as ×1.4 income). If the next horde is far
 above your toughest zombies, its card says so and points you at raising zombie tiers.
 
