@@ -174,7 +174,7 @@ export class Game {
     if (x.spawn < C.spawnMax && this.pay(M.familyOf(s), this.spawnCost(s))) { x.spawn++; this.emit('change'); }
   }
   /** ln price to release a zombie type: ~10 minutes of current income in the colour you pay with. */
-  releaseCost(s: ZombieId) { const u = M.strainById(s).unlock; const col = M.familyOf(u?.from ?? s); return M.lnReleaseCost(s, this.lnDnaPerSec()[col]); }
+  releaseCost(s: ZombieId) { return M.lnReleaseCost(s); }
   canRelease(s: ZombieId) {
     const u = M.strainById(s).unlock;
     return !!u && !this.s.strains[s].unlocked && this.releaseReady(s) && this.canAfford(M.familyOf(u.from), this.releaseCost(s));

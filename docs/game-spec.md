@@ -15,8 +15,9 @@ unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 ## 2. Zombie types and their dials (Zombies tab)
 There are **25 zombie types in five DNA colour families**. Every type in a family drops that family's colour.
 The first type of each family is released with the previous family's colour; the other four are released one after
-another with the family's own colour. **Releasing** a type needs the type it comes from at **tier 15**, and costs about
-**3 minutes of your current income** in the colour you pay with (at least 150), so every release is a similar wait.
+another with the family's own colour. **Releasing** a type needs the type it comes from at **tier 15**, and has a
+**fixed price** in the colour you pay with (4,500–50,000, about 3 minutes of a normal run's income when it opens up). The
+price never moves while you save up for it (`RELEASE_COST` in model.ts).
 
 | Colour | Family (release order) |
 |---|---|
@@ -27,6 +28,7 @@ another with the family's own colour. **Releasing** a type needs the type it com
 | Purple (very tanky) | Bloater, Chef, Sumo, Mutant, Abomination |
 
 Later types in a family have more HP and drop proportionally more DNA. Hordes use the five family leaders.
+Horde zombies pay DNA at **your** best tier (never the horde's higher tier), so a horde is never a DNA jackpot.
 
 **Varieties:** every zombie type also comes as **Feral** (×2.5 HP and DNA, reddish, a bit bigger) and **Alpha**
 (×6 HP and DNA, bigger, dark aura). They join a type's stream as you raise its DNA Count: Ferals from tier 20

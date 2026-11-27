@@ -569,7 +569,8 @@ export class BattleScene extends Phaser.Scene {
       this.broodSpawn(z, 10, 0.3, 1.7);
     }
     const vm = M.VARIETIES[z.variety].dna;
-    const loot = game.zombieKilled(z.strain, z.tier, { shredded: !!z.shredded, mult: (sp?.dna ?? 1) * vm * (z.shredded ? C.shredDna * Math.min(1, this.keepCache) ** 2 : 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
+    // horde zombies pay DNA at YOUR tier, not the horde's (a tier-30 horde shouldn't hand a tier-10 player a fortune)
+    const loot = game.zombieKilled(z.strain, z.horde ? Math.min(z.tier, game.best) : z.tier, { shredded: !!z.shredded, mult: (sp?.dna ?? 1) * vm * (z.shredded ? C.shredDna * Math.min(1, this.keepCache) ** 2 : 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
     if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 

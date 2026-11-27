@@ -220,7 +220,7 @@ export const CONFIG = {
   spawnPerLevel: 0.12,      // +12% spawn rate per level…
   spawnMax: 30,
   spawnHpPerLevel: 0.03,    // …and +3% HP
-  releaseSec: 180,          // a new zombie type costs ~3 min of income in that colour…
+  releaseSec: 180,          // (RELEASE_COST was tuned to ~3 min of a normal run's income)…
   releaseTier: 15,          // …once the type it comes from has reached tier 15
   spawnCost0: 20,
   spawnCostGrowth: 1.5,
@@ -324,10 +324,16 @@ export const lnZombieHp = (s: ZombieId, tier: number, spawn: number) =>
   Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (tier - 1) * lnR;
 export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
   Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna) * (fx.dnaMore ?? 1)) + (tier - 1) * lnR;
-/** Releasing a new zombie type costs about `releaseSec` (3 min) of your current income in the colour you pay with (never less
- * than its listed minimum), so every release is a similar wait instead of a ×1000 jump. */
-export const lnReleaseCost = (s: ZombieId, lnRate: number) =>
-  Math.max(Math.log(150), (Number.isFinite(lnRate) ? lnRate : -Infinity) + Math.log(C.releaseSec));
+/** Releasing a new zombie type has a FIXED price, paid in the colour it comes from (it never moves while you save up).
+ * Each is about 3 min of a normal run's income at the moment it becomes available (its parent type at tier 15). */
+export const RELEASE_COST: Partial<Record<ZombieId, number>> = {
+  runner: 7000, crawler: 7000, office: 12000, farmer: 20000, prisoner: 32000,
+  brute: 4500, jogger: 4500, courier: 9000, skater: 15000, athlete: 24000,
+  spitter: 7000, bouncer: 7000, lumberjack: 16000, butcher: 26000, juggernaut: 40000,
+  bloater: 5500, labtech: 5500, sewer: 12000, diver: 20000, plague: 32000,
+  chef: 8500, sumo: 19000, mutant: 32000, abomination: 50000,
+};
+export const lnReleaseCost = (s: ZombieId, _lnRate?: number) => Math.log(RELEASE_COST[s] ?? 10000);
 export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (tier - 1) * lnR;
 export const lnSpawnCost = (s: ZombieId, lv: number) => Math.log(C.spawnCost0 * strainById(s).dnaMult) + lv * Math.log(C.spawnCostGrowth);
 export const activeStrains = (st: Strains) => ZOMBIE_IDS.filter((s) => st[s]?.unlocked);
