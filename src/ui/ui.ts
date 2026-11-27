@@ -71,9 +71,36 @@ function stagePrev(c: ClassId, stages: UnitNodeId[]) {
   const p = preview(colour, (i) => { const id = open[i]; if (!id) return null; const ns = game.node(c, id); return ns.colour !== colour || (i === 0 && ns.locked) ? null : ns.lnCost; });
   return { ...p, colour, first };
 }
+/** Hire and Damage as ordinary buttons, the same size as the upgrades. */
+function hireBtn(c: ClassId) {
+  const u = game.unit(c), cap = game.unitCap, col = game.hireColour(c);
+  if (u.count >= cap) return `<button class="mu maxed" disabled><img class="px ic" src="${classIcon(c)}" alt=""><span>Hire</span><span class="lv">${u.count}/${cap}</span><span class="pc">${cap >= C.maxPerType ? '✓ Full' : 'Barracks'}</span></button>`;
+  const p = hirePrev(c);
+  return `<button class="mu hirebtn ${p.n > 0 ? 'afford' : ''}" style="--dna:${M.strainById(col).color}" data-action="hire" data-cls="${c}" ${costAttr(col, p.ln)} title="Hire ${p.n > 1 ? p.n + ' soldiers' : 'a soldier'}">
+    <img class="px ic" src="${classIcon(c)}" alt=""><span>Hire</span><span class="lv">${u.count}/${cap}</span><span class="pc">${p.n > 1 ? `×${p.n} ` : ''}${vial(col)}${fmtLn(p.ln)}</span></button>`;
+}
+function damageBtn(c: ClassId) {
+  const u = game.unit(c), ns = game.node(c, 'dmg'), p = nodePrev(c, 'dmg');
+  return `<button class="mu ${p.n > 0 ? 'afford' : ''}" style="--dna:${M.strainById(ns.colour).color}" data-action="buy-node" data-cls="${c}" data-arg="dmg" ${costAttr(ns.colour, p.ln)} title="${esc(`${nodeEffect(u, 'dmg', ns.level)} → ${nodeEffect(u, 'dmg', ns.level + 1)}`)}">
+    <img class="px ic" src="${nodeIcon('dmg')}" alt=""><span>Damage</span><span class="lv">Lv ${ns.level}</span><span class="pc">${p.n > 1 ? `×${p.n} ` : ''}${vial(ns.colour)}${fmtLn(p.ln)}</span></button>`;
+}
+/** The gear shelf: gun, attachment and charm; tap to change. */
+function gearShelf(c: ClassId) {
+  const u = game.unit(c);
+  const shelf = (kind: 'gun' | 'attach' | 'charm', label: string) => {
+    const open = kind === 'gun' || M.nlv(u, kind);
+    if (!open) return `<button class="sh locked" disabled><span class="ico">🔒</span><div><b>${label}</b><span>unlock with Gear</span></div></button>`;
+    const it = kind === 'gun' ? game.gun(u.gun) : game.gearItem(u[kind]);
+    if (!it) return `<button class="sh empty" data-action="pick" data-cls="${c}" data-arg="${kind}"><span class="ico">+</span><div><b>${label}</b><span>empty</span></div></button>`;
+    const icon = kind === 'gun' ? gunIcon(c) : (it as Gear).kind === 'attach' ? modIcon((it as M.Attachment).stat) : charmIcon((it as M.Charm).bane);
+    const txt = kind === 'gun' ? `${gunName(it as Gun).split(' ')[0]} T${fmtInt((it as Gun).ilvl)}` : gearDesc(it as Gear);
+    return `<button class="sh" style="--rar:${RARITY_COLOR[it.rarity]}" data-action="pick" data-cls="${c}" data-arg="${kind}"><img class="px" src="${icon}" alt=""><div><b>${label}</b><span>${esc(txt)}</span></div></button>`;
+  };
+  return `<div class="shelf">${shelf('gun', 'Gun')}${shelf('attach', 'Attachment')}${shelf('charm', 'Charm')}</div>`;
+}
 function upgradeRow(c: ClassId) {
   const u = game.unit(c), cd = M.classById(c);
-  return `<div class="uprow">${UP_BUTTONS.map((b) => {
+  return `<div class="ugrid">${hireBtn(c)}${damageBtn(c)}${UP_BUTTONS.map((b) => {
     const multi = b.stages.length > 1;
     const owned = b.stages.filter((id) => game.node(c, id).maxed).length;
     const sp = multi ? stagePrev(c, b.stages) : null;
@@ -107,7 +134,7 @@ const hordeRunning = () => battlePhase === 'intro' || battlePhase === 'horde';
 /** The open menu, or null when the full-screen zombie map is showing. */
 let tab: Tab | null = null;
 const TITLES: Record<Tab, string> = { zombies: 'Zombies', squad: 'Squad', tree: 'Passive Tree', hordes: 'Hordes' };
-let unitView: ClassId | null = null;     // the unit type whose own screen is open inside the Squad tab
+
 let unitNode: UnitNodeId = 'dmg';
 /** Which tree the Tree tab shows: the global passive web or one unit type's own tree. */
 let treeView: 'global' | ClassId = 'global';
@@ -183,11 +210,8 @@ function act(d: ActionData): boolean {
   const tier0 = sid ? game.s.strains[sid]?.tier : 0;
   switch (a) {
     case 'tab':
-      // from a sub-screen (a unit type's tree), the tab button goes back to that tab's overview;
-      // from the overview it collapses the menu to the map; from the map it opens the overview
-      if (tab === arg && arg === 'squad' && unitView) unitView = null;
-      else if (tab === arg && arg === 'tree' && treeView !== 'global') treeView = 'global';
-      else { tab = tab === arg ? null : (arg as Tab); unitView = null; }
+      // tapping the open tab collapses the menu to the map; tapping another opens it
+      tab = tab === arg ? null : (arg as Tab);
       if (tab === 'squad') game.markSeen();
       render();
       break;
@@ -196,11 +220,8 @@ function act(d: ActionData): boolean {
     case 'tier-up': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].tier; i++) { t = game.s.strains[sid].tier; game.raiseTier(sid); } break;
     case 'spawn': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].spawn; i++) { t = game.s.strains[sid].spawn; game.buySpawn(sid); } break;
     case 'release': game.release(sid); break;
-    case 'open-unit': unitView = cls; unitNode = 'dmg'; render(); break;
-    case 'units': unitView = null; render(); break;
     case 'tree-mode': treeMode = arg === 'web' ? 'web' : 'list'; try { localStorage.setItem('zombie-idle-tree-mode', treeMode); } catch { /* ignore */ } render(); break;
     case 'region': { const r = Number(arg); if (openRegions.has(r)) openRegions.delete(r); else openRegions.add(r); render(); break; }
-    case 'goto-unit': tab = 'squad'; unitView = cls; render(); break;
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
     case 'buy-node': game.buyNode(cls, arg as UnitNodeId, n || amtN()); break;
@@ -294,12 +315,12 @@ function render() {
   panel.hidden = !tab;
   if (!tab) { refresh(); return; }
   const body = $('#tab-body');
-  const key = `${tab}:${tab === 'squad' ? unitView ?? '' : tab === 'tree' ? treeView : ''}`;
+  const key = `${tab}:${tab === 'tree' ? treeView : ''}`;
   const scroll = body.dataset.key === key ? body.scrollTop : 0;
   body.dataset.key = key;
-  $('#panel-title').textContent = tab === 'squad' && unitView ? M.classById(unitView).plural : TITLES[tab];
+  $('#panel-title').textContent = TITLES[tab];
   body.className = tab === 'tree' && treeView === 'global' && treeMode === 'web' ? 'tree-mode' : '';
-  body.innerHTML = tab === 'zombies' ? zombiesHtml() : tab === 'squad' ? (unitView ? unitScreenHtml(unitView) : squadHtml()) : tab === 'tree' ? treeTabHtml() : hordesHtml();
+  body.innerHTML = tab === 'zombies' ? zombiesHtml() : tab === 'squad' ? squadHtml() : tab === 'tree' ? treeTabHtml() : hordesHtml();
   if (tab === 'tree' && treeView === 'global' && treeMode === 'web') bindTree(); else body.scrollTop = scroll;
   refresh();
 }
@@ -386,26 +407,18 @@ function squadHtml() {
     const u = game.unit(c.id);
     const open = game.classUnlocked(c.id);
     if (!open) return `<div class="ucard locked"><img class="px portrait" src="${classIcon(c.id)}" alt=""><div class="u-main"><b>${c.plural}</b><span class="sub">${c.gun}</span></div><span class="lock">🔒 Horde ${c.horde}</span></div>`;
-    const full = u.count >= game.unitCap;
-    const hc = game.hireCost(c.id), hcol = game.hireColour(c.id);
-    const dn = game.node(c.id, 'dmg');
-    const hp = hirePrev(c.id), dp = nodePrev(c.id, 'dmg');
-    return `<div class="ucard" style="--c1:${M.strainById(c.primary).color};--c2:${M.strainById(c.secondary).color}" title="Upgrades with ${M.strainById(c.primary).dna} and ${M.strainById(c.secondary).dna} DNA" data-action="open-unit" data-cls="${c.id}" role="button" tabindex="0">
+    const ab = M.abilityStage(u);
+    return `<div class="ucard" style="--c1:${M.strainById(c.primary).color};--c2:${M.strainById(c.secondary).color}" title="${c.ability.name}: ${esc(ab ? c.ability.stages[ab - 1] : 'not unlocked yet')}">
       <img class="px portrait" src="${classIcon(c.id)}" alt="">
       <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
-        <span class="sub">${u.count ? `Lv ${M.nlv(u, 'dmg')} · ${fmtLn(game.unitDps(u))} DPS` : 'Not hired yet'}</span>
-        </div>
-      <div class="quick">
-        ${full ? `<button class="btn sbtn ghost" disabled><span>Hire</span><span class="cost">${game.unitCap >= C.maxPerType ? 'full' : 'barracks full'}</span></button>` : `<button class="btn sbtn" data-action="hire" data-cls="${c.id}" ${costAttr(hcol, hp.ln)}><span>Hire</span>${amtCost(hcol, hp)}</button>`}
-        ${u.count ? `<button class="btn sbtn" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${dn.locked ? 'disabled' : costAttr(dn.colour, dp.ln)}><span>Damage +</span>${amtCost(dn.colour, dp)}</button>` : ''}
-      </div>
-      ${u.count ? upgradeRow(c.id) : ''}
+        <span class="sub">${u.count ? `Lv ${M.nlv(u, 'dmg')} · ${fmtLn(game.unitDps(u))} DPS` : `${c.gun} · not hired yet`}</span></div>
+      ${u.count ? `${upgradeRow(c.id)}${gearShelf(c.id)}` : `<div class="ugrid">${hireBtn(c.id)}<p class="sub small hint">Hire one to unlock upgrades and gear. Upgrades are paid in ${vial(c.primary)} and ${vial(c.secondary)}.</p></div>`}
     </div>`;
   }).join('');
   const items = [...s.guns.map((g) => ({ uid: g.uid, icon: gunIcon(g.cls), rarity: g.rarity, label: `T${fmtInt(g.ilvl)}`, power: M.lnGunPower(g) })),
     ...s.gear.map((g) => ({ uid: g.uid, icon: g.kind === 'attach' ? modIcon(g.stat) : charmIcon(g.bane), rarity: g.rarity, label: g.kind === 'attach' ? g.stat.toUpperCase() : 'CHARM', power: g.value * 10 }))]
     .sort((a, b) => M.CONFIG.rarities.findIndex((r) => r.id === b.rarity) - M.CONFIG.rarities.findIndex((r) => r.id === a.rarity) || b.power - a.power);
-  return `${topBar()}<p class="sub">Each unit's upgrades are the row of buttons on its card (Ability and Gear slots unlock stage by stage); tap the card for its gear and ability. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
+  return `${topBar()}<p class="sub">Hire, upgrade and equip each unit right on its card. Ability and Gear slots unlock stage by stage; tap a gear slot to change it. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
   <div class="grid2">${cards}</div>
   <h3>Items <small>${items.length}/60 · guns, attachments and charms (rare drops and horde rewards)</small></h3>
   ${autoSellHtml()}
@@ -437,47 +450,6 @@ function nodeEffect(u: Unit, id: UnitNodeId, lv: number): string {
     default: { const i = Number(id.slice(2)) - 1; return c.ability.stages[i]; }
   }
 }
-function unitScreenHtml(cls: ClassId) {
-  const c = M.classById(cls), u = game.unit(cls);
-  const cap = game.unitCap, full = u.count >= cap;
-  const hc = game.hireCost(cls), hcol = game.hireColour(cls);
-  const st = u.count ? game.stats(u) : null;
-  const gun = game.gun(u.gun), att = game.gearItem(u.attach), ch = game.gearItem(u.charm);
-  const slot = (kind: 'gun' | 'attach' | 'charm', label: string) => {
-    const open = kind === 'gun' || M.nlv(u, kind);
-    const it = kind === 'gun' ? gun : kind === 'attach' ? att : ch;
-    if (!u.count) return `<div class="slot locked"><span class="lock">🔒</span><span>${label}</span><small>hire one first</small></div>`;
-    if (!open) return `<div class="slot locked"><span class="lock">🔒</span><span>${label}</span><small>unlock in the tree</small></div>`;
-    const icon = !it ? '' : kind === 'gun' ? gunIcon(cls) : (it as Gear).kind === 'attach' ? modIcon((it as M.Attachment).stat) : charmIcon((it as M.Charm).bane);
-    const name = !it ? `No ${label.toLowerCase()}` : kind === 'gun' ? `${gunName(it as Gun)} · T${fmtInt((it as Gun).ilvl)}` : `${gearName(it as Gear)} · ${gearDesc(it as Gear)}`;
-    return `<button class="slot" style="--rar:${it ? RARITY_COLOR[it.rarity] : '#555'}" data-action="pick" data-cls="${cls}" data-arg="${kind}">
-      ${icon ? `<img class="px" src="${icon}" alt="">` : '<span class="plus">+</span>'}<span>${label}</span><small>${esc(name)}</small></button>`;
-  };
-  return `${topBar()}<button class="btn ghost back" data-action="units">‹ All unit types</button>
-  <div class="unit-head">
-    <img class="px portrait big" src="${classIcon(cls)}" alt="">
-    <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${cap}</small></span>
-      <span class="sub">${u.count ? `${fmtLn(game.unitDps(u))} DPS total · range ${Math.round(st!.range * 100)}% · ${fmtNum(st!.shotsPerSec)} shots/s · crit ${Math.round(st!.crit * 100)}% ×${st!.critDmg.toFixed(1)} · hits ${st!.targets}` : `${c.gun} · not hired yet`}</span></div>
-    <div class="hire-btns">
-      ${full ? `<button class="btn ghost" disabled>${cap >= C.maxPerType ? 'Full 20/20' : 'Barracks full'}</button>` : `<button class="btn" data-action="hire" data-cls="${cls}" ${costAttr(hcol, hirePrev(cls).ln)}>Hire ${hirePrev(cls).n > 1 ? `×${hirePrev(cls).n} ` : ''}· ${cost(hcol, hirePrev(cls).ln)}</button>`}
-    </div>
-  </div>
-  <div class="unit-body">
-    <div class="unit-side">
-      <div class="slots3">${slot('gun', 'Gun')}${slot('attach', 'Attachment')}${slot('charm', 'Charm')}</div>
-      <div class="card ability"><b>${c.ability.name}</b> ${abilityPips(u)}<ol>${c.ability.stages.map((t, i) => `<li class="${i < M.abilityStage(u) ? 'on' : ''}">${esc(t)}</li>`).join('')}</ol></div>
-    </div>
-    <div class="unit-tree"><h3>${c.name} upgrades <small>tap to buy · ${vial(c.primary)} ${vial(c.secondary)}</small></h3>
-      ${u.count ? upgradeRow(cls) : '<p class="sub">Hire a soldier to start upgrading.</p>'}
-      ${u.count ? `<ul class="upinfo">${UP_BUTTONS.map((b) => { const ns = game.node(cls, b.stages.find((x) => !game.node(cls, x).maxed) ?? b.stages[b.stages.length - 1]);
-        const txt = b.key === 'ab' ? `${c.ability.name} ${'I'.repeat(Math.max(1, b.stages.filter((x) => game.node(cls, x).maxed).length))}: ${b.stages.filter((x) => game.node(cls, x).maxed).length ? c.ability.stages[b.stages.filter((x) => game.node(cls, x).maxed).length - 1] : 'not unlocked'}`
-          : b.key === 'slots' ? `Gear slots: ${b.stages.filter((x) => game.node(cls, x).maxed).length ? (game.node(cls, 'charm').maxed ? 'Attachment + Charm' : 'Attachment') : 'none yet'}`
-          : `${b.name}: ${nodeEffect(u, ns.def.id, ns.level)}${ns.maxed ? ' (max)' : ` → ${nodeEffect(u, ns.def.id, ns.level + 1)}`}`;
-        return `<li>${txt}</li>`; }).join('')}</ul>` : ''}
-    </div>
-  </div>`;
-}
-
 function openPicker(cls: ClassId, kind: 'gun' | 'attach' | 'charm') {
   const u = game.unit(cls), c = M.classById(cls);
   if (kind === 'gun') {

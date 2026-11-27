@@ -68,9 +68,10 @@ slowly. You never lose.
 
 - **Up to 20 of each type.** Barracks space grows with your best tier (2 each at first, +1 every 10 tiers). Each extra
   unit costs ×1.8 more and adds a little less than the last (20 units ≈ 9× one).
-- **Each unit type has its own upgrades**, shown as a row of six buttons on its Squad card (tap = buy, using the
-  buy amount): Speed, Range, **Ability** (I → II → III, one progressive button), Crit, Crit ×, and **Gear slots**
-  (Attachment slot, then Charm slot). The endless Damage ranks are the Damage + button. The tree behind them:
+- **Everything for a unit is on its Squad card** (there is no separate unit page): a header (portrait, count, level,
+  DPS), a 2 × 4 grid of equal buttons (**Hire, Damage, Speed, Range / Ability (I → II → III), Crit, Crit ×, Gear slots
+  (Attachment → Charm)**; tap = buy with the buy amount), and a **gear shelf** (Gun, Attachment, Charm; tap to change).
+  The Squad menu dot lights only for an affordable Ability stage or Gear slot. The tree behind the buttons:
   Damage (endless, ×1.05 per level) → Attack Speed (20 levels), Range (10), Ability I → Crit Chance (15),
   Crit Damage (20), Ability II → Attachment Slot, Charm Slot, Ability III. The top half is paid in the type's first
   colour, the bottom half in its second, so every unit needs DNA from more than one zombie type.
