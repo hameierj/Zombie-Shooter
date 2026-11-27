@@ -278,7 +278,7 @@ function refresh() {
   for (const b of document.querySelectorAll<HTMLElement>('#tabs [data-action="tab"]')) {
     b.classList.toggle('active', b.dataset.arg === tab);
     const badge = b.dataset.arg === 'tree' ? game.allocatableCount() > 0
-      : b.dataset.arg === 'squad' ? game.canHireAny || game.s.newItems.length > 0 || game.owned.some((u) => game.treeItemsAffordable(u.cls) > 0)
+      : b.dataset.arg === 'squad' ? game.keyUpgradeAffordable
       : b.dataset.arg === 'zombies' ? game.canReleaseAny
       : b.dataset.arg === 'hordes' ? showKeep() && game.hordeOdds() >= C.hordeWinOdds : false;
     b.classList.toggle('badge', badge);
