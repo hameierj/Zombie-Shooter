@@ -296,9 +296,9 @@ const KIND_ORDER: HordeKind[] = ['classic', 'stampede', 'armoured', 'swarm', 'wa
 export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean; kind: HordeKind; boss: BossKind }
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
 // Horde tiers, set from the balance sim so each horde arrives at a steadily growing gap (about 5, 8, 12, 15, 20, 25
-// and 30 min for hordes 1-7, then about 35 min per Elite horde). ELITE_TIERS continue the list; past its end, +30 each.
-const HORDE_TIERS = [17, 26, 34, 72, 160, 330, 510];
-const ELITE_TIERS = [870, 985, 1145, 1300, 1410, 1495, 1550, 1615, 1660, 1700];
+// and 30 min for hordes 1-7, then about 35 min per Elite horde). ELITE_TIERS continue the list; past its end, +32 each.
+const HORDE_TIERS = [17, 26, 34, 85, 480, 1000, 1400];
+const ELITE_TIERS = [1860, 2075, 2215, 2290, 2340, 2385];
 export function hordeDef(k: number): HordeDef {
   const cls = CLASSES.find((c) => c.horde === k)?.id;
   if (k <= 7) {
@@ -307,10 +307,13 @@ export function hordeDef(k: number): HordeDef {
   }
   const n = k - 7;
   const kind = KIND_ORDER[1 + ((n - 1) % (KIND_ORDER.length - 1))];   // elites never use the plain march
-  const tier = ELITE_TIERS[n - 1] ?? ELITE_TIERS[ELITE_TIERS.length - 1] + 30 * (n - ELITE_TIERS.length);
+  const tier = ELITE_TIERS[n - 1] ?? ELITE_TIERS[ELITE_TIERS.length - 1] + 32 * (n - ELITE_TIERS.length);
   return { index: k, name: `Elite ${HORDE_KINDS[kind].name} ${n}`, tier, unlocks: cls ? `${classById(cls).plural} (new recruits)` : 'An epic item', cls, region: -1, elite: true, kind, boss: BOSS_ORDER[(k - 1) % BOSS_ORDER.length] };
 }
 /** Hordes bring a fixed mix of zombie types for their tier (it doesn't depend on which types you've released). */
+/** Guns keep up with you: every gun is refitted to your toughest zombie tier. Guns cover half of each tier's HP
+ * growth by design, so they must never fall behind; drops then only matter for rarity. */
+export const gunFloor = (strains: Strains) => bestTier(strains);
 export const hordeMix = (k: number) => STRAINS.filter((s) => s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only
 
 // ---------- Zombies ----------

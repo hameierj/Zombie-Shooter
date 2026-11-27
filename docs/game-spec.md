@@ -79,6 +79,9 @@ slowly. You never lose.
   paid in one DNA colour** (its first). A **★ best buy** marks the upgrade (or Hire) that adds the most damage per
   DNA right now.
 - **Abilities evolve** through three stages (Ability I, II, III nodes).
+- **Guns keep up with you:** every gun is refitted to your toughest zombie tier whenever you raise it (guns cover
+  half of each tier's HP growth by design, so they must never fall behind). Drops and horde rewards then matter for
+  **rarity** (×1 to ×3.2 damage).
 - **Equipment:** one gun slot (shared by the whole group), plus an **attachment** slot (a stat boost: damage, speed,
   crit, crit damage or range) and a **charm** slot (bonus damage against one zombie type) once unlocked in the tree.
 - **Selling:** any unused item sells for DNA (about 20 s of that colour's income, doubling per rarity step; guns pay
@@ -144,11 +147,11 @@ banner) right after you beat a horde.
 The odds (shown with **Difficulty meters** on) account for the type and boss: count × HP × a difficulty factor for
 speed, fog or healing, plus the extra zombies a boss brings, against the time until the boss arrives and walks in.
 Browser play tests: every horde type and boss won at 1.3, and 5 of 6 lost at 0.85. War Drums starts at 1.10.
-Hordes 1–7 are at tiers 17, 26, 34, 72, 160, 330 and 510, and unlock the unit types and regions above. Elite hordes
-follow at 870, 985, 1145, 1300, 1410, 1495, 1550, 1615, 1660, 1700, then +30 each (some unlock the newer recruits,
-the rest give an epic+ item). These are set from the balance sim (`node tools/sim.ts`, which prints the minute of
-each horde) so the gaps grow gently: hordes at about 7, 13–19, 25–33, 44, 65, 95 and 125 min, then one about every
-30–40 min (before: gaps grew to 90–120 min by horde 10).
+Hordes 1–7 are at tiers 17, 26, 34, 85, 480, 1000 and 1400, and unlock the unit types and regions above. Elite
+hordes follow at 1860, 2075, 2215, 2290, 2340, 2385, then +32 each (some unlock the newer recruits, the rest give an
+epic+ item). These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde) so the gaps
+grow gently: hordes at about 5, 11, 25, 43, 65, 90 and 110 min, then one every 30–40 min. If the next horde is far
+above your toughest zombies, its card says so and points you at raising zombie tiers.
 
 ## 5b. Combo
 Every kill while you're playing adds 1 to the **combo**, shown over the battlefield. DNA from kills is multiplied by

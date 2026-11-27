@@ -570,6 +570,7 @@ function hordesHtml() {
       ${beaten ? '<p class="good">✓ Beaten</p>' : isNext ? `
         ${showKeep() ? `<div class="meter small"><i style="width:${Math.min(100, (odds / 2) * 100)}%"></i><span class="mark"></span></div>
         <p class="sub small">${odds >= C.hordeWinOdds ? '<span class="good">Your squad should win.</span>' : odds >= 0.9 ? '<span class="warn">It will be close.</span>' : `<span class="bad">Too strong: you need ${fmtMult(1 / Math.max(odds, 1e-9))} more firepower.</span>`}</p>` : ''}
+        ${odds < 0.5 && h.tier > M.bestTier(game.s.strains) + 10 ? `<p class="h-tip">Your toughest zombies are tier <b>${M.bestTier(game.s.strains)}</b>; this horde is tier <b>${h.tier}</b>. Squad upgrades alone won't close that gap: raise your zombie tiers (Zombies tab, <b>DNA +</b>) to earn much more DNA, then upgrade the squad.</p>` : ''}
         ${hordeRunning() ? `<p class="good">⚔ Horde ${k} in progress… watch the map</p><button class="btn wide call" disabled>In progress</button>` : `<button class="btn wide call" data-action="horde">Start Horde ${k}</button>`}` : '<p class="sub small">🔒 Beat the previous horde first.</p>'}
     </div>`;
   }).join('')}</div>`;

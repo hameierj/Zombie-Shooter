@@ -151,9 +151,14 @@ export class Game {
   raiseTier(s: ZombieId) {
     const x = this.s.strains[s];
     if (x.tier < x.maxTier) x.tier++;
-    else if (this.pay(M.familyOf(s), this.tierCost(s))) { x.maxTier++; x.tier++; }
+    else if (this.pay(M.familyOf(s), this.tierCost(s))) { x.maxTier++; x.tier++; this.refitGuns(); }
     else return;
     this.emit('change');
+  }
+  /** Guns keep up with your toughest zombie tier (drops then only matter for rarity). */
+  refitGuns() {
+    const floor = M.gunFloor(this.s.strains);
+    for (const g of this.s.guns) if (g.ilvl < floor) g.ilvl = floor;
   }
   lowerTier(s: ZombieId) { const x = this.s.strains[s]; if (x.tier > 1) { x.tier--; this.emit('change'); } }
   spawnCost(s: ZombieId) { return M.lnSpawnCost(s, this.s.strains[s].spawn); }
@@ -418,6 +423,7 @@ export class Game {
     const h = M.hordeDef(k);
     this.s.hordes = k;
     this.hordeFailOdds = 0;
+    this.refitGuns();   // your guns are refitted to at least this horde's tier
     // reward: a rare+ gun for the newly unlocked type, or an epic+ item for elite hordes
     const loot = h.cls ? this.rollLoot(2, h.cls, 2, false) : this.rollLoot(3, undefined, 0, false);
     this.emit('horde-won', { k, loot });
@@ -466,6 +472,7 @@ export class Game {
       const old = (JSON.parse(raw) as { version: number }).version;
       this.s = migrate(JSON.parse(raw));
       if (old < 6) this.settleTiers();
+      this.refitGuns();   // guns keep up with your toughest zombie tier
       this.autoEquip();   // units always carry their best gear
       try { localStorage.setItem(`${SAVE_KEY}-last-good`, raw); } catch { /* storage full */ }
       this.s.lastSeen = Date.now();
@@ -520,6 +527,7 @@ export class Game {
   importSave(code: string) {
     this.s = Game.decode(code);
     this.s.lastSeen = Date.now();   // a loaded save starts fresh: no offline time from when it was made
+    this.refitGuns(); this.autoEquip();
     this.save();
     this.emit('reset');
     this.emit('change');

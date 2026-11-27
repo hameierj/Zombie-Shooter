@@ -31,6 +31,8 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   const pay = (col, ln) => { if (s.dna[col] + 1e-9 < ln) return false; s.dna[col] = M.logSub(s.dna[col], ln); return true; };
   const best = () => M.bestTier(strains);
   function equip() {
+    const fl = M.gunFloor(strains);
+    for (const g of s.guns) if (g.ilvl < fl) g.ilvl = fl;   // guns keep up with the toughest zombie tier
     for (const u of Object.values(units)) {
       const g = s.guns.filter((x) => x.cls === u.cls).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a))[0];
       if (g) u.gun = g.uid;
@@ -58,7 +60,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
         const st = strains[x.id];
         if (!st.unlocked) { if (x.unlock && strains[x.unlock.from].unlocked && strains[x.unlock.from].maxTier >= C.releaseTier) { const col = M.familyOf(x.unlock.from), ln = M.lnReleaseCost(x.id, M.lnDnaPerSec(squad(), f, strains)[col]); if (pay(col, ln)) { st.unlocked = true; bought0 = true; } else saving.add(col); } continue; }   // players release new types as soon as they can
         const up = { ...strains, [x.id]: { ...st, tier: st.tier + 1 } };
-        if (keep(up) >= 1.15) opts.push({ col: x.family, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); } });
+        if (keep(up) >= 1.15) opts.push({ col: x.family, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); equip(); } });
         const sp = { ...strains, [x.id]: { ...st, spawn: st.spawn + 1 } };
         if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ col: x.family, ln: M.lnSpawnCost(x.id, st.spawn), go: () => { st.spawn++; } });
       }
