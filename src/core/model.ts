@@ -201,7 +201,7 @@ export const UNIT_NODES: UnitNodeDef[] = [
   { id: 'critx',  name: 'Crit Damage',    kind: 'capped', max: 20,    colour: 'secondary', cost0: 50,   growth: 1.45, requires: 'range', x: 2, y: 2 },
   { id: 'ab2',    name: 'Ability II',     kind: 'unlock',             colour: 'secondary', cost0: 5e3,  growth: 1,    requires: 'ab1', x: 1, y: 2 },
   { id: 'attach', name: 'Attachment Slot', kind: 'unlock',            colour: 'secondary', cost0: 600,  growth: 1,    requires: 'crit', x: 0, y: 3 },
-  { id: 'charm',  name: 'Charm Slot',     kind: 'unlock',             colour: 'secondary', cost0: 1500, growth: 1,    requires: 'critx', x: 2, y: 3 },
+  { id: 'charm',  name: 'Charm Slot',     kind: 'unlock',             colour: 'secondary', cost0: 1500, growth: 1,    requires: 'attach', x: 2, y: 3 },   // gear slots open in order
   { id: 'ab3',    name: 'Ability III',    kind: 'unlock',             colour: 'secondary', cost0: 1.5e5, growth: 1,   requires: 'ab2', x: 1, y: 3 },
 ];
 export const unitNodeById = (id: UnitNodeId) => UNIT_NODES.find((n) => n.id === id)!;

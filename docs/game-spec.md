@@ -68,7 +68,9 @@ slowly. You never lose.
 
 - **Up to 20 of each type.** Barracks space grows with your best tier (2 each at first, +1 every 10 tiers). Each extra
   unit costs ×1.8 more and adds a little less than the last (20 units ≈ 9× one).
-- **Each unit type has its own upgrade tree** (tap the type to open its screen):
+- **Each unit type has its own upgrades**, shown as a row of six buttons on its Squad card (tap = buy, using the
+  buy amount): Speed, Range, **Ability** (I → II → III, one progressive button), Crit, Crit ×, and **Gear slots**
+  (Attachment slot, then Charm slot). The endless Damage ranks are the Damage + button. The tree behind them:
   Damage (endless, ×1.05 per level) → Attack Speed (20 levels), Range (10), Ability I → Crit Chance (15),
   Crit Damage (20), Ability II → Attachment Slot, Charm Slot, Ability III. The top half is paid in the type's first
   colour, the bottom half in its second, so every unit needs DNA from more than one zombie type.
@@ -83,12 +85,9 @@ slowly. You never lose.
 - **Drops are rare** and scale gently with total spawn rate; each arrives as a crate in its rarity colour. Every horde
   win guarantees a rare-or-better item (the new unit type's gun for hordes 1–6).
 
-## 4. Upgrade Trees tab
-Sub-tabs across the top switch between **Global** (the passive tree below; a **List** view by default with
-"Available now" cards and collapsible regions, or the pan/zoom **Web**) and every unlocked unit type's own
-upgrade tree, shown as rows with level, now → next, and Upgrade / Max buttons (a dot marks any tree with an
-affordable upgrade). Unit trees are also on each unit's Squad screen;
-"Gear ›" jumps there.
+## 4. Passive tree (Tree tab)
+A **List** view by default ("Available now" cards and collapsible regions) or the pan/zoom **Web**. Unit upgrades
+live on the Squad page, not here.
 
 ### Global passive tree
 A POE2-style web you pan (drag) and zoom (pinch, scroll wheel, or the + / − buttons). It has eight regions around the
@@ -136,8 +135,8 @@ Soldiers stand at random spots along the wall, mixed together (up to 6 shown per
 Each hired unit type has a dashed **range line** on the road in its own colour, marked with its gun. A slim keep-up bar
 is pinned to the top of the Zombies and Squad menus.
 
-The zombie map fills the screen between the HUD (a counter for each DNA colour, keep-up status, sound, settings) and four big
-tabs at the bottom: **Zombies, Squad, Tree, Hordes**. Tapping a tab opens that menu **full-screen** (two-column layout
+The zombie map fills the screen between the top bar (a counter for each DNA colour; plus the keep-up pill when
+difficulty meters are on) and the bottom menu: **Zombies, Squad, Tree, Hordes, Settings**. Tapping a tab opens that menu **full-screen** (two-column layout
 on wide screens); **✕ Back to map** or tapping the tab again collapses it. Starting a horde closes the menu so you can
 watch the fight.
 
