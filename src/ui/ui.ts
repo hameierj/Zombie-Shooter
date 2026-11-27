@@ -538,7 +538,7 @@ function zombiesHtml() {
   const rates = game.lnDnaPerSec();
   const f = Math.min(1, k);
   const word = (k: number) => !showKeep() ? '' : (k >= 1.1 ? '<i class="good">keeps up</i>' : k >= 0.9 ? '<i class="warn">barely</i>' : '<i class="bad">overrun</i>');
-  const traits = (st: M.StrainDef) => `${M.stageOf(st.id) ? `Form ${M.stageOf(st.id) + 1} · tier 1 = tier ${M.TIER_CAP * M.stageOf(st.id) + 1} power` : `${st.hp}× HP · ${st.dnaMult}× DNA`}${st.speed > 1.2 ? ' · fast' : st.speed < 0.8 ? ' · slow' : ''}`;
+  const traits = (st: M.StrainDef) => `${M.stageOf(st.id) ? `Form ${M.stageOf(st.id) + 1} · tier 1 = tier ${M.TIER_CAP * M.stageOf(st.id) + 1} power` : `${st.hp}× HP · ${M.dnaPerKillMult(st.id).toFixed(1).replace(/\.0$/, '')}× DNA per kill`}${st.speed > 1.2 ? ' · fast' : st.speed < 0.8 ? ' · slow' : ''}`;
   const row = (st: M.StrainDef) => {
     const x = game.s.strains[st.id], col = st.family;
     if (!x.unlocked) {

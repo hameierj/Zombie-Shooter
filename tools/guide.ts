@@ -116,7 +116,7 @@ function zombies() {
     return `<div class="fam" style="--c:${st.color}">
       <div class="lab"><b>${vial(c)} ${st.dna}</b><span>${members.length} types</span></div>
       ${members.map((z, i) => `<div class="zc ${i ? '' : 'leader'}" style="--c:${st.color}"><img class="px spr" src="${zombieSprite(z.id)}" alt=""><b>${z.name}</b>
-        <div class="st"><i>${z.hp}×</i> HP · <i>${z.dnaMult}×</i> DNA${z.speed > 1.2 ? ' · fast' : z.speed < 0.8 ? ' · slow' : ''}<br>${z.unlock ? `${vial(M.familyOf(z.unlock.from))} ${big(z.unlock.cost)}` : 'Start'}</div></div>`).join('')}
+        <div class="st"><i>${z.hp}×</i> HP · <i>${+M.dnaPerKillMult(z.id).toFixed(2)}×</i> DNA${z.speed > 1.2 ? ' · fast' : z.speed < 0.8 ? ' · slow' : ''}<br>${z.unlock ? `${vial(M.familyOf(z.unlock.from))} ${big(z.unlock.cost)}` : 'Start'}</div></div>`).join('')}
     </div>`;
   };
   const varTint = [undefined, 0xffb4a4, 0xc8b8ff];

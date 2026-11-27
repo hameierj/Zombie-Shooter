@@ -55,6 +55,11 @@ Every released type has **its own two dials**, paid in its own colour:
 | **DNA Count** (tier) | 1 → 50 (last form: ∞) | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type. Its own price ladder: the first level costs half the type's tier-1 price, then ×1.6 per spawn level; buying DNA tiers never changes it |
 
+**Every type paces like the Shambler.** A type's DNA per kill is ×1 ÷ its spawn rate (Runner 0.6 → ×1.67, Brute 0.4 → ×2.5,
+Spitter 0.5 → ×2, Bloater 0.3 → ×3.33), so at the same tier and spawn level each type earns the same DNA per second, and
+tier prices are the same for every type (80·1.15^(t−1) at its own tier; evolved forms ×2). Types differ only in toughness,
+speed and looks.
+
 The **keep-up meter** (Settings → Difficulty meters, which also shows horde odds) is **off by default**: players read the battlefield instead, and the
 shredder glows and pulses red while zombies are reaching it. The **shredder** grinds every zombie that reaches it by
 1% of its HP per second (no upgrades), so the road always clears and you can't get permanently stuck. There is no limit on how many can be at the shredder: a pile is drawn as a queue backing up the road (5 rows), and walkers stop behind it on screen. Horde zombies that break through are pulled into the blades; a lost horde fades away. Shredded
@@ -159,11 +164,11 @@ banner) right after you beat a horde.
 The odds (shown with **Difficulty meters** on) account for the type and boss: count × HP × a difficulty factor for
 speed, fog or healing, plus the extra zombies a boss brings, against the time until the boss arrives and walks in.
 Browser play tests: every horde type and boss won at 1.3, and 5 of 6 lost at 0.85. War Drums starts at 1.10.
-Hordes 1–7 are at effective tiers 14, 26, 48, 68, 86, 100 and 114, and unlock the unit types and regions above
-(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 126, 137, 148, 158, 168, 178,
+Hordes 1–7 are at effective tiers 15, 30, 58, 84, 106, 122 and 136, and unlock the unit types and regions above
+(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 148, 160, 172, 183, 194, 204,
 then +10 each (some unlock the newer recruits, the rest give an epic+ item). Horde zombies are always each colour's first
 form. These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde): hordes at about 6,
-15, 28, 43, 66, 77 and 86 min, then one about every 10–30 min (tier price 80·1.15^(t−1); the sim counts
+15, 25, 44, 60, 67 and 78 min, then one about every 10–20 min (tier price 80·1.15^(t−1); the sim counts
 combo and specials as ×1.4 income). If the next horde is far
 above your toughest zombies, its card says so and points you at raising zombie tiers.
 

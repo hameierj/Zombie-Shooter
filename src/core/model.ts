@@ -330,8 +330,8 @@ const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm
 // 6, 15, 28, 43, 66, 77 and 86 min (Hordes 1-4 also bring the yellow, red, teal and purple colours, each starting at
 // about the horde's tier, see colourBase), then an Elite horde about every 10-30 min. Keep-up in the sim ~×1.2-2 for
 // the first hour. ELITE_TIERS continue the list; past its end, +10 each.
-const HORDE_TIERS = [14, 26, 48, 68, 86, 100, 114];
-const ELITE_TIERS = [126, 137, 148, 158, 168, 178];
+const HORDE_TIERS = [15, 30, 58, 84, 106, 122, 136];
+const ELITE_TIERS = [148, 160, 172, 183, 194, 204];
 const ELITE_STEP = 10;
 export function hordeDef(k: number): HordeDef {
   const cls = CLASSES.find((c) => c.horde === k)?.id;
@@ -357,12 +357,16 @@ export const spawnRate = (s: ZombieId, spawn: number) => strainById(s).baseRate 
 export const lnZombieHp = (s: ZombieId, tier: number, spawn: number) =>
   Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (effTier(s, tier) - 1) * Math.log(C.hpR);
 export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
-  Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna) * (fx.dnaMore ?? 1)) + (effTier(s, tier) - 1) * lnR;
+  Math.log(C.baseDna * dnaPerKillMult(s) * (1 + fx.dna) * (fx.dnaMore ?? 1)) + (effTier(s, tier) - 1) * lnR;
 /** Evolving (releasing a colour's next form) costs EVOLVE_TIERS more tiers' worth of the parent at the cap: about a
  * minute of that colour's income, a fixed price that never moves while you save. */
 export const EVOLVE_TIERS = 4;
 export const lnReleaseCost = (s: ZombieId, _lnRate?: number) => { const from = strainById(s).unlock?.from ?? s; return lnTierCost(from, TIER_CAP) + Math.log(EVOLVE_TIERS); };
-export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (effTier(s, tier) - 1) * lnR + stageOf(s) * Math.log(C.formCostMult);
+/** Every zombie type paces exactly like the Shambler: a rarer spawner pays proportionally more per kill (1 ÷ its spawn
+ * rate), so at the same tier and spawn level each type earns the same DNA per second, and tier prices are the same for
+ * every type. Types still differ in toughness, speed and looks. */
+export const dnaPerKillMult = (s: ZombieId) => 1 / strainById(s).baseRate;
+export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0) + (effTier(s, tier) - 1) * lnR + stageOf(s) * Math.log(C.formCostMult);
 /** Spawn has its own price ladder, separate from the DNA tier: it starts at spawnCost0 × the type's tier-1 price and rises
  * ×spawnCostGrowth only when you buy a spawn level (steeper than a tier's ×1.15, so it can't become free). */
 export const lnSpawnCost = (s: ZombieId, lv: number, _tier = 1) => lnTierCost(s, 1) + Math.log(C.spawnCost0) + lv * Math.log(C.spawnCostGrowth);
