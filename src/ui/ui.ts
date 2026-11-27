@@ -317,7 +317,7 @@ function squadHtml() {
         </div>
       <div class="quick">
         ${full ? `<button class="btn sbtn ghost" disabled><span>Hire</span><span class="cost">${game.unitCap >= C.maxPerType ? 'full' : 'barracks full'}</span></button>` : `<button class="btn sbtn" data-action="hire" data-cls="${c.id}" ${costAttr(hcol, hc)}><span>Hire +1</span>${cost(hcol, hc)}</button>`}
-        <button class="btn sbtn" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${costAttr(dn.colour, dn.lnCost)}><span>Damage +</span>${cost(dn.colour, dn.lnCost)}</button>
+        ${u.count ? `<button class="btn sbtn" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${dn.locked ? 'disabled' : costAttr(dn.colour, dn.lnCost)}><span>Damage +</span>${cost(dn.colour, dn.lnCost)}</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -365,6 +365,7 @@ function unitScreenHtml(cls: ClassId) {
   const slot = (kind: 'gun' | 'attach' | 'charm', label: string) => {
     const open = kind === 'gun' || M.nlv(u, kind);
     const it = kind === 'gun' ? gun : kind === 'attach' ? att : ch;
+    if (!u.count) return `<div class="slot locked"><span class="lock">🔒</span><span>${label}</span><small>hire one first</small></div>`;
     if (!open) return `<div class="slot locked"><span class="lock">🔒</span><span>${label}</span><small>unlock in the tree</small></div>`;
     const icon = !it ? '' : kind === 'gun' ? gunIcon(cls) : (it as Gear).kind === 'attach' ? modIcon((it as M.Attachment).stat) : charmIcon((it as M.Charm).bane);
     const name = !it ? `No ${label.toLowerCase()}` : kind === 'gun' ? `${gunName(it as Gun)} · T${fmtInt((it as Gun).ilvl)}` : `${gearName(it as Gear)} · ${gearDesc(it as Gear)}`;
