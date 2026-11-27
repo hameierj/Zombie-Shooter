@@ -1,6 +1,7 @@
 // DOM interface: HUD (one counter per DNA colour), four tabs (Zombies, Squad, Tree, Hordes), a full-screen screen
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
+import { showTitle } from './title.ts';
 import { showRanges, setShowRanges } from '../core/prefs';
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
@@ -285,7 +286,7 @@ function act(d: ActionData): boolean {
       if (slotWrite(arg, c)) toast(`<b>Saved into ${slotName(arg)}</b><span>Load it from Settings whenever you like</span>`, '#5ee38c'); openSettings(); break; }
     case 'import': importSave(); break;
     case 'reset': confirmBox('Erase all progress?', `You'll start over from the beginning. Your current game (${saveLine(Game.summary(game.s))}) is kept in Backup, so you can restore it from Settings.`, 'Erase progress', 'reset-yes', '', true); break;
-    case 'reset-yes': slotWrite('backup', game.exportSave()); closeModal(); game.hardReset(); toast('<b>Progress erased</b><span>Your old game is in Backup if you change your mind</span>', '#ff9a5a'); break;
+    case 'reset-yes': slotWrite('backup', game.exportSave()); closeModal(); game.hardReset(); tab = null; render(); showTitle(); break;   // a fresh game starts at the title screen
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
     case 'sound-sfx': sfx.setSfx(!sfx.soundPrefs().sfx); openSettings(); break;
     case 'sound-music': sfx.setMusic(!sfx.soundPrefs().music); openSettings(); break;
