@@ -62,6 +62,12 @@ export function ultCard(c: ClassId, evo: 0 | 1): Card {
     body: `Your ${esc(cd.plural.toLowerCase())} now carry the <b style="color:${d.color}">${esc(d.gun)}</b>. ${esc(d.desc)}<br><span class="uk-sub">×${M.CONFIG.ultDps} DPS · fire rate ${d.fx.rate < 1 ? 'slower' : 'faster'} (×${d.fx.rate}) · Damage upgrades keep scaling it.</span>` };
 }
 
+export function zombieUltCard(id: ZombieId): Card {
+  const st = M.strainById(id);
+  return { eyebrow: `${st.plural} · ultimate form`, title: `Ultimate ${st.name}`, color: st.color, icon: zombieIcon(id), bio: true,
+    body: `Your ${esc(st.plural.toLowerCase())} mutate into their ultimate form: <b style="color:${st.color}">×${M.CONFIG.zUltDna} ${esc(st.dna)} DNA</b> per kill and <b>×${M.CONFIG.zUltHp} HP</b>.<br><span class="uk-sub">They're bigger and glow at their feet. Horde zombies are unchanged.</span>` };
+}
+
 export function showCards(cards: Card[], delay = 0) {
   if (!cards.length) return;
   queue.push(...cards);

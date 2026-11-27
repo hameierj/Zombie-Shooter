@@ -2,7 +2,7 @@
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import { showTitle } from './title.ts';
-import { biohazard, evolveCard, hordeCards, overlayUp, showCards, ultCard } from './unlocks.ts';
+import { biohazard, evolveCard, hordeCards, overlayUp, showCards, ultCard, zombieUltCard } from './unlocks.ts';
 import { coachUp } from './tutorial.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps } from '../core/prefs';
@@ -197,10 +197,11 @@ export function initUI() {
     if (evt === 'stuck') offerRollBack();
     if (evt === 'horde-lost') toast('<b>The horde was too strong</b><span>Upgrade your units and try again.</span>', '#ff6b6b');
     if (evt === 'release' && !M.COLOUR_HORDE[data as M.ZombieId]) showCards([evolveCard(data as M.ZombieId)]);   // new colours get their card with the horde's
+    if (evt === 'zombie-ult') showCards([zombieUltCard(data as M.ZombieId)]);
     if (evt === 'unit-evolve') showCards([ultCard(data as ClassId, game.unit(data as ClassId).evo ?? 0)]);
     if (evt === 'phase') battlePhase = data as string;
     if (evt === 'horde-start') battlePhase = 'intro';
-    if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase', 'horde-start', 'unit-evolve'].includes(evt)) soft();
+    if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase', 'horde-start', 'unit-evolve', 'zombie-ult'].includes(evt)) soft();
   });
   render();
   refresh();
@@ -241,7 +242,7 @@ function tickNudge() {
   let key = '', html = '';
   if (!quiet) {
     const off = (k: string) => (nudgeOff.get(k) ?? 0) > performance.now();
-    let ult: M.ClassDef | undefined;
+    let ult: M.ClassDef | undefined, zu: M.ZombieId | undefined;
     const fresh = M.CLASSES.find((c) => game.classUnlocked(c.id) && game.unit(c.id).count === 0 && game.canHire(c.id) && !off(`hire-${c.id}`));
     if (fresh) {
       key = `hire-${fresh.id}`;
@@ -249,6 +250,13 @@ function tickNudge() {
       html = `<div class="nd-card" style="--c:${col}"><img class="px nd-ic" src="${classIcon(fresh.id)}" alt="">
         <div class="nd-t"><b>${esc(fresh.plural)}</b><span>Ready to hire</span></div>
         <button class="btn nd-go" data-action="nudge-hire" data-cls="${fresh.id}">Hire ${cost(fresh.primary, game.hireCost(fresh.id))}</button>
+        <button class="nd-x" data-action="nudge-x" data-arg="${key}" aria-label="Dismiss">✕</button></div>`;
+    } else if ((zu = M.ZOMBIE_IDS.find((z) => game.canZombieUlt(z) && !off(`zult-${z}`)))) {
+      const st = M.strainById(zu);
+      key = `zult-${zu}`;
+      html = `<div class="nd-card ult" style="--c:${st.color}"><img class="px nd-ic" src="${zombieIcon(zu)}" alt="">
+        <div class="nd-t"><b>${esc(st.plural)}</b><span>Ultimate form ready</span></div>
+        <button class="btn nd-go" data-action="zombie-ult" data-strain="${zu}">Evolve ${cost(st.family, game.zombieUltCost(zu))}</button>
         <button class="nd-x" data-action="nudge-x" data-arg="${key}" aria-label="Dismiss">✕</button></div>`;
     } else if ((ult = M.CLASSES.find((c) => game.canEvolveUnit(c.id) && !off(`ult-${c.id}`)))) {
       key = `ult-${ult.id}`;
@@ -329,6 +337,7 @@ function act(d: ActionData): boolean {
     case 'tier-up': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].tier; i++) { t = game.s.strains[sid].tier; game.raiseTier(sid); } break;
     case 'spawn': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].spawn; i++) { t = game.s.strains[sid].spawn; game.buySpawn(sid); } break;
     case 'release': game.release(sid); break;
+    case 'zombie-ult': game.zombieUlt(sid); break;
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
@@ -476,6 +485,7 @@ let urailPick: ClassId | null = null;
 function railCan(id: M.ZombieId) {
   const x = game.s.strains[id], col = M.familyOf(id);
   if (x.tier < x.maxTier) return true;
+  if (game.canZombieUlt(id)) return true;
   return (x.maxTier < M.tierCapOf(id) && game.canAfford(col, M.lnTierCost(id, x.maxTier))) || (x.spawn < C.spawnMax && game.canAfford(col, M.lnSpawnCost(id, x.spawn, x.maxTier)));
 }
 /** The next form this type can evolve into right now (at the tier cap, not yet released), if any. */
@@ -509,20 +519,20 @@ function railRender() {
   let icons = '', pop = '';
   railSingle = true;   // pop-over buttons show (and buy) a single level
   if (railMode === 'z') {
-    icons = zs.map((st) => `<button class="zr-z ${railCan(st.id) ? 'can' : ''} ${railPick === st.id ? 'on' : ''} ${nextForm(st.id) ? 'evo' : ''}" data-action="rail-pick" data-arg="${st.id}" style="--dna:${st.color}" aria-label="${esc(st.plural)}, tier ${game.s.strains[st.id].tier}">
-      <img class="px" src="${zombieIcon(st.id)}" alt=""><span>${fmtInt(game.s.strains[st.id].tier)}</span>${nextForm(st.id) ? biohazard('zr-bio') : ''}</button>`).join('');
+    icons = zs.map((st) => `<button class="zr-z ${railCan(st.id) ? 'can' : ''} ${railPick === st.id ? 'on' : ''} ${nextForm(st.id) || M.zombieUltReady(game.s.strains[st.id]) ? 'evo' : ''}" data-action="rail-pick" data-arg="${st.id}" style="--dna:${st.color}" aria-label="${esc(st.plural)}, tier ${game.s.strains[st.id].tier}">
+      <img class="px" src="${zombieIcon(st.id)}" alt=""><span>${fmtInt(game.s.strains[st.id].tier)}</span>${nextForm(st.id) || M.zombieUltReady(game.s.strains[st.id]) ? biohazard('zr-bio') : ''}${game.s.strains[st.id].ult ? '<i class="zr-crown" aria-label="ultimate form">★</i>' : ''}</button>`).join('');
     if (railPick) {
       const st = M.strainById(railPick), x = game.s.strains[railPick], col = st.family, free = x.tier < x.maxTier;
       const tp = tierPrev(st.id), sp = spawnPrev(st.id);
       pop = `<div class="zr-pop" style="--dna:${st.color}">
         <div class="zr-head"><img class="px" src="${zombieIcon(st.id)}" alt=""><div><b>${esc(st.plural)}</b></div>
-          <span class="zr-rate" title="DNA per second from ${esc(st.plural)}">${vial(col)}+${fmtLn(Math.log(M.spawnRate(st.id, x.spawn) * Math.min(1, game.keepUp())) + M.lnDnaPerKill(st.id, x.tier, game.fx))}<i>/s</i></span></div>
+          <span class="zr-rate" title="DNA per second from ${esc(st.plural)}">${vial(col)}+${fmtLn(Math.log(M.spawnRate(st.id, x.spawn) * Math.min(1, game.keepUp())) + M.lnStrainDna(st.id, x, game.fx))}<i>/s</i></span></div>
         <div class="s-btns">
           ${atCap(st.id) ? `<button class="btn sbtn ghost" disabled><span>DNA <b class="lvl">${fmtInt(x.tier)}/${M.TIER_CAP}</b></span><span class="cost">max</span></button>` : `<button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA <b class="lvl">${fmtInt(x.tier)}${M.isLastForm(st.id) ? '' : `/${M.TIER_CAP}`}</b></span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>`}
           ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)}><span>Spawn <b class="lvl">${x.spawn}/${C.spawnMax}</b></span>${amtCost(col, sp)}</button>`
             : `<button class="btn sbtn ghost" disabled><span>Spawn <b class="lvl">${C.spawnMax}/${C.spawnMax}</b></span><span class="cost">max</span></button>`}
         </div>${(() => { const nx = nextForm(st.id); if (!nx) return ''; const ln = game.releaseCost(nx.id);
-          return `<button class="btn evolve-big ${game.canAfford(col, ln) ? 'afford' : ''}" data-action="release" data-strain="${nx.id}" ${costAttr(col, ln)}>${biohazard('bio')}<span class="ev-t"><b>Evolve → ${esc(nx.plural)}</b><small>A new, richer form joins the stream</small></span>${cost(col, ln)}</button>`; })()}</div>`;
+          return `<button class="btn evolve-big ${game.canAfford(col, ln) ? 'afford' : ''}" data-action="release" data-strain="${nx.id}" ${costAttr(col, ln)}>${biohazard('bio')}<span class="ev-t"><b>Evolve → ${esc(nx.plural)}</b><small>A new, richer form joins the stream</small></span>${cost(col, ln)}</button>`; })()}${zUltButton(st.id)}</div>`;
     }
   } else {
     icons = us.map((c) => { const u = game.unit(c.id), col = M.strainById(c.primary).color;
@@ -589,18 +599,18 @@ function zombiesHtml() {
     const kT = game.keepUpIf(st.id, 'tier'), kS = game.keepUpIf(st.id, 'spawn');
     const free = x.tier < x.maxTier;
     const tp = tierPrev(st.id), sp = spawnPrev(st.id);
-    const lnRate = Math.log(M.spawnRate(st.id, x.spawn) * f) + M.lnDnaPerKill(st.id, x.tier, game.fx);
+    const lnRate = Math.log(M.spawnRate(st.id, x.spawn) * f) + M.lnStrainDna(st.id, x, game.fx);
     return `<div class="srow" style="--dna:${st.color}">
       <img class="px face" src="${zombieIcon(st.id)}" alt="">
-      <div class="s-info"><b>${st.plural}</b>
-        <span class="sub">${vial(col)} +${fmtLn(lnRate)}/s · ${fmtLn(M.lnZombieHp(st.id, x.tier, x.spawn))} HP</span>
+      <div class="s-info"><b>${st.plural}${x.ult ? ' <span class="z-ult-tag">Ultimate</span>' : ''}</b>
+        <span class="sub">${vial(col)} +${fmtLn(lnRate)}/s · ${fmtLn(M.lnStrainHp(st.id, x))} HP</span>
         <span class="sub small">Tier ${fmtInt(x.tier)}${free ? `/${fmtInt(x.maxTier)}` : ''}${M.isLastForm(st.id) ? '' : ` of ${M.TIER_CAP}`} · Spawn ${x.spawn}/${C.spawnMax} (${fmtNum(M.spawnRate(st.id, x.spawn))}/s)${varietyText(x.tier)}</span></div>
       <div class="s-btns">
         ${atCap(st.id) ? '<button class="btn sbtn ghost" disabled title="Top tier: evolve to the next form"><span>DNA</span><span class="cost">max</span></button>'
           : `<button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}${word(kT)}</button>`}
         ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)} title="+12% ${st.plural}, each level +3% HP"><span>Spawn +</span>${amtCost(col, sp)}${word(kS)}</button>`
           : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
-      </div>
+      </div>${zUltButton(st.id)}
     </div>`;
   };
   const families = M.COLOURS.map((c) => {
@@ -665,6 +675,13 @@ function squadHtml() {
 
 
 // ---------- ultimate forms ----------
+/** A zombie type's ultimate-form button (tier 50, spawn maxed, not yet taken). */
+function zUltButton(id: M.ZombieId) {
+  const x = game.s.strains[id];
+  if (!M.zombieUltReady(x)) return '';
+  const col = M.familyOf(id), ln = game.zombieUltCost(id);
+  return `<button class="btn evolve-big ult zult ${game.canAfford(col, ln) ? 'afford' : ''}" data-action="zombie-ult" data-strain="${id}" ${costAttr(col, ln)}>${biohazard('bio')}<span class="ev-t"><b>Ultimate form</b><small>×${C.zUltDna} DNA per kill · ×${C.zUltHp} HP</small></span>${cost(col, ln)}</button>`;
+}
 /** The unit card's ultimate-form slot: progress toward it, the Evolve button, or the form it took. */
 function ultButton(c: ClassId, progress = false) {
   const u = game.unit(c);

@@ -222,6 +222,17 @@ export class Game {
     this.emit('change');
   }
 
+  // ---------- zombie ultimate forms ----------
+  zombieUltCost(s: ZombieId) { return M.lnZombieUltCost(s, this.s.strains[s]); }
+  canZombieUlt(s: ZombieId) { return M.zombieUltReady(this.s.strains[s]) && this.canAfford(M.familyOf(s), this.zombieUltCost(s)); }
+  zombieUlt(s: ZombieId) {
+    if (!this.canZombieUlt(s) || !this.pay(M.familyOf(s), this.zombieUltCost(s))) return false;
+    this.s.strains[s].ult = true;
+    this.emit('zombie-ult', s);
+    this.emit('change');
+    return true;
+  }
+
   // ---------- unit trees ----------
   node(c: ClassId, id: UnitNodeId): NodeState {
     const u = this.s.units[c], def = M.unitNodeById(id), level = M.nlv(u, id);
@@ -479,7 +490,7 @@ export class Game {
     // shredded zombies don't count for the combo
     if (!opts.silent && !opts.shredded) { const c = this.combos.get(strain) ?? { n: 0, idle: 0 }; c.n++; c.idle = 0; this.combos.set(strain, c); this.comboBest = Math.max(this.comboBest, c.n); }
     const col = this.payColour(strain);
-    if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + Math.log((opts.silent ? 1 : this.comboMultOf(strain)) * (opts.mult ?? 1))));
+    if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + (this.s.strains[strain]?.ult ? Math.log(M.CONFIG.zUltDna) : 0) + Math.log((opts.silent ? 1 : this.comboMultOf(strain)) * (opts.mult ?? 1))));
     this.s.kills++;
     if (Math.random() >= Math.min(0.5, M.dropChance(this.s.strains, this.fx) * (opts.lootMult ?? 1))) return null;
     const loot = this.rollLoot();
@@ -592,7 +603,7 @@ export class Game {
       for (const z of M.activeStrains(this.s.strains)) {
         const x = this.s.strains[z];
         if (x.tier <= 1 && x.spawn <= 0) continue;
-        const load = M.spawnRate(z, x.spawn) * M.varietyAvg(x.tier) * Math.exp(Math.min(60, M.lnZombieHp(z, x.tier, x.spawn) - M.lnSquadDps(squad, fx, z)));
+        const load = M.spawnRate(z, x.spawn) * M.varietyAvg(x.tier) * Math.exp(Math.min(60, M.lnStrainHp(z, x) - M.lnSquadDps(squad, fx, z)));
         if (load > worstLoad) { worstLoad = load; worst = z; }
       }
       if (!worst) break;

@@ -108,7 +108,7 @@ export const colourBase = (s: ZombieId) => {
 export const hordeDial = (s: ZombieId, tier: number) => Math.max(1, tier - TIER_CAP * stageOf(s) - colourBase(s));
 export type DnaMap = Record<ColourId, number | null>; // ln amounts per colour; null = 0
 /** Per-type zombie dials. */
-export interface StrainState { unlocked: boolean; tier: number; maxTier: number; spawn: number }
+export interface StrainState { unlocked: boolean; tier: number; maxTier: number; spawn: number; ult?: boolean }
 export type Strains = Record<ZombieId, StrainState>;
 
 // ---------- Varieties: every zombie type comes in Normal, Feral and Alpha ----------
@@ -247,6 +247,9 @@ export const CONFIG = {
   spawnMax: 30,
   spawnHpPerLevel: 0.03,    // …and +3% HP
   releaseSec: 180,          // (RELEASE_COST was tuned to ~3 min of a normal run's income)…
+  zUltDna: 2,               // a zombie type's ultimate form: ×2 DNA per kill…
+  zUltHp: 2,                // …and ×2 HP (stream zombies only; hordes are unchanged)
+  zUltCost: 20,             // price: 20× its tier-50 price, in its colour
   ultDps: 2,                // a unit's ultimate form doubles its DPS (either track)
   ultCostMult: 2,           // evolving a unit costs 2× everything its maxed non-Damage upgrades cost together
   releaseTier: 50,          // a colour's next form opens when the current one reaches the tier cap (TIER_CAP)
@@ -368,6 +371,12 @@ export const lnReleaseCost = (s: ZombieId, _lnRate?: number) => { const from = s
  * rate), so at the same tier and spawn level each type earns the same DNA per second, and tier prices are the same for
  * every type. Types still differ in toughness, speed and looks. */
 export const dnaPerKillMult = (s: ZombieId) => 1 / strainById(s).baseRate;
+/** Zombie ultimate form: once a type is at tier 50 with its spawn rate maxed, a one-off upgrade doubles its DNA and HP. */
+export const zombieUltReady = (x: StrainState) => x.unlocked && !x.ult && x.maxTier >= TIER_CAP && x.spawn >= C.spawnMax;
+export const lnZombieUltCost = (s: ZombieId, x: StrainState) => lnTierCost(s, Math.max(TIER_CAP, x.maxTier)) + Math.log(C.zUltCost);
+/** DNA per kill and HP of a type's stream zombies at its current settings (including the ultimate form). */
+export const lnStrainDna = (s: ZombieId, x: StrainState, fx: Fx) => lnDnaPerKill(s, x.tier, fx) + (x.ult ? Math.log(C.zUltDna) : 0);
+export const lnStrainHp = (s: ZombieId, x: StrainState) => lnZombieHp(s, x.tier, x.spawn) + (x.ult ? Math.log(C.zUltHp) : 0);
 export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0) + (effTier(s, tier) - 1) * lnR + stageOf(s) * Math.log(C.formCostMult);
 /** Spawn has its own price ladder, separate from the DNA tier: it starts at spawnCost0 × the type's tier-1 price and rises
  * ×spawnCostGrowth only when you buy a spawn level (steeper than a tier's ×1.15, so it can't become free). */
@@ -588,7 +597,7 @@ export function keepUp(squad: SquadEntry[], fx: Fx, st: Strains) {
   let load = 0;
   for (const s of activeStrains(st)) {
     const x = st[s];
-    load += spawnRate(s, x.spawn) * varietyAvg(x.tier) * Math.exp(Math.min(60, lnZombieHp(s, x.tier, x.spawn) - lnSquadDps(squad, fx, s)));
+    load += spawnRate(s, x.spawn) * varietyAvg(x.tier) * Math.exp(Math.min(60, lnStrainHp(s, x) - lnSquadDps(squad, fx, s)));
   }
   return load > 0 ? 1 / load : Infinity;
 }
@@ -598,7 +607,7 @@ export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains): Record<St
   const out = Object.fromEntries(COLOURS.map((c) => [c, -Infinity])) as Record<ColourId, number>;
   for (const s of activeStrains(st)) {
     const x = st[s];
-    out[familyOf(s)] = logAdd(out[familyOf(s)], Math.log(spawnRate(s, x.spawn) * f * varietyAvg(x.tier)) + lnDnaPerKill(s, x.tier, fx));
+    out[familyOf(s)] = logAdd(out[familyOf(s)], Math.log(spawnRate(s, x.spawn) * f * varietyAvg(x.tier)) + lnStrainDna(s, x, fx));
   }
   return out;
 }

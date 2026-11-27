@@ -55,6 +55,11 @@ Every released type has **its own two dials**, paid in its own colour:
 | **DNA Count** (tier) | 1 → 50 (last form: ∞) | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type. Its own price ladder: the first level costs half the type's tier-1 price, then ×1.6 per spawn level; buying DNA tiers never changes it |
 
+**Zombie ultimate form.** When a type is at tier 50 with Spawn 30/30, it can take its ultimate form for 20× its tier-50
+price (in its colour): ×2 DNA per kill and ×2 HP for its stream zombies (horde zombies are unchanged). Ultimate zombies
+are bigger with a glow in their colour at their feet; the type gets an ULTIMATE tag and a star on the rail. It shows as a
+button on the Zombies tab and the rail pop-over, and a prompt appears when it's affordable.
+
 **Every type paces like the Shambler.** A type's DNA per kill is ×1 ÷ its spawn rate (Runner 0.6 → ×1.67, Brute 0.4 → ×2.5,
 Spitter 0.5 → ×2, Bloater 0.3 → ×3.33), so at the same tier and spawn level each type earns the same DNA per second, and
 tier prices are the same for every type (80·1.15^(t−1) at its own tier; evolved forms ×2). Types differ only in toughness,

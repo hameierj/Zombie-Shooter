@@ -40,7 +40,7 @@ const STUCK_SEC = 20;          // seconds of a swamped shredder before offering 
 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
-  strain: ZombieId; variety: VarietyId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number; vuln?: number;
+  strain: ZombieId; variety: VarietyId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number; vuln?: number; ult?: boolean;
   shredded?: boolean;  // killed by the shredder: no DNA (only the squad's kills pay)
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
   back?: number;       // drawing only: art px pushed back up the road so a pile at the shredder forms a visible queue
@@ -68,6 +68,7 @@ const RANGE_COLOR: Record<ClassId, number> = {
   mg: 0xc0c8d0, drone: 0x4ad6c8, rail: 0x5a8cff, mortar: 0xb08850, tesla: 0x9a8aff,
 };
 
+const ULT_Z_TINT: Partial<Record<string, number>> = Object.fromEntries(M.COLOURS.map((c) => [c, Phaser.Display.Color.HexStringToColor(M.strainById(c).color).color]));
 const ULT_TINT = (u: M.Unit) => (u.evo === undefined ? 0xffffff : Phaser.Display.Color.HexStringToColor(M.ULTS[u.cls][u.evo].color).color);
 
 export class BattleScene extends Phaser.Scene {
@@ -307,7 +308,11 @@ export class BattleScene extends Phaser.Scene {
         let t = (this.spawnTimers.get(sid) ?? Math.random() * 2) - dt;
         while (t <= 0) {
           t += 1 / M.spawnRate(sid, x.spawn);
-          if (ambient < MAX_AMBIENT) this.zombies.push(this.makeZombie(sid, x.tier, x.spawn, false, false, M.rollSpecial(Math.random), M.rollVariety(x.tier, Math.random)));
+          if (ambient < MAX_AMBIENT) {
+            const z = this.makeZombie(sid, x.tier, x.spawn, false, false, M.rollSpecial(Math.random), M.rollVariety(x.tier, Math.random));
+            if (x.ult) { z.ult = true; z.lnHp += Math.log(C.zUltHp); z.scale = 1.18 * (1 + 0.12 * z.variety); }   // ultimate form: ×2 HP (and ×2 DNA when killed), bigger
+            this.zombies.push(z);
+          }
         }
         this.spawnTimers.set(sid, t);
       }
@@ -1021,6 +1026,13 @@ export class BattleScene extends Phaser.Scene {
     const sh = this.shadows; sh.clear(); sh.fillStyle(0x000000, 0.34);
     for (const z of this.zombies) { if (!z.alive || (z.fog && z.p < 0.5)) continue; const [x, y] = this.zScreen(z); const sc = z.scale ?? (z.boss ? 2 : 1 + 0.12 * z.variety); sh.fillEllipse(x + px, y - px * 0.5, 13 * sc * px, 3.6 * sc * px, 10); }
     for (const s of this.shooters.values()) sh.fillEllipse(s.body.x + px, s.body.y - px * 0.5, 12 * px * this.crowd, 3.4 * px * this.crowd, 10);
+    // ultimate-form zombies: a toxic glow in their colour at their feet
+    for (const z of this.zombies) {
+      if (!z.alive || !z.ult || (z.fog && z.p < 0.5)) continue;
+      const [x, y] = this.zScreen(z), sc = z.scale ?? 1;
+      sh.fillStyle(ULT_Z_TINT[M.familyOf(z.strain)] ?? 0x9cff5a, 0.5).fillEllipse(x + px, y - px * 0.5, 19 * sc * px, 5.4 * sc * px, 10);
+    }
+    sh.fillStyle(0x000000, 0.34);
     // ultimate forms: a ring in the track's colour under each soldier
     for (const u of game.owned) {
       if (u.evo === undefined) continue;

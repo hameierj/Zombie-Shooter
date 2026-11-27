@@ -1133,3 +1133,8 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
   font: 600 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color: #c8d0da; font-variant-numeric: tabular-nums; }
 #fps b { font-size: 13px; } #fps span { color: #8a94a2; }
 #fps.good b { color: #7ddc5a; } #fps.warn b { color: #ffd23f; } #fps.bad b { color: #ff6b6b; }
+/* zombie ultimate forms */
+.srow .zult { grid-column: 1 / -1; margin-top: 2px; }
+.z-ult-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font: 700 10px/1.5 Inter, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase;
+  color: #101216; background: linear-gradient(90deg, #d8a8ff, #9cff5a); vertical-align: middle; }
+.zr-crown { position: absolute; top: -5px; left: -4px; font-style: normal; font-size: 13px; line-height: 1; color: #ffd34d; text-shadow: 0 0 4px #000, 0 0 8px rgba(255,211,77,.7); }
