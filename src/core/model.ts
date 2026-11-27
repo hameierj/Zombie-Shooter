@@ -194,13 +194,13 @@ export interface UnitNodeDef {
 }
 export const UNIT_NODES: UnitNodeDef[] = [
   { id: 'dmg',    name: 'Damage',         kind: 'ranked',             colour: 'primary',   cost0: 8,    growth: 1.15, x: 1, y: 0 },
-  { id: 'spd',    name: 'Attack Speed',   kind: 'capped', max: 20,    colour: 'primary',   cost0: 30,   growth: 1.45, requires: 'dmg', x: 0, y: 1 },
-  { id: 'range',  name: 'Range',          kind: 'capped', max: 10,    colour: 'primary',   cost0: 40,   growth: 1.7,  requires: 'dmg', x: 2, y: 1 },
-  { id: 'ab1',    name: 'Ability I',      kind: 'unlock',             colour: 'primary',   cost0: 300,  growth: 1,    requires: 'dmg', x: 1, y: 1 },
-  { id: 'crit',   name: 'Crit Chance',    kind: 'capped', max: 15,    colour: 'secondary', cost0: 40,   growth: 1.5,  requires: 'spd', x: 0, y: 2 },
-  { id: 'critx',  name: 'Crit Damage',    kind: 'capped', max: 20,    colour: 'secondary', cost0: 50,   growth: 1.45, requires: 'range', x: 2, y: 2 },
+  { id: 'spd',    name: 'Attack Speed',   kind: 'capped', max: 20,    colour: 'primary',   cost0: 30,   growth: 1.45, x: 0, y: 1 },
+  { id: 'range',  name: 'Range',          kind: 'capped', max: 10,    colour: 'primary',   cost0: 40,   growth: 1.7, x: 2, y: 1 },
+  { id: 'ab1',    name: 'Ability I',      kind: 'unlock',             colour: 'primary',   cost0: 300,  growth: 1, x: 1, y: 1 },
+  { id: 'crit',   name: 'Crit Chance',    kind: 'capped', max: 15,    colour: 'secondary', cost0: 40,   growth: 1.5, x: 0, y: 2 },
+  { id: 'critx',  name: 'Crit Damage',    kind: 'capped', max: 20,    colour: 'secondary', cost0: 50,   growth: 1.45, x: 2, y: 2 },
   { id: 'ab2',    name: 'Ability II',     kind: 'unlock',             colour: 'secondary', cost0: 5e3,  growth: 1,    requires: 'ab1', x: 1, y: 2 },
-  { id: 'attach', name: 'Attachment Slot', kind: 'unlock',            colour: 'secondary', cost0: 600,  growth: 1,    requires: 'crit', x: 0, y: 3 },
+  { id: 'attach', name: 'Attachment Slot', kind: 'unlock',            colour: 'secondary', cost0: 600,  growth: 1, x: 0, y: 3 },
   { id: 'charm',  name: 'Charm Slot',     kind: 'unlock',             colour: 'secondary', cost0: 1500, growth: 1,    requires: 'attach', x: 2, y: 3 },   // gear slots open in order
   { id: 'ab3',    name: 'Ability III',    kind: 'unlock',             colour: 'secondary', cost0: 1.5e5, growth: 1,   requires: 'ab2', x: 1, y: 3 },
 ];
