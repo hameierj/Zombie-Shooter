@@ -43,7 +43,7 @@ Every released type has **its own two dials**, paid in its own colour:
 
 The **keep-up meter** (Settings → Difficulty meters, which also shows horde odds) is **off by default**: players read the battlefield instead, and the
 shredder glows and pulses red while zombies are reaching it. The **shredder** grinds every zombie that reaches it by
-1% of its HP per second (no upgrades), so the road always clears and you can't get permanently stuck. Shredded
+1% of its HP per second (no upgrades), so the road always clears and you can't get permanently stuck. There is no limit on how many can be at the shredder: a pile is drawn as a queue backing up the road (5 rows), and walkers stop behind it on screen. Horde zombies that break through are pulled into the blades; a lost horde fades away. Shredded
 zombies pay **25% of their DNA × keep-up²** and don't count for the combo: a little help when slightly behind,
 almost nothing when hopelessly overrun on purpose (so pushing tiers sky-high can't be farmed). When the shredder stays swamped for
 20 s, a message suggests upgrading the squad. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews

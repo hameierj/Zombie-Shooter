@@ -27,6 +27,7 @@ interface Zombie {
   strain: ZombieId; variety: VarietyId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
   shredded?: boolean;  // killed by the shredder: no DNA (only the squad's kills pay)
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
+  back?: number;       // drawing only: art px pushed back up the road so a pile at the shredder forms a visible queue
 }
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
 interface FloatText { obj: Phaser.GameObjects.Text; t: number; vy: number }
@@ -144,7 +145,11 @@ export class BattleScene extends Phaser.Scene {
   // ---------- flow ----------
   private setPhase(p: Phase) { this.phase = p; this.phaseT = 0; game.emit('phase', p); }
   private clearZombies(onlyHorde = false) {
-    for (const z of this.zombies) if (!onlyHorde || z.horde) z.sprite?.destroy();
+    for (const z of this.zombies) if (!onlyHorde || z.horde) {
+      const s = z.sprite; z.sprite = undefined; z.alive = false;
+      // a lost horde fades away instead of blinking out
+      if (s && onlyHorde) this.tweens.add({ targets: s, alpha: 0, duration: 700, onComplete: () => s.destroy() }); else s?.destroy();
+    }
     this.zombies = onlyHorde ? this.zombies.filter((z) => !z.horde) : [];
   }
   private makeZombie(strain: ZombieId, tier: number, spawnLv: number, horde: boolean, boss = false, special: SpecialId | null = null, variety: VarietyId = 0): Zombie {
@@ -277,7 +282,9 @@ export class BattleScene extends Phaser.Scene {
         z.alive = false;
         const [x, y] = this.toScreen(1, z.l);
         this.burst(x - 6 * this.px, y - 10 * this.px, 0xff4a4a, 10);
-        z.sprite?.destroy(); z.sprite = undefined;
+        // pulled into the blades (not just vanishing)
+        const s = z.sprite; z.sprite = undefined;
+        if (s) this.tweens.add({ targets: s, x: this.lay.shredX * this.px + 8 * this.px, scaleX: 0.2, alpha: 0, duration: 260, ease: 'Quad.easeIn', onComplete: () => s.destroy() });
         game.comboBreak();
         sfx.grind();
       }
@@ -414,8 +421,13 @@ export class BattleScene extends Phaser.Scene {
   }
   private dist(a: Zombie, b: Zombie) { return Math.hypot(a.p - b.p, (a.l - b.l) * 0.5); }
 
-  private zombieCenter(z: Zombie): [number, number] {
+  /** Where a zombie is drawn: its road position plus its place in the queue at the shredder. */
+  private zScreen(z: Zombie): [number, number] {
     const [x, y] = this.toScreen(z.p, z.l);
+    return [x + (z.back ?? 0) * this.px, y];
+  }
+  private zombieCenter(z: Zombie): [number, number] {
+    const [x, y] = this.zScreen(z);
     return [x - 2 * this.px, y - 13 * this.px];
   }
 
@@ -601,10 +613,32 @@ export class BattleScene extends Phaser.Scene {
     this.zombies = this.zombies.filter((z) => z.alive);
   }
 
+  /** Zombies at the shredder queue up in a few rows instead of all standing on the same spot, and walkers stop
+   *  behind the queue on screen. Drawing only: the maths still treats them all as at the shredder. */
+  private static readonly QUEUE_ROWS = 5;
+  private static readonly QUEUE_GAP = 9;   // art px between queued zombies
+  private layoutQueue() {
+    const rows = BattleScene.QUEUE_ROWS, gap = BattleScene.QUEUE_GAP;
+    const row = (z: Zombie) => Math.min(rows - 1, Math.floor(((z.l + 1) / 2) * rows));
+    const tail = new Array(rows).fill(0);
+    for (const z of this.zombies) {
+      if (!z.alive || z.p < 1 || z.horde) continue;
+      const r = row(z);
+      z.back = tail[r] * gap; tail[r]++;
+    }
+    const { spawnX, stopX } = this.lay;
+    for (const z of this.zombies) {
+      if (!z.alive || z.p >= 1) continue;
+      const wx = spawnX + (stopX - spawnX) * z.p, end = stopX + tail[row(z)] * gap;
+      z.back = Math.max(0, end - wx);
+    }
+  }
+
   private drawZombies() {
     const px = this.px;
+    this.layoutQueue();
     for (const z of this.zombies) {
-      const [x, y] = this.toScreen(z.p, z.l);
+      const [x, y] = this.zScreen(z);
       if (!z.sprite) z.sprite = this.add.sprite(x, y, `z-${z.strain}-0`).setOrigin(0.5, 1);
       const frame = z.p >= 1 ? (Math.floor(z.phase) % 2) * 2 : Math.floor(z.phase) % ZOMBIE_FRAMES;
       z.sprite.setTexture(`z-${z.strain}-${frame}`).setPosition(x, y).setScale((z.boss ? 2 : 1 + 0.12 * z.variety) * this.S).setDepth(y);
@@ -665,19 +699,19 @@ export class BattleScene extends Phaser.Scene {
     const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 160);
     for (const z of this.zombies) {
       if (!z.alive || z.variety !== 2 || z.special) continue;
-      const [x, y] = this.toScreen(z.p, z.l);
+      const [x, y] = this.zScreen(z);
       g.fillStyle(0x6a2aff, 0.22).fillEllipse(x, y - px, 18 * px, 6 * px);
     }
     for (const z of this.zombies) {
       if (!z.alive || !z.special) continue;
-      const [x, y] = this.toScreen(z.p, z.l);
+      const [x, y] = this.zScreen(z);
       const col = M.specialById(z.special).tint;
       g.lineStyle(px, col, 0.5 + 0.4 * pulse).strokeEllipse(x, y - px, (14 + 2 * pulse) * px, 5 * px);
       if (z.special === 'screamer' || z.special === 'medic') g.lineStyle(px * 0.6, col, 0.18).strokeCircle(x, y - 12 * px, 0.15 * (this.lay.spawnX - this.lay.stopX) * px);
     }
     for (const z of this.zombies) {
       if (!z.alive || z.hp >= 1 || !z.sprite) continue;
-      const [x, y] = this.toScreen(z.p, z.l);
+      const [x, y] = this.zScreen(z);
       const sc = z.boss ? 2 : 1 + 0.12 * z.variety;
       const bw = (z.boss ? 30 : 14) * px, top = y - 29 * sc * px;
       g.fillStyle(0x140c1c, 1).fillRect(x - bw / 2 - px, top - px, bw + 2 * px, 3 * px);
