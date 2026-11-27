@@ -99,9 +99,31 @@ function gearShelf(c: ClassId) {
   };
   return `<div class="shelf">${shelf('gun', 'Gun')}${shelf('attach', 'Attachment')}${shelf('charm', 'Charm')}</div>`;
 }
+/** The upgrade on a unit card that adds the most damage per DNA right now (Damage, Speed, Range, Crit, Crit × or Hire). */
+function bestBuy(c: ClassId): string | null {
+  const u = game.unit(c);
+  if (!u.count) return null;
+  const value = (x: Unit) => { const st = M.unitStats({ ...game.entry(u), u: x }, game.fx); return st.lnDps + Math.log(0.55 + 0.45 * st.range) + Math.log(M.unitPower(x.count)); };
+  const now = value(u);
+  let best: string | null = null, bestScore = -Infinity;
+  const consider = (key: string, next: Unit, lnCost: number) => {
+    const gain = value(next) - now;
+    if (gain <= 1e-9 || !Number.isFinite(lnCost)) return;
+    const score = Math.log(Math.expm1(gain)) - lnCost;
+    if (score > bestScore) { bestScore = score; best = key; }
+  };
+  for (const id of ['dmg', 'spd', 'range', 'crit', 'critx'] as UnitNodeId[]) {
+    const ns = game.node(c, id);
+    if (!ns.maxed && !ns.locked) consider(id, { ...u, nodes: { ...u.nodes, [id]: ns.level + 1 } }, ns.lnCost);
+  }
+  if (u.count < game.unitCap) consider('hire', { ...u, count: u.count + 1 }, game.hireCost(c));
+  return best;
+}
 function upgradeRow(c: ClassId) {
   const u = game.unit(c), cd = M.classById(c);
-  return `<div class="ugrid pairs">${hireBtn(c)}${damageBtn(c)}${UP_BUTTONS.map((b) => {
+  const star = bestBuy(c);
+  const starred = (html: string, key: string) => (key === star ? html.replace('class="mu ', 'class="mu best ') : html);
+  return `<div class="ugrid pairs">${starred(hireBtn(c), 'hire')}${starred(damageBtn(c), 'dmg')}${UP_BUTTONS.map((b) => {
     const multi = b.stages.length > 1;
     const owned = b.stages.filter((id) => game.node(c, id).maxed).length;
     const sp = multi ? stagePrev(c, b.stages) : null;
@@ -119,7 +141,7 @@ function upgradeRow(c: ClassId) {
       : b.key === 'slots' ? (done ? 'Attachment and Charm slots open' : owned ? 'Next: open the Charm slot' : 'Next: open the Attachment slot')
       : `${nodeEffect(u, id, ns.level)}${done ? '' : ` → ${nodeEffect(u, id, ns.level + 1)}`}`;
     const tip = ns.locked && !done ? `${what} · ${ns.locked}` : what;
-    return `<button class="mu ${state}" style="--dna:${M.strainById(ns.colour).color}" title="${esc(tip)}" ${done || ns.locked ? 'disabled' : `data-action="${multi ? 'buy-stages' : 'buy-node'}" data-cls="${c}" data-arg="${multi ? b.key : id}" ${costAttr(ns.colour, p.ln)}`}>
+    return `<button class="mu ${state} ${b.key === star ? 'best' : ''}" style="--dna:${M.strainById(ns.colour).color}" title="${esc(tip)}" ${done || ns.locked ? 'disabled' : `data-action="${multi ? 'buy-stages' : 'buy-node'}" data-cls="${c}" data-arg="${multi ? b.key : id}" ${costAttr(ns.colour, p.ln)}`}>
       <img class="px ic" src="${icon}" alt=""><span>${name}</span><span class="lv">${lv}</span><span class="pc">${price}</span></button>`;
   }).join('')}</div>`;
 }
@@ -365,12 +387,13 @@ function zombiesHtml() {
     const x = game.s.strains[st.id], col = st.family;
     if (!x.unlocked) {
       const u = st.unlock!;
-      const fromOpen = game.s.strains[u.from].unlocked, pc = M.familyOf(u.from);
+      const fromOpen = game.releaseReady(st.id), pc = M.familyOf(u.from), ln = game.releaseCost(st.id);
+      const from = M.strainById(u.from), fx = game.s.strains[u.from];
       return `<div class="srow locked" style="--dna:${st.color}">
         <img class="px face" src="${zombieIcon(st.id)}" alt="">
         <div class="s-info"><b>${st.plural}</b><span class="sub">${traits(st)}</span></div>
-        <div class="s-btns">${fromOpen ? `<button class="btn sbtn" data-action="release" data-strain="${st.id}" ${costAttr(pc, Math.log(u.cost))}><span>Release</span>${cost(pc, Math.log(u.cost))}</button>`
-          : `<span class="sub small lockmsg">🔒 Release ${M.strainById(u.from).plural} first</span>`}</div>
+        <div class="s-btns">${fromOpen ? `<button class="btn sbtn" data-action="release" data-strain="${st.id}" ${costAttr(pc, ln)}><span>Release</span>${cost(pc, ln)}</button>`
+          : `<span class="sub small lockmsg">🔒 ${fx.unlocked ? `${from.plural} to tier ${C.releaseTier} (now ${fx.maxTier})` : `Release ${from.plural} first`}</span>`}</div>
       </div>`;
     }
     const kT = game.keepUpIf(st.id, 'tier'), kS = game.keepUpIf(st.id, 'spawn');

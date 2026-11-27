@@ -194,12 +194,12 @@ export interface UnitNodeDef {
   colour: 'primary' | 'secondary'; cost0: number; growth: number; requires?: UnitNodeId; x: number; y: number;
 }
 export const UNIT_NODES: UnitNodeDef[] = [
-  { id: 'dmg',    name: 'Damage',         kind: 'ranked',             colour: 'primary',   cost0: 8,    growth: 1.15, x: 1, y: 0 },
-  { id: 'spd',    name: 'Attack Speed',   kind: 'capped', max: 20,    colour: 'primary',   cost0: 30,   growth: 1.45, x: 0, y: 1 },
-  { id: 'range',  name: 'Range',          kind: 'capped', max: 10,    colour: 'primary',   cost0: 40,   growth: 1.7, x: 2, y: 1 },
+  { id: 'dmg',    name: 'Damage',         kind: 'ranked',             colour: 'primary',   cost0: 8,    growth: 1.13, x: 1, y: 0 },
+  { id: 'spd',    name: 'Attack Speed',   kind: 'capped', max: 20,    colour: 'primary',   cost0: 30,   growth: 1.3, x: 0, y: 1 },
+  { id: 'range',  name: 'Range',          kind: 'capped', max: 10,    colour: 'primary',   cost0: 40,   growth: 1.3, x: 2, y: 1 },
   { id: 'ab1',    name: 'Ability I',      kind: 'unlock',             colour: 'primary',   cost0: 300,  growth: 1, x: 1, y: 1 },
-  { id: 'crit',   name: 'Crit Chance',    kind: 'capped', max: 15,    colour: 'secondary', cost0: 40,   growth: 1.5, x: 0, y: 2 },
-  { id: 'critx',  name: 'Crit Damage',    kind: 'capped', max: 20,    colour: 'secondary', cost0: 50,   growth: 1.45, x: 2, y: 2 },
+  { id: 'crit',   name: 'Crit Chance',    kind: 'capped', max: 15,    colour: 'secondary', cost0: 40,   growth: 1.3, x: 0, y: 2 },
+  { id: 'critx',  name: 'Crit Damage',    kind: 'capped', max: 20,    colour: 'secondary', cost0: 50,   growth: 1.3, x: 2, y: 2 },
   { id: 'ab2',    name: 'Ability II',     kind: 'unlock',             colour: 'secondary', cost0: 5e3,  growth: 1,    requires: 'ab1', x: 1, y: 2 },
   { id: 'attach', name: 'Attachment Slot', kind: 'unlock',            colour: 'secondary', cost0: 600,  growth: 1, x: 0, y: 3 },
   { id: 'charm',  name: 'Charm Slot',     kind: 'unlock',             colour: 'secondary', cost0: 1500, growth: 1,    requires: 'attach', x: 2, y: 3 },   // gear slots open in order
@@ -210,13 +210,16 @@ export const unitNodeById = (id: UnitNodeId) => UNIT_NODES.find((n) => n.id === 
 export const CONFIG = {
   R: 1.15,                  // per DNA Count tier of a zombie type: ×1.15 DNA per zombie and ×1.15 HP
   ITEM_SHARE: 0.5,          // guns cover half of each tier's HP growth; Damage ranks cover the other half
-  dmgPerLevel: 1.05,        // Damage node: ×1.05 per level, cost ×1.15 per level (see the v0.5 notes in the docs)
+  dmgPerLevel: 1.06,        // Damage node: ×1.06 per level, price ×1.13 per level: one tier of zombie HP (×1.15, half of it
+                            // covered by guns) costs about one tier of DNA, so each tier takes about the same play time
   baseHp: 6,
   baseDna: 3,
   tierCost0: 40,            // raising a type's DNA Count from tier t costs 40·1.15^(t−1) of its own DNA
   spawnPerLevel: 0.12,      // +12% spawn rate per level…
   spawnMax: 30,
   spawnHpPerLevel: 0.03,    // …and +3% HP
+  releaseSec: 180,          // a new zombie type costs ~3 min of income in that colour…
+  releaseTier: 15,          // …once the type it comes from has reached tier 15
   spawnCost0: 20,
   spawnCostGrowth: 1.5,
   hireGrowth: 1.8,
@@ -292,7 +295,10 @@ const BOSS_ORDER: BossKind[] = ['exploder', 'leaper', 'titan', 'brood', 'screame
 const KIND_ORDER: HordeKind[] = ['classic', 'stampede', 'armoured', 'swarm', 'waves', 'fog', 'hospital'];   // matches the first seven horde names
 export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean; kind: HordeKind; boss: BossKind }
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
-const HORDE_TIERS = [6, 20, 40, 70, 110, 160, 220];
+// Horde tiers, set from the balance sim so each horde arrives at a steadily growing gap (about 5, 8, 12, 15, 20, 25
+// and 30 min for hordes 1-7, then about 35 min per Elite horde). ELITE_TIERS continue the list; past its end, +30 each.
+const HORDE_TIERS = [17, 26, 34, 72, 160, 330, 510];
+const ELITE_TIERS = [870, 985, 1145, 1300, 1410, 1495, 1550, 1615, 1660, 1700];
 export function hordeDef(k: number): HordeDef {
   const cls = CLASSES.find((c) => c.horde === k)?.id;
   if (k <= 7) {
@@ -301,7 +307,8 @@ export function hordeDef(k: number): HordeDef {
   }
   const n = k - 7;
   const kind = KIND_ORDER[1 + ((n - 1) % (KIND_ORDER.length - 1))];   // elites never use the plain march
-  return { index: k, name: `Elite ${HORDE_KINDS[kind].name} ${n}`, tier: HORDE_TIERS[6] + 30 * n, unlocks: cls ? `${classById(cls).plural} (new recruits)` : 'An epic item', cls, region: -1, elite: true, kind, boss: BOSS_ORDER[(k - 1) % BOSS_ORDER.length] };
+  const tier = ELITE_TIERS[n - 1] ?? ELITE_TIERS[ELITE_TIERS.length - 1] + 30 * (n - ELITE_TIERS.length);
+  return { index: k, name: `Elite ${HORDE_KINDS[kind].name} ${n}`, tier, unlocks: cls ? `${classById(cls).plural} (new recruits)` : 'An epic item', cls, region: -1, elite: true, kind, boss: BOSS_ORDER[(k - 1) % BOSS_ORDER.length] };
 }
 /** Hordes bring a fixed mix of zombie types for their tier (it doesn't depend on which types you've released). */
 export const hordeMix = (k: number) => STRAINS.filter((s) => s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only
@@ -312,6 +319,10 @@ export const lnZombieHp = (s: ZombieId, tier: number, spawn: number) =>
   Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (tier - 1) * lnR;
 export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
   Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna)) + (tier - 1) * lnR;
+/** Releasing a new zombie type costs about `releaseSec` (3 min) of your current income in the colour you pay with (never less
+ * than its listed minimum), so every release is a similar wait instead of a ×1000 jump. */
+export const lnReleaseCost = (s: ZombieId, lnRate: number) =>
+  Math.max(Math.log(150), (Number.isFinite(lnRate) ? lnRate : -Infinity) + Math.log(C.releaseSec));
 export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (tier - 1) * lnR;
 export const lnSpawnCost = (s: ZombieId, lv: number) => Math.log(C.spawnCost0 * strainById(s).dnaMult) + lv * Math.log(C.spawnCostGrowth);
 export const activeStrains = (st: Strains) => ZOMBIE_IDS.filter((s) => st[s]?.unlocked);
@@ -357,7 +368,8 @@ export const unitPower = (count: number) => (count > 0 ? Math.pow(count, C.unitE
 export const unitCap = (best: number) => Math.min(C.maxPerType, C.unitsBase + Math.floor(best / C.tiersPerUnit));
 export const nlv = (u: Unit, id: UnitNodeId) => u.nodes[id] ?? 0;
 const classScale = (cls: ClassId) => Math.max(1, classById(cls).hire0 / 25) ** 0.5;
-export const nodeColour = (cls: ClassId, n: UnitNodeDef): StrainId => (n.colour === 'primary' ? classById(cls).primary : classById(cls).secondary);
+/** Every upgrade of a unit type is paid in its one DNA colour (its primary). */
+export const nodeColour = (cls: ClassId, _n?: UnitNodeDef): StrainId => classById(cls).primary;
 export const lnUnitNodeCost = (cls: ClassId, n: UnitNodeDef, level: number, fx: Fx) =>
   Math.log(n.cost0 * classScale(cls) * (n.id === 'dmg' ? 1 - fx.trainDiscount : 1)) + level * Math.log(n.growth);
 export const unitNodeMaxed = (n: UnitNodeDef, level: number) => (n.kind === 'unlock' ? level >= 1 : n.kind === 'capped' ? level >= (n.max ?? 1) : false);

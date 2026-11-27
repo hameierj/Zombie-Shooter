@@ -864,3 +864,8 @@ button.tc-head { cursor: pointer; }
 @keyframes t-in { to { opacity: 1; } }
 @keyframes t-out { 0% { opacity: 1; filter: brightness(1); } 30% { filter: brightness(2.2); } 100% { opacity: 0; transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) { #title *, #title, #title::after { animation-duration: .01s !important; animation-iteration-count: 1 !important; } }
+
+/* best buy: the upgrade with the most damage per DNA on this card */
+.mu { position: relative; }
+.mu.best::after { content: "★"; position: absolute; top: 3px; right: 5px; font: 700 12px Inter, system-ui, sans-serif; color: #ffd34d; text-shadow: 0 1px 0 #3a2a00; opacity: 1; }
+.mu.best:not(.afford) { opacity: .85; border-color: rgba(255,211,77,.55); }

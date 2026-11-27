@@ -15,7 +15,8 @@ unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 ## 2. Zombie types and their dials (Zombies tab)
 There are **25 zombie types in five DNA colour families**. Every type in a family drops that family's colour.
 The first type of each family is released with the previous family's colour; the other four are released one after
-another with the family's own colour (costs are tied to tiers ~30 to ~400, so new types keep appearing for hours).
+another with the family's own colour. **Releasing** a type needs the type it comes from at **tier 15**, and costs about
+**3 minutes of your current income** in the colour you pay with (at least 150), so every release is a similar wait.
 
 | Colour | Family (release order) |
 |---|---|
@@ -72,9 +73,11 @@ slowly. You never lose.
   DPS), a 2 × 4 grid of equal buttons in stacked pairs, left to right (**Hire/Damage, Crit/Crit ×, Speed/Range,
   Gear slots (Attachment → Charm)/Ability (I → II → III)**; the Ability button is labelled with what it buys, e.g. "Slow 15%", "Frag +2", "Pierce +3"; tap = buy with the buy amount), and a **gear shelf** (Gun shown as its damage multiplier, e.g. "×3.7 dmg"; Attachment, Charm; display only: units always carry their best items).
   The Squad menu dot lights only for an affordable Ability stage or Gear slot. The tree behind the buttons:
-  Damage (endless, ×1.05 per level) → Attack Speed (20 levels), Range (10), Ability I → Crit Chance (15),
-  Crit Damage (20), Ability II → Attachment Slot, Charm Slot, Ability III. The top half is paid in the type's first
-  colour, the bottom half in its second, so every unit needs DNA from more than one zombie type.
+  Damage (endless, ×1.06 per level, price ×1.13 per level: one zombie tier of HP costs about one tier of income, so
+  every tier takes about the same play time), Attack Speed (20 levels), Range (10), Crit Chance (15) and Crit Damage
+  (20) (all four ×1.3 per level), Ability I–III and the Attachment → Charm slots. **Everything on a unit's card is
+  paid in one DNA colour** (its first). A **★ best buy** marks the upgrade (or Hire) that adds the most damage per
+  DNA right now.
 - **Abilities evolve** through three stages (Ability I, II, III nodes).
 - **Equipment:** one gun slot (shared by the whole group), plus an **attachment** slot (a stat boost: damage, speed,
   crit, crit damage or range) and a **charm** slot (bonus damage against one zombie type) once unlocked in the tree.
@@ -141,8 +144,11 @@ banner) right after you beat a horde.
 The odds (shown with **Difficulty meters** on) account for the type and boss: count × HP × a difficulty factor for
 speed, fog or healing, plus the extra zombies a boss brings, against the time until the boss arrives and walks in.
 Browser play tests: every horde type and boss won at 1.3, and 5 of 6 lost at 0.85. War Drums starts at 1.10.
-Hordes 1–7 are at tiers 6, 20, 40, 70, 110, 160 and 220, and unlock the unit types and regions above. After that come
-endless **Elite hordes** every 30 tiers (some unlock the newer recruits, the rest give an epic+ item).
+Hordes 1–7 are at tiers 17, 26, 34, 72, 160, 330 and 510, and unlock the unit types and regions above. Elite hordes
+follow at 870, 985, 1145, 1300, 1410, 1495, 1550, 1615, 1660, 1700, then +30 each (some unlock the newer recruits,
+the rest give an epic+ item). These are set from the balance sim (`node tools/sim.ts`, which prints the minute of
+each horde) so the gaps grow gently: hordes at about 7, 13–19, 25–33, 44, 65, 95 and 125 min, then one about every
+30–40 min (before: gaps grew to 90–120 min by horde 10).
 
 ## 5b. Combo
 Every kill while you're playing adds 1 to the **combo**, shown over the battlefield. DNA from kills is multiplied by

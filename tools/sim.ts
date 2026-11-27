@@ -51,10 +51,12 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   function shop() {
     for (let guard = 0; guard < 400; guard++) {
       const f = fx();
+      let bought0 = false;
+      const saving = new Set();   // colours the player is saving up for a release
       const opts = [];
       for (const x of M.STRAINS) {
         const st = strains[x.id];
-        if (!st.unlocked) { if (x.unlock && strains[x.unlock.from].unlocked) opts.push({ col: M.familyOf(x.unlock.from), ln: Math.log(x.unlock.cost), go: () => { st.unlocked = true; } }); continue; }
+        if (!st.unlocked) { if (x.unlock && strains[x.unlock.from].unlocked && strains[x.unlock.from].maxTier >= C.releaseTier) { const col = M.familyOf(x.unlock.from), ln = M.lnReleaseCost(x.id, M.lnDnaPerSec(squad(), f, strains)[col]); if (pay(col, ln)) { st.unlocked = true; bought0 = true; } else saving.add(col); } continue; }   // players release new types as soon as they can
         const up = { ...strains, [x.id]: { ...st, tier: st.tier + 1 } };
         if (keep(up) >= 1.15) opts.push({ col: x.family, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); } });
         const sp = { ...strains, [x.id]: { ...st, spawn: st.spawn + 1 } };
@@ -77,13 +79,17 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
       let bought = false;
       // cheapest option per colour
       for (const col of M.STRAIN_IDS) {
+        if (saving.has(col)) continue;
         const o = opts.filter((x) => x.col === col).sort((a, b) => a.ln - b.ln)[0];
         if (o && pay(col, o.ln)) { o.go(); bought = true; }
       }
-      if (!bought) return;
+      if (!bought && !bought0) return;
     }
   }
   const out = [];
+  const hordeAt = [];
+  const hordeBest = [];
+  const tierAt = [];
   let ci = 0;
   while (s.t < hours * 3600) {
     if (ci < CHECKS.length && s.t >= CHECKS[ci] * 3600) {
@@ -99,19 +105,24 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
     for (const x of M.activeStrains(strains)) kills += M.spawnRate(x, strains[x].spawn) * k * DT;
     if (rng() < kills * M.dropChance(strains, f)) drop();
     if (profile.hordes && M.hordeOdds(sq, f, s.hordes + 1) >= 1.1) {
-      s.hordes++; s.t += 60;
+      s.hordes++; s.t += 60; hordeAt.push(s.t / 60); hordeBest.push(best());
       const h = M.hordeDef(s.hordes);
       if (h.cls) drop(2, h.cls, 2); else drop(3);
     }
     shop();
+    if (Math.floor(s.t / 60) !== Math.floor((s.t + DT) / 60)) tierAt.push(best());
     s.t += DT;
   }
+  out.hordeAt = hordeAt; out.hordeBest = hordeBest; out.tierAt = tierAt;
   return out;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   for (const p of Object.values(PROFILES)) {
     console.log(`\n=== ${p.label} ===`);
-    for (const r of simulate(p)) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(34)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);
+    const res = simulate(p);
+    if (process.env.TIERS) { console.log('best tier by minute: ' + res.tierAt.map((t, i) => i % 5 === 0 ? `${i}:${t}` : '').filter(Boolean).join(' ')); console.log('best tier at each win: ' + res.hordeBest.map((t, i) => `${i + 1}:${t}/${M.hordeDef(i + 1).tier}`).join(' ')); }
+    if (res.hordeAt.length) console.log('hordes at (min): ' + res.hordeAt.map((m, i) => `${i + 1}:${m.toFixed(0)}`).join(' ') + '\n  gaps (min): ' + res.hordeAt.map((m, i) => (m - (res.hordeAt[i - 1] ?? 0)).toFixed(0)).join(' '));
+    for (const r of res) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(34)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);
   }
 }
