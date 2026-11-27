@@ -50,7 +50,7 @@ function page(title: string, body: string, opts: { cls?: string; bare?: boolean 
 function cover() {
   const sections: [string, string][] = [
     ['How to play', 'The loop in 60 seconds'], ['Zombies', '25 types, 5 DNA colours'], ['Units', '12 recruits & abilities'], ['Upgrades & gear', 'The squad card, items'],
-    ['Hordes', 'Bosses & rewards'], ['Passive tree', 'Squad-wide perks'], ['Tips', 'Play smarter'], ['', ''],
+    ['Hordes', 'Bosses & rewards'], ['Passive tree', 'Squad-wide perks'], ['Prestige', 'Permanent perks'], ['Tips', 'Play smarter'],
   ];
   return page('', `
     <div class="art" style="background-image:url(${SHOT('cover')})"></div><div class="shade"></div>
@@ -267,6 +267,38 @@ function tree() {
 }
 
 // ---------- 8. tips ----------
+// ---------- 8. prestige ----------
+function prestige() {
+  const perks = M.PERKS.map((d) => `<div class="pk"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div><div class="pk-t"><b>${d.name}</b><span class="pk-c">◆ ${d.cost}${d.cost > 1 ? ' per level' : ''}</span></div>
+    <span class="pk-d">Level 1: ${d.desc(1)}</span><span class="pk-d">Max (${d.max}): ${d.desc(d.max)}</span></div></div>`).join('');
+  return page('Prestige', `
+    <h1 class="title"><small>Chapter 7</small>Prestige</h1>
+    <div class="shotcol narrow" style="grid-template-columns: 1.7in 1fr">
+      <div><img class="phone" src="${SHOT('prestige')}" alt=""></div>
+      <div>
+        <p class="lede tight" style="margin-top:0">When a run starts to slow down, start over stronger. Prestige trades your run for points, and points buy
+        <b>permanent perks that stack every time</b>.</p>
+        <div class="steps">
+          <div class="step"><div><b>Earn points.</b> Every horde you clear in a run is worth <b>1 point</b> (Bounty Hunter adds more).</div></div>
+          <div class="step"><div><b>Prestige.</b> Hordes tab → <b>Prestige now</b>. Zombie tiers and types, units, gear, DNA, the passive tree and hordes reset.
+            You keep your perks, points and play time, and your old run is copied to the <b>Backup</b> save slot first.</div></div>
+          <div class="step"><div><b>Spend points</b> on perks (Hordes tab → <b>Perks</b>) any time. They apply to this run and every run after.</div></div>
+          <div class="step"><div><b>Go again.</b> Every run is faster, so you clear more hordes and earn more points.</div></div>
+        </div>
+        <div class="rules" style="margin-top:10px">
+          <div class="card"><div class="big">1h 50</div><span class="small">to Horde 7 on a first run</span></div>
+          <div class="card"><div class="big" style="color:var(--good)">1h 08</div><span class="small">after a 7-point prestige</span></div>
+          <div class="card"><div class="big" style="color:var(--good)">~39m</div><span class="small">with 30 points</span></div>
+        </div>
+        <p class="small sub" style="margin:4px 0 0">From the balance sim; your own pace will vary.</p>
+      </div>
+    </div>
+    <h3 style="margin-top:8px">The perks</h3>
+    <div class="pk-grid">${perks}</div>
+    <div class="card hl" style="margin-top:6px;padding:7px 12px"><h4>What to take first</h4><span class="small sub"><b>Firepower</b> and <b>DNA Surge</b> speed up everything, so they're the best first picks.
+      <b>Head Start</b> makes the first minutes of each run fly by, and <b>Big Barracks</b> gives you more soldiers long before your tiers would.</span></div>`);
+}
+
 function tips() {
   const t: [string, string][] = [
     ['Watch the shredder', 'A red, pulsing shredder means zombies are getting through. Stop raising tiers and put DNA into the squad until it calms down.'],
@@ -279,7 +311,7 @@ function tips() {
     ['Golden zombies', 'Fast and rare, worth ×15 DNA and a big item chance. Long range units catch them first.'],
   ];
   return page('Tips', `
-    <h1 class="title"><small>Chapter 7</small>Tips &amp; tricks</h1>
+    <h1 class="title"><small>Chapter 8</small>Tips &amp; tricks</h1>
     <p class="lede">A few habits that keep the squad ahead of the stream.</p>
     <div class="tips">${t.map(([h, d], i) => `<div class="tip"><div class="n">${i + 1}</div><div><h4>${h}</h4><span class="small sub">${d}</span></div></div>`).join('')}</div>
     <h3 style="margin-top:16px">Quick answers</h3>
@@ -293,7 +325,7 @@ function tips() {
     </div>`);
 }
 
-document.getElementById('guide')!.innerHTML = [cover(), basics(), zombies(), units(), upgrades(), hordes(), tree(), tips()].join('');
+document.getElementById('guide')!.innerHTML = [cover(), basics(), zombies(), units(), upgrades(), hordes(), tree(), prestige(), tips()].join('');
 await document.fonts.ready;
 await Promise.all([...document.images].map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; }))));
 (window as unknown as { guideReady: boolean }).guideReady = true;
