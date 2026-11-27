@@ -23,9 +23,13 @@ const C = M.CONFIG;
 const FONT = '"Lilita One", system-ui, sans-serif';
 const ART_SHORT_SIDE = 400;  // art pixels across the field's short side (bigger = more zoomed out)
 const MAX_AMBIENT = 110;     // cap on stream zombies alive at once
-const MAX_TEXTS = 44;
+const MAX_TEXTS = 26;
 const NUM_FONT = '"Saira Condensed", "Arial Narrow", sans-serif';
-const MAX_PARTS = 700;
+const MAX_PARTS = 360;
+/** Most soft lights (big additive glows, the costliest effect to draw) alive at once. */
+const MAX_GLOWS = 28;
+/** Most flame/fire puffs alive at once (large additive sprites). */
+const MAX_FIRE = 110;
 /** The dusk grade per battleground (multiplied over the scene; lights are added on top). */
 const GRADE: Record<GroundTheme, number> = { street: 0x8f96b4, chem: 0x8fae9c, swamp: 0x8fa088, badlands: 0xb4a088, hive: 0xa090b8, neon: 0x948cc4, scrapyard: 0xa89888 };
 const INTRO_SEC = 1.4;
@@ -46,7 +50,7 @@ interface Zombie {
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number;
   /** A new hire: waits `wait` s, then runs in from the left edge (`run` 0→1) before taking position and firing. */
   wait?: number; run?: number; hop?: number }
-interface FloatText { obj: Phaser.GameObjects.Text; t: number; vy: number }
+interface FloatText { obj: Phaser.GameObjects.Text; t: number; vy: number; style?: string }
 interface Crate { img: Phaser.GameObjects.Image; t: number; color: number }
 /** A pooled effect particle (positions and speeds in device px). */
 interface Part { img?: Phaser.GameObjects.Image; kind: 'fire' | 'flame' | 'smoke' | 'spark' | 'blood' | 'glow' | 'gas' | 'debris'; x: number; y: number; vx: number; vy: number; z: number; vz: number;
@@ -86,9 +90,14 @@ export class BattleScene extends Phaser.Scene {
   private sub!: Phaser.GameObjects.Text;
   private shooters = new Map<string, Shooter>();
   private texts: FloatText[] = [];
+  /** The boss's health bar, pinned under the horde status line so it's never lost in the crowd. */
+  private bossBar!: Phaser.GameObjects.Graphics;
+  private bossTrail = 1;
+  private dpr = 1;
   private crates: Crate[] = [];
   private pools = new Map<string, Phaser.GameObjects.Image[]>();
   private textCd = 0;
+  private critCd = 0;
   /** True from a horde's start until the stream (paused for the horde) gets its first kill again. */
   private awaitStream = false;
   private autoT = 0;
@@ -135,6 +144,7 @@ export class BattleScene extends Phaser.Scene {
     const tx = { fontFamily: FONT, color: '#ffffff', stroke: '#140c1c' };
     this.banner = this.add.text(0, 0, '', tx).setOrigin(0.5).setDepth(9500).setAlpha(0);
     this.sub = this.add.text(0, 0, '', tx).setOrigin(0.5).setDepth(9500).setAlpha(0);
+    this.bossBar = this.add.graphics().setDepth(9550);
     this.hordeText = this.add.text(0, 0, '', { fontFamily: FONT, color: '#ffd34d', stroke: '#140c1c' }).setOrigin(0, 0).setDepth(9500).setVisible(false);
     game.on((evt, data) => {
       if (evt === 'horde-start' && this.phase === 'stream') this.startHorde();
@@ -147,6 +157,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   resizeField(cssW: number, cssH: number, dpr: number) {
+    this.dpr = dpr;
     this.W = Math.max(1, Math.round(cssW * dpr));
     this.H = Math.max(1, Math.round(cssH * dpr));
     this.scale.resize(this.W, this.H);
@@ -494,7 +505,6 @@ export class BattleScene extends Phaser.Scene {
         const gk = u.evo === undefined ? `gun-${u.cls}` : `gun-${u.cls}-u${u.evo}`;
         if (s.gun.texture.key !== gk) s.gun.setTexture(gk);
         s.gun.setVisible(!!gun).setPosition(Math.round(gx), Math.round(gy)).setRotation(s.aim).setDepth(fy + 1).setScale(sc);
-        if (u.evo !== undefined && !arriving && Math.random() < dt * 2.5) this.light(fx, fy - 6 * px, 14, ULT_TINT(u), 0.32, 0.6);   // an ultimate form glows in its track's colour
         s.flash.setScale(sc);
         s.flashT -= dt;
         s.flash.setVisible(s.flashT > 0);
@@ -516,7 +526,8 @@ export class BattleScene extends Phaser.Scene {
     const ab = st.ability;
     const groupShots = st.shotsPerSec * M.unitPower(r.count);
     // shots drawn per soldier: the group's real rate, but at most ~40 visible shots/s per unit type (damage is unaffected)
-    const cap = r.cls === 'rail' || r.cls === 'sniper' ? 8 : 40;   // big single shots: fewer, so beams don't clutter the road
+    // drawn shots per unit type per second (damage is unaffected): big single shots and flames fewer, so the road stays readable and fast
+    const cap = r.cls === 'rail' || r.cls === 'sniper' ? 8 : r.cls === 'flamer' ? 10 : r.cls === 'mg' || r.cls === 'rifle' ? 24 : 18;
     const rate = Math.min(8, groupShots / visible, cap / visible);
     s.cd -= dt;
     while (s.cd <= 0) {
@@ -608,8 +619,8 @@ export class BattleScene extends Phaser.Scene {
     }
     z.hp -= frac;
     if (z.flash <= -0.12) z.flash = 0.05;
-    if (label && (this.textCd <= 0 || crit)) {
-      this.textCd = 0.2;
+    if (label && (this.textCd <= 0 || (crit && this.critCd <= 0))) {
+      if (crit) this.critCd = 0.12; else this.textCd = 0.2;
       const [x, y] = this.zombieCenter(z);
       this.floatText(crit ? `${label}!` : label, x, y - 14 * this.px, crit);
     }
@@ -681,7 +692,7 @@ export class BattleScene extends Phaser.Scene {
     const [mx, my] = this.muzzle(s);
     const px = this.px;
     sfx.shot(cls);
-    if (cls !== 'bow' && cls !== 'drone' && Math.random() < 0.35) this.light(mx, my, 22, 0xffc080, 0.5, 0.05);
+    if (cls !== 'bow' && cls !== 'drone' && cls !== 'flamer' && Math.random() < 0.2) this.light(mx, my, 22, 0xffc080, 0.5, 0.05);
     const fly = (key: string, x2: number, y2: number, ms: number, after?: () => void) => {
       const b = this.take(key).setPosition(mx, my).setRotation(Math.atan2(y2 - my, x2 - mx)).setScale(this.S).setBlendMode(key === 'arrow' ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.ADD).setDepth(8600).setAlpha(1);
       this.tweens.add({ targets: b, x: x2, y: y2, duration: ms, onComplete: () => { this.give(b); after?.(); } });
@@ -693,7 +704,7 @@ export class BattleScene extends Phaser.Scene {
       case 'bow': { const last = this.zombieCenter(hits[hits.length - 1]); fly('arrow', last[0], last[1], 160, () => this.spark(last[0], last[1])); break; }
       case 'shotgun': s.flashT = 0.07; for (const z of hits) { const [x, y] = this.zombieCenter(z); for (let i = 0; i < 3; i++) this.tracer(mx, my, x + (Math.random() - 0.5) * 8 * px, y + (Math.random() - 0.5) * 8 * px, 0.8, 0xffc890, 0.06); this.hitFx(x, y, true); } break;
       case 'sniper': s.flashT = 0.08; this.tracer(mx, my, tx + 40 * px, ty + (ty - my) * 40 * px / Math.max(1, tx - mx), 2, 0xfff6e0, 0.1); this.hitFx(tx, ty, true); this.light(mx, my, 30, 0xffd0a0, 0.6, 0.06); break;
-      case 'flamer': this.flame(mx, my, tx + (Math.random() - 0.5) * 8 * px, ty + (Math.random() - 0.5) * 6 * px, 5); break;
+      case 'flamer': this.flame(mx, my, tx + (Math.random() - 0.5) * 8 * px, ty + (Math.random() - 0.5) * 6 * px, 4); break;
       case 'mg': { s.flashT = 0.05; const ex = tx + (Math.random() - 0.5) * 4 * px, ey = ty + (Math.random() - 0.5) * 4 * px; this.tracer(mx, my, ex, ey, 1.1, 0xffc878, 0.06); this.hitFx(ex, ey); break; }
       case 'drone': {
         const d = this.take('drone-bot').setPosition(mx, my).setScale(this.S).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
@@ -792,7 +803,10 @@ export class BattleScene extends Phaser.Scene {
     this.stamps = 0; this.stampQ.length = 0;
   }
   private part(kind: Part['kind'], x: number, y: number, o: Partial<Part> = {}) {
-    if (this.parts.length >= MAX_PARTS) { if (kind === 'smoke' || kind === 'glow' || kind === 'debris') return; const old = this.parts.shift(); if (old?.img) this.give(old.img); }
+    if (kind === 'glow' && this.glows >= MAX_GLOWS) return;
+    if ((kind === 'fire' || kind === 'flame') && this.fires >= MAX_FIRE) return;
+    if (this.parts.length >= MAX_PARTS) { if (kind !== 'blood' && kind !== 'spark') return; const old = this.parts.shift(); if (old?.img) this.give(old.img); }
+    if (kind === 'glow') this.glows++; else if (kind === 'fire' || kind === 'flame') this.fires++;
     this.parts.push({ kind, x, y, vx: 0, vy: 0, z: 0, vz: 0, t: 0, life: 0.5, s0: 1, s1: 1, a: 1, damp: 0, rise: 0, v: 0, tint: 0xffffff, ...o });
   }
   /** A soft light that brightens everything around it for a moment (drawn over the dusk grade). */
@@ -826,7 +840,7 @@ export class BattleScene extends Phaser.Scene {
   private flame(mx: number, my: number, tx: number, ty: number, n = 6) {
     const px = this.px, a = Math.atan2(ty - my, tx - mx), dist = Math.hypot(tx - mx, ty - my), v = Math.max(140, dist * 2.2);
     for (let i = 0; i < n; i++) { const aa = a + (Math.random() - 0.5) * 0.2, vv = v * (0.85 + Math.random() * 0.3); this.part('flame', mx, my, { vx: Math.cos(aa) * vv, vy: Math.sin(aa) * vv, life: 0.42 + Math.random() * 0.16, s0: (2.5 * px) / 48, s1: (17 * px) / 48, damp: 1.4, rise: -24 * px }); }
-    this.light((mx + tx) / 2, (my + ty) / 2, 70, 0xff9a40, 0.45, 0.08);
+    if (Math.random() < 0.35) this.light((mx + tx) / 2, (my + ty) / 2, 46, 0xff9a40, 0.45, 0.1);
   }
   private tracer(x1: number, y1: number, x2: number, y2: number, w = 1, col = 0xffd69a, life = 0.07) { if (this.tracers.length < 160) this.tracers.push({ x1, y1, x2, y2, t: 0, life, w, col }); }
   /** A bullet hit: a spark, a puff of blood (not every hit, so a machine gun doesn't flood the screen). */
@@ -835,8 +849,13 @@ export class BattleScene extends Phaser.Scene {
     if (big || Math.random() < 0.45) this.bloodSpray(x, y, big ? 6 : 3);
     if (big || Math.random() < 0.15) this.stampAt(`fx-blood${Math.floor(Math.random() * 2)}`, x + (Math.random() - 0.5) * 8 * this.px, y + 12 * this.px, this.px / 2 * 0.7, 0.8);
   }
+  private glows = 0;
+  private fires = 0;
   private tickParts(dt: number) {
     const keep: Part[] = [];
+    let glows = 0, fires = 0;
+    for (const p of this.parts) if (p.kind === 'glow') glows++; else if (p.kind === 'fire' || p.kind === 'flame') fires++;
+    this.glows = glows; this.fires = fires;
     for (const p of this.parts) {
       p.t += dt;
       if (p.t < 0) { keep.push(p); continue; }
@@ -911,7 +930,8 @@ export class BattleScene extends Phaser.Scene {
 
   // ---------- effects ----------
   private floatText(s: string, x: number, y: number, crit: boolean) {
-    let ft = this.texts.find((t) => t.t <= 0);
+    const want = `${crit ? 1 : 0}@${this.px}`;
+    let ft = this.texts.find((t) => t.t <= 0 && t.style === want) ?? this.texts.find((t) => t.t <= 0);
     if (!ft) {
       if (this.texts.length >= MAX_TEXTS) return;
       const obj = this.add.text(0, 0, '', { fontFamily: NUM_FONT, fontStyle: '800', stroke: '#000000' }).setOrigin(0.5).setDepth(9400);
@@ -919,7 +939,13 @@ export class BattleScene extends Phaser.Scene {
       this.texts.push(ft);
     }
     // damage numbers: condensed white digits with a dark outline; crits are bigger, red, with "!" - each pops in, then rises
-    ft.obj.setText(s).setColor(crit ? '#ff3b30' : '#ffffff').setFontSize(Math.round(this.px * (crit ? 10 : 7))).setStroke('#000000', Math.max(2, this.px * (crit ? 1.5 : 1.15)))
+    // restyle only when it changes (each style change redraws the text), so a number costs one redraw
+    const style = `${crit ? 1 : 0}@${this.px}`;
+    if (ft.style !== style) {
+      ft.style = style;
+      ft.obj.setStyle({ fontFamily: NUM_FONT, fontStyle: '800', color: crit ? '#ff3b30' : '#ffffff', fontSize: `${Math.round(this.px * (crit ? 10 : 7))}px`, stroke: '#000000', strokeThickness: Math.max(2, this.px * (crit ? 1.5 : 1.15)) });
+    }
+    ft.obj.setText(s)
       .setPosition(Math.round(x + (Math.random() - 0.5) * 12 * this.px), Math.round(y)).setAlpha(1).setVisible(true).setScale(0.55);
     this.tweens.killTweensOf(ft.obj);
     this.tweens.add({ targets: ft.obj, scale: { from: 0.55, to: 1.25 }, duration: 90, ease: 'Quad.easeOut', yoyo: false, onComplete: () => this.tweens.add({ targets: ft.obj, scale: 1, duration: 140 }) });
@@ -928,7 +954,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private tickEffects(dt: number) {
-    this.textCd -= dt;
+    this.textCd -= dt; this.critCd -= dt;
     this.tickParts(dt);
     for (const ft of this.texts) {
       if (ft.t <= 0) continue;
@@ -967,8 +993,15 @@ export class BattleScene extends Phaser.Scene {
     this.layoutQueue();
     // soft contact shadows under every zombie and soldier
     const sh = this.shadows; sh.clear(); sh.fillStyle(0x000000, 0.34);
-    for (const z of this.zombies) { if (!z.alive || (z.fog && z.p < 0.5)) continue; const [x, y] = this.zScreen(z); const sc = z.scale ?? (z.boss ? 2 : 1 + 0.12 * z.variety); sh.fillEllipse(x + px, y - px * 0.5, 13 * sc * px, 3.6 * sc * px); }
-    for (const s of this.shooters.values()) sh.fillEllipse(s.body.x + px, s.body.y - px * 0.5, 12 * px * this.crowd, 3.4 * px * this.crowd);
+    for (const z of this.zombies) { if (!z.alive || (z.fog && z.p < 0.5)) continue; const [x, y] = this.zScreen(z); const sc = z.scale ?? (z.boss ? 2 : 1 + 0.12 * z.variety); sh.fillEllipse(x + px, y - px * 0.5, 13 * sc * px, 3.6 * sc * px, 10); }
+    for (const s of this.shooters.values()) sh.fillEllipse(s.body.x + px, s.body.y - px * 0.5, 12 * px * this.crowd, 3.4 * px * this.crowd, 10);
+    // ultimate forms: a ring in the track's colour under each soldier
+    for (const u of game.owned) {
+      if (u.evo === undefined) continue;
+      sh.fillStyle(ULT_TINT(u), 0.42);
+      for (let k = 0; k < Math.min(u.count, BattleScene.VISIBLE_PER_TYPE); k++) { const s = this.shooters.get(`${u.cls}-${k}`); if (s?.body.visible) sh.fillEllipse(s.body.x + px, s.body.y - px * 0.5, 15 * px * this.crowd, 4.6 * px * this.crowd, 10); }
+      sh.fillStyle(0x000000, 0.34);
+    }
     for (const z of this.zombies) {
       const [x, y0] = this.zScreen(z);
       const y = y0 - this.lift(z) * px;
@@ -1096,13 +1129,33 @@ export class BattleScene extends Phaser.Scene {
     this.hordeText.setVisible(show);
     if (show) {
       const left = h.queue.length + this.zombies.filter((z) => z.alive && z.horde).length;
-      const boss = h.queue.length ? 'BOSS COMING' : this.zombies.some((z) => z.alive && z.boss) ? 'BOSS ON THE FIELD' : 'BOSS DOWN';
+      const bzNow = this.zombies.find((z) => z.alive && z.boss), boss = h.queue.length ? 'BOSS COMING' : bzNow ? `${M.BOSSES[bzNow.bossKind!].name.toUpperCase()} ${Math.ceil(Math.max(0, bzNow.hp) * 100)}%` : 'BOSS DOWN';
       const bz = this.zombies.find((z) => z.alive && z.boss);
       this.hordeText.setText(`HORDE ${h.k}  ·  ${left} LEFT  ·  BREACHES ${h.breaches}/${C.breachLimit}\n${boss}${bz ? ` · ${Math.round(Math.max(0, 1 - bz.p) * 100)}% FROM THE SHREDDER` : ''}`)
         .setFontSize(Math.max(12, Math.round(px * 6))).setStroke('#140c1c', Math.max(3, px * 1.4)).setLineSpacing(2)
         .setPosition(Math.round(this.lay.shredX * px + 8 * px), Math.round(this.lay.roadTop * px + 6 * px))
         .setColor((bz && bz.p > 0.65) || h.breaches >= C.breachLimit * 0.7 ? '#ff6b6b' : '#ffd34d');
     }
+    // the boss's health bar, pinned at the top of the road (with a pale trail showing recent damage, and armour above)
+    const bb = this.bossBar; bb.clear();
+    const bossNow = show ? this.zombies.find((z) => z.alive && z.boss) : undefined;
+    if (bossNow) {
+      const hp = Math.max(0, Math.min(1, bossNow.hp));
+      this.bossTrail = Math.max(hp, this.bossTrail - (this.bossTrail - hp) * 0.04 - 0.002);
+      const x0 = Math.round(this.lay.shredX * px + 8 * px), w = Math.round(Math.max(60 * this.dpr, Math.min(this.W - x0 - 132 * this.dpr, (this.lay.spawnX - this.lay.shredX) * px * 0.62)));   // stops short of the quick rail
+      const y0 = Math.round(this.hordeText.y + this.hordeText.height + 3 * px), h = Math.round(4 * px);
+      bb.fillStyle(0x140c1c, 0.92).fillRoundedRect(x0 - px, y0 - px, w + 2 * px, h + 2 * px, 2 * px);
+      bb.fillStyle(0x4a1414, 1).fillRect(x0, y0, w, h);
+      bb.fillStyle(0xffe0c0, 0.85).fillRect(x0, y0, Math.round(w * this.bossTrail), h);
+      bb.fillStyle(bossNow.flash > 0 ? 0xffffff : 0xff3b30, 1).fillRect(x0, y0, Math.round(w * hp), h);
+      bb.fillStyle(0xffffff, 0.25).fillRect(x0, y0, Math.round(w * hp), Math.max(1, Math.round(h * 0.35)));
+      for (let i = 1; i < 10; i++) bb.fillStyle(0x140c1c, 0.5).fillRect(x0 + Math.round((w * i) / 10), y0, Math.max(1, Math.round(px * 0.4)), h);
+      if (bossNow.armour && bossNow.armour > 0) {
+        const a = Math.min(1, bossNow.armour / (0.6 / M.BOSSES.juggernaut.hp));
+        bb.fillStyle(0x140c1c, 0.92).fillRect(x0 - px, y0 - 4 * px, w + 2 * px, 3 * px);
+        bb.fillStyle(0xa8b4c8, 1).fillRect(x0, y0 - 3 * px, Math.round(w * a), px * 1.5);
+      }
+    } else this.bossTrail = 1;
     // boss distance bar along the bottom: empties as the boss nears the shredder
     const bossZ = this.phase === 'horde' ? this.zombies.find((z) => z.alive && z.boss) : undefined;
     if (bossZ) {
