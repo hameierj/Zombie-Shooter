@@ -174,7 +174,7 @@ let softTimer = 0;
 // ---------- init ----------
 export function initUI() {
   document.addEventListener('click', onClick);
-  document.addEventListener('pointerdown', (e) => { lastPointer = performance.now(); pointerDown++; if (railPick && !(e.target as Element).closest?.('#zrail')) { railPick = null; railRender(); } if (urailPick && !(e.target as Element).closest?.('#urail')) { urailPick = null; urailRender(); } }, { passive: true, capture: true });
+  document.addEventListener('pointerdown', (e) => { lastPointer = performance.now(); pointerDown++; if (railPick && !(e.target as Element).closest?.('#zrail')) { railPick = null; railRender(); } if (urailPick && !(e.target as Element).closest?.('#zrail')) { urailPick = null; urailRender(); } }, { passive: true, capture: true });
   const release = () => { lastPointer = performance.now(); pointerDown = Math.max(0, pointerDown - 1); };
   document.addEventListener('pointerup', release, { passive: true });
   document.addEventListener('pointercancel', release, { passive: true });
@@ -240,9 +240,9 @@ function act(d: ActionData): boolean {
       render();
       break;
     case 'close': tab = null; render(); break;
-    case 'rail': railOpen = !railOpen; railPick = null; try { localStorage.setItem('zombie-idle-rail', railOpen ? '1' : '0'); } catch { /* ignore */ } railRender(); break;
+    case 'rail': railOpen = !railOpen; railPick = urailPick = null; try { localStorage.setItem('zombie-idle-rail', railOpen ? '1' : '0'); } catch { /* ignore */ } railRender(); break;
     case 'rail-pick': railPick = railPick === arg ? null : (arg as M.ZombieId); railRender(); break;
-    case 'urail': urailOpen = !urailOpen; urailPick = null; try { localStorage.setItem('zombie-idle-urail', urailOpen ? '1' : '0'); } catch { /* ignore */ } urailRender(); break;
+    case 'rail-mode': railMode = arg === 'u' ? 'u' : 'z'; railPick = urailPick = null; try { localStorage.setItem('zombie-idle-rail-mode', railMode); } catch { /* ignore */ } railRender(); break;
     case 'urail-pick': urailPick = urailPick === arg ? null : (arg as ClassId); urailRender(); break;
     case 'buy-amt': buyAmt = arg === 'max' ? 'max' : (Number(arg) as 1 | 10); try { localStorage.setItem('zombie-idle-buy', String(buyAmt)); } catch { /* ignore */ } render(); break;
     case 'tier-up': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].tier; i++) { t = game.s.strains[sid].tier; game.raiseTier(sid); } break;
@@ -335,8 +335,8 @@ function refresh() {
       : b.dataset.arg === 'hordes' ? (showKeep() && game.hordeOdds() >= C.hordeWinOdds) || M.PERKS.some((d) => M.plv(game.s.prestige, d.id) < d.max && game.s.prestige.points >= d.cost) : false;
     b.classList.toggle('badge', badge);
   }
-  for (const b of document.querySelectorAll<HTMLElement>('#zrail .zr-z')) b.classList.toggle('can', railCan(b.dataset.arg as M.ZombieId));
-  for (const b of document.querySelectorAll<HTMLElement>('#urail .zr-z')) b.classList.toggle('can', urailCan(b.dataset.arg as ClassId));
+  for (const b of document.querySelectorAll<HTMLElement>('#zrail [data-action="rail-pick"]')) b.classList.toggle('can', railCan(b.dataset.arg as M.ZombieId));
+  for (const b of document.querySelectorAll<HTMLElement>('#zrail [data-action="urail-pick"]')) b.classList.toggle('can', urailCan(b.dataset.arg as ClassId));
   // keep buttons live as DNA comes in: enable + highlight the moment one becomes affordable (or stops being), and
   // redraw so ×10 / Max previews catch up
   let flipped = false;
@@ -363,7 +363,7 @@ function render() {
   const panel = $('#panel');
   document.getElementById('app')!.classList.toggle('menu-open', !!tab);
   panel.hidden = !tab;
-  railRender(); urailRender();
+  railRender();
   if (!tab) { refresh(); return; }
   const body = $('#tab-body');
   const key = `${tab}:${tab === 'tree' ? treeView : ''}`;
@@ -376,89 +376,77 @@ function render() {
   refresh();
 }
 
-// ---------- quick zombie rail: released types down the right edge of the map; tap one for its two upgrades ----------
+// ---------- quick rail (right edge of the map): zombie types OR unit types, swapped with a two-way switch ----------
 let railOpen = (() => { try { return localStorage.getItem('zombie-idle-rail') !== '0'; } catch { return true; } })();
+let railMode: 'z' | 'u' = (() => { try { return localStorage.getItem('zombie-idle-rail-mode') === 'u' ? 'u' : 'z'; } catch { return 'z'; } })();
 let railPick: M.ZombieId | null = null;
-/** Can you afford either of this type's upgrades right now (a free tier counts)? */
+let urailPick: ClassId | null = null;
+/** Can you afford either of this zombie type's upgrades right now (a free tier counts)? */
 function railCan(id: M.ZombieId) {
   const x = game.s.strains[id], col = M.familyOf(id);
   if (x.tier < x.maxTier) return true;
   return game.canAfford(col, M.lnTierCost(id, x.maxTier)) || (x.spawn < C.spawnMax && game.canAfford(col, M.lnSpawnCost(id, x.spawn)));
 }
+const UNIT_NODES_ALL: UnitNodeId[] = ['dmg', 'spd', 'range', 'crit', 'critx', 'ab1', 'ab2', 'ab3', 'attach', 'charm'];
+/** Can you hire one more of this unit type, or afford any of its upgrades? */
+function urailCan(c: ClassId) {
+  if (game.canHire(c)) return true;
+  return game.unit(c).count > 0 && UNIT_NODES_ALL.some((id) => { const n = game.node(c, id); return !n.maxed && !n.locked && n.canAfford; });
+}
+const railZombies = () => M.COLOURS.flatMap((c) => M.familyMembers(c)).filter((st) => game.s.strains[st.id].unlocked);   // grouped by colour
+const railUnits = () => M.CLASSES.filter((c) => game.classUnlocked(c.id));
 const CHEV = (d: string) => `<svg viewBox="0 0 24 24" class="i"><path d="${d}"/></svg>`;
+function urailRender() { railRender(); }
 function railRender() {
   const el = document.getElementById('zrail');
   if (!el) return;
-  const types = M.COLOURS.flatMap((c) => M.familyMembers(c)).filter((st) => game.s.strains[st.id].unlocked);   // grouped by colour
-  el.hidden = !!tab || types.length === 0;
-  if (el.hidden) { railPick = null; return; }
+  const zs = railZombies(), us = railUnits();
+  el.hidden = !!tab || zs.length + us.length === 0;
+  if (el.hidden) { railPick = urailPick = null; return; }
   if (railPick && !game.s.strains[railPick]?.unlocked) railPick = null;
-  const list = el.querySelector<HTMLElement>('.zr-list'), scroll = list?.scrollTop ?? 0;
+  const list = el.querySelector<HTMLElement>('.zr-list'), scroll = list?.dataset.mode === railMode ? list.scrollTop : 0;
   el.className = railOpen ? 'open' : '';
-  const toggle = `<button class="zr-toggle" data-action="rail" aria-label="${railOpen ? 'Hide' : 'Show'} zombie upgrades" aria-expanded="${railOpen}">
-    ${railOpen ? CHEV('M9 5l7 7-7 7') : `<img class="px" src="${zombieIcon('shambler')}" alt="">${CHEV('M15 5l-7 7 7 7')}`}</button>`;
-  if (!railOpen) { el.innerHTML = toggle; return; }
-  const icons = types.map((st) => `<button class="zr-z ${railCan(st.id) ? 'can' : ''} ${railPick === st.id ? 'on' : ''}" data-action="rail-pick" data-arg="${st.id}" style="--dna:${st.color}" aria-label="${esc(st.plural)}, tier ${game.s.strains[st.id].tier}">
+  const zCan = zs.some((st) => railCan(st.id)), uCan = us.some((c) => urailCan(c.id));
+  const collapse = `<button class="zr-toggle" data-action="rail" aria-label="${railOpen ? 'Hide' : 'Show'} quick upgrades" aria-expanded="${railOpen}">
+    ${railOpen ? CHEV('M9 5l7 7-7 7') : `${CHEV('M15 5l-7 7 7 7')}<img class="px" src="${railMode === 'u' ? classIcon('pistol') : zombieIcon('shambler')}" alt="">${zCan || uCan ? '<i class="zr-dot"></i>' : ''}`}</button>`;
+  if (!railOpen) { el.innerHTML = `<div class="zr-top">${collapse}</div>`; return; }
+  const seg = `<div class="zr-seg" role="tablist" aria-label="Quick upgrades">
+    <button class="${railMode === 'z' ? 'on' : ''}" data-action="rail-mode" data-arg="z" role="tab" aria-selected="${railMode === 'z'}" aria-label="Zombies"><img class="px" src="${zombieIcon('shambler')}" alt="">${zCan && railMode !== 'z' ? '<i class="zr-dot"></i>' : ''}</button>
+    <button class="${railMode === 'u' ? 'on' : ''}" data-action="rail-mode" data-arg="u" role="tab" aria-selected="${railMode === 'u'}" aria-label="Units"><img class="px" src="${classIcon('pistol')}" alt="">${uCan && railMode !== 'u' ? '<i class="zr-dot"></i>' : ''}</button></div>`;
+  let icons = '', pop = '';
+  if (railMode === 'z') {
+    icons = zs.map((st) => `<button class="zr-z ${railCan(st.id) ? 'can' : ''} ${railPick === st.id ? 'on' : ''}" data-action="rail-pick" data-arg="${st.id}" style="--dna:${st.color}" aria-label="${esc(st.plural)}, tier ${game.s.strains[st.id].tier}">
       <img class="px" src="${zombieIcon(st.id)}" alt=""><span>${fmtInt(game.s.strains[st.id].tier)}</span></button>`).join('');
-  let pop = '';
-  if (railPick) {
-    const st = M.strainById(railPick), x = game.s.strains[railPick], col = st.family, free = x.tier < x.maxTier;
-    const tp = tierPrev(st.id), sp = spawnPrev(st.id);
-    pop = `<div class="zr-pop" style="--dna:${st.color}">
-      <div class="zr-head"><img class="px" src="${zombieIcon(st.id)}" alt=""><div><b>${esc(st.plural)}</b><span>Tier ${fmtInt(x.tier)} · Spawn ${x.spawn}/${C.spawnMax}</span></div></div>
-      <div class="s-btns">
-        <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>
-        ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)}><span>Spawn +</span>${amtCost(col, sp)}</button>`
-          : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
-      </div></div>`;
+    if (railPick) {
+      const st = M.strainById(railPick), x = game.s.strains[railPick], col = st.family, free = x.tier < x.maxTier;
+      const tp = tierPrev(st.id), sp = spawnPrev(st.id);
+      pop = `<div class="zr-pop" style="--dna:${st.color}">
+        <div class="zr-head"><img class="px" src="${zombieIcon(st.id)}" alt=""><div><b>${esc(st.plural)}</b><span>Tier ${fmtInt(x.tier)} · Spawn ${x.spawn}/${C.spawnMax}</span></div></div>
+        <div class="s-btns">
+          <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>
+          ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)}><span>Spawn +</span>${amtCost(col, sp)}</button>`
+            : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
+        </div></div>`;
+    }
+  } else {
+    icons = us.map((c) => { const u = game.unit(c.id), col = M.strainById(c.primary).color;
+      return `<button class="zr-z ${u.count ? '' : 'new'} ${urailCan(c.id) ? 'can' : ''} ${urailPick === c.id ? 'on' : ''}" data-action="urail-pick" data-arg="${c.id}" style="--dna:${col}" aria-label="${esc(c.plural)}: ${u.count}">
+        <img class="px" src="${classIcon(c.id)}" alt=""><span>${u.count ? `×${u.count}` : 'New'}</span></button>`; }).join('');
+    if (urailPick) {
+      const c = M.classById(urailPick), u = game.unit(c.id);
+      pop = `<div class="zr-pop u-pop ${u.count ? '' : 'narrow'}" style="--dna:${M.strainById(c.primary).color}">
+        <div class="zr-head"><img class="px" src="${classIcon(c.id)}" alt=""><div><b>${esc(c.plural)}</b><span>${u.count ? `${u.count} hired · ${esc(c.gun)}` : `Not hired yet · ${esc(c.gun)}`}</span></div></div>
+        ${u.count ? upgradeRow(c.id) : `<div class="ugrid">${hireBtn(c.id)}</div>`}</div>`;
+    }
   }
-  el.innerHTML = `${toggle}<div class="zr-list">${icons}</div>${pop}`;
+  el.innerHTML = `<div class="zr-top">${collapse}${seg}</div><div class="zr-list" data-mode="${railMode}">${icons || '<span class="zr-empty">None yet</span>'}</div>${pop}`;
   const nl = el.querySelector<HTMLElement>('.zr-list')!;
   nl.scrollTop = scroll;
   // line the popover up with the tapped icon (kept inside the rail)
   const p = el.querySelector<HTMLElement>('.zr-pop'), on = el.querySelector<HTMLElement>('.zr-z.on');
   if (p && on) {
     const top = on.offsetTop - nl.scrollTop + nl.offsetTop + on.offsetHeight / 2 - p.offsetHeight / 2;
-    p.style.top = `${Math.max(0, Math.min(el.clientHeight - p.offsetHeight, top))}px`;
-  }
-}
-// ---------- quick unit rail: unlocked unit types down the LEFT edge; tap one for its Squad-card upgrades ----------
-let urailOpen = (() => { try { return localStorage.getItem('zombie-idle-urail') !== '0'; } catch { return true; } })();
-let urailPick: ClassId | null = null;
-const UNIT_NODES_ALL: UnitNodeId[] = ['dmg', 'spd', 'range', 'crit', 'critx', 'ab1', 'ab2', 'ab3', 'attach', 'charm'];
-/** Can you hire one more of this type, or afford any of its upgrades? */
-function urailCan(c: ClassId) {
-  if (game.canHire(c)) return true;
-  return game.unit(c).count > 0 && UNIT_NODES_ALL.some((id) => { const n = game.node(c, id); return !n.maxed && !n.locked && n.canAfford; });
-}
-function urailRender() {
-  const el = document.getElementById('urail');
-  if (!el) return;
-  const types = M.CLASSES.filter((c) => game.classUnlocked(c.id));
-  el.hidden = !!tab || types.length === 0;
-  if (el.hidden) { urailPick = null; return; }
-  const list = el.querySelector<HTMLElement>('.zr-list'), scroll = list?.scrollTop ?? 0;
-  el.className = urailOpen ? 'open' : '';
-  const toggle = `<button class="zr-toggle" data-action="urail" aria-label="${urailOpen ? 'Hide' : 'Show'} unit upgrades" aria-expanded="${urailOpen}">
-    ${urailOpen ? CHEV('M15 5l-7 7 7 7') : `${CHEV('M9 5l7 7-7 7')}<img class="px" src="${classIcon('pistol')}" alt="">`}</button>`;
-  if (!urailOpen) { el.innerHTML = toggle; return; }
-  const icons = types.map((c) => { const u = game.unit(c.id), col = M.strainById(c.primary).color;
-    return `<button class="zr-z ${u.count ? '' : 'new'} ${urailCan(c.id) ? 'can' : ''} ${urailPick === c.id ? 'on' : ''}" data-action="urail-pick" data-arg="${c.id}" style="--dna:${col}" aria-label="${esc(c.plural)}: ${u.count}">
-      <img class="px" src="${classIcon(c.id)}" alt=""><span>${u.count ? `×${u.count}` : 'New'}</span></button>`; }).join('');
-  let pop = '';
-  if (urailPick) {
-    const c = M.classById(urailPick), u = game.unit(c.id);
-    pop = `<div class="zr-pop u-pop ${u.count ? '' : 'narrow'}" style="--dna:${M.strainById(c.primary).color}">
-      <div class="zr-head"><img class="px" src="${classIcon(c.id)}" alt=""><div><b>${esc(c.plural)}</b><span>${u.count ? `${u.count} hired · ${esc(c.gun)}` : `Not hired yet · ${esc(c.gun)}`}</span></div></div>
-      ${u.count ? upgradeRow(c.id) : `<div class="ugrid">${hireBtn(c.id)}</div>`}</div>`;
-  }
-  el.innerHTML = `${toggle}<div class="zr-list">${icons}</div>${pop}`;
-  const nl = el.querySelector<HTMLElement>('.zr-list')!;
-  nl.scrollTop = scroll;
-  const p = el.querySelector<HTMLElement>('.zr-pop'), on = el.querySelector<HTMLElement>('.zr-z.on');
-  if (p && on) {
-    const top = on.offsetTop - nl.scrollTop + nl.offsetTop + on.offsetHeight / 2 - p.offsetHeight / 2;
-    p.style.top = `${Math.max(0, Math.min(el.clientHeight - p.offsetHeight, top))}px`;
+    p.style.top = `${Math.max(nl.offsetTop, Math.min(el.clientHeight - p.offsetHeight, top))}px`;   // never over the header
   }
 }
 nlScrollHook();

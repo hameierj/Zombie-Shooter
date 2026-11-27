@@ -210,15 +210,12 @@ in total; only Snipers can cover the whole road (others cap
 at 95%). Zombies take about 16 s to walk the road, and the view is zoomed out (~400 art units across the short side).
 See `unit-ranges.png`.
 
-**Quick zombie rail.** Down the right edge of the map, every released zombie type has an icon (grouped by colour, with
-its tier). Tap one for a pop-over with its two upgrades, **DNA +** (tier) and **Spawn +**, using the same buy amount as the
-Zombies tab. A green dot means one of them is affordable. The list scrolls; the ‹ › button collapses it to a small tab
-(remembered). It hides while a menu is open.
-
-**Quick unit rail.** The same thing on the left edge for your unit types: each unlocked type shows its icon and how many
-you have (dashed "New" if none yet). Tap one for its Squad-card upgrade grid (Hire, Damage, Crit, Crit ×, Speed, Range,
-Gear, Ability), or just Hire for a type you haven't hired. A green dot means something there is affordable. Only one
-rail pop-over is open at a time.
+**Quick rail.** Down the right edge of the map. Its header has a collapse button and a **Zombies / Units** switch (a green
+dot on the other side means something there is affordable); both choices are remembered. **Zombies**: every released
+type (grouped by colour, with its tier); tap one for **DNA +** and **Spawn +**. **Units**: every unlocked unit type with
+how many you have (dashed "New" if none); tap one for its Squad-card grid (Hire, Damage, Crit, Crit ×, Speed, Range,
+Gear, Ability), or just Hire for a type you haven't hired. Buttons use the Zombies/Squad buy amount; a green dot on an
+icon means one of its upgrades is affordable. The list scrolls, and the rail hides while a menu is open.
 
 ## 11. Settings and saves
 Settings is one screen in three sections. **Sound & display**: on/off switches for sound effects, music, range lines and

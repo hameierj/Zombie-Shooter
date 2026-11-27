@@ -920,13 +920,18 @@ button.tc-head { cursor: pointer; }
 .zr-pop .zr-head span { display: block; font-size: 11.5px; color: var(--muted); }
 .zr-pop .s-btns .sbtn { flex: 1; min-width: 0; }
 @keyframes zr-in { from { opacity: 0; transform: translateX(8px); } }
-/* unit rail: the same parts, mirrored onto the left edge */
-#urail { position: fixed; z-index: 10; left: calc(var(--sal) + 6px); top: calc(var(--hud-h) + var(--sat) + 12px); bottom: calc(var(--tabs-h) + 12px);
-  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
-#urail[hidden] { display: none; }
-#urail > * { pointer-events: auto; }
-#urail .zr-pop { right: auto; left: 70px; width: min(320px, calc(100vw - 92px)); }
-#urail .zr-pop .ugrid { gap: 4px; }
+/* the rail's header: collapse button + Zombies / Units switch */
+.zr-top { display: flex; gap: 6px; align-items: center; }
+.zr-toggle { position: relative; }
+.zr-seg { display: flex; padding: 3px; gap: 3px; border-radius: 12px; border: 1px solid var(--line); background: rgba(12,16,22,.78);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.zr-seg button { position: relative; width: 30px; height: 28px; padding: 0; border: 0; border-radius: 9px; background: transparent; cursor: pointer; opacity: .55; }
+.zr-seg button.on { background: rgba(255,255,255,.14); opacity: 1; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+.zr-seg img { width: 22px; height: 22px; object-fit: contain; display: block; margin: 0 auto; }
+.zr-dot { position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 2px #10140f; }
+.zr-empty { font-size: 11px; color: var(--muted); padding: 6px 2px; width: 46px; text-align: center; }
+#zrail .u-pop { width: min(320px, calc(100vw - 92px)); }
+#zrail .u-pop .ugrid { gap: 4px; }
+#zrail .u-pop.narrow { width: 200px; }
+#zrail .u-pop.narrow .ugrid { grid-template-columns: minmax(0, 1fr); }
 .zr-z.new { opacity: .9; border-style: dashed; }
-#urail .zr-pop.narrow { width: 200px; }
-#urail .zr-pop.narrow .ugrid { grid-template-columns: minmax(0, 1fr); }
