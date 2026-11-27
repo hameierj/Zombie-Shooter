@@ -217,12 +217,7 @@ export class Game {
     this.emit('hire', u);
     this.emit('change');
   }
-  dismiss(c: ClassId) {
-    const u = this.s.units[c];
-    if (u.count <= 0 || this.totalUnits <= 1) return;
-    u.count--;
-    this.emit('change');
-  }
+
 
   // ---------- gear ----------
   equipGun(c: ClassId, uid: number) {

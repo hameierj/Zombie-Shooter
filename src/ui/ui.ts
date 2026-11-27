@@ -157,7 +157,6 @@ function act(d: ActionData): boolean {
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
     case 'buy-node': game.buyNode(cls, arg as UnitNodeId, n || amtN()); break;
     case 'hire': for (let i = 0, t = -1; i < amtN() && t !== game.unit(cls).count; i++) { t = game.unit(cls).count; game.hire(cls); } break;
-    case 'dismiss': game.dismiss(cls); break;
     case 'item': openItem(Number(arg)); break;
     case 'pick': openPicker(cls, arg as 'gun' | 'attach' | 'charm'); break;
     case 'equip-gun': closeModal(); game.equipGun(cls, Number(arg)); break;
@@ -430,7 +429,6 @@ function unitScreenHtml(cls: ClassId) {
       <span class="sub">${u.count ? `${fmtLn(game.unitDps(u))} DPS total · range ${Math.round(st!.range * 100)}% · ${fmtNum(st!.shotsPerSec)} shots/s · crit ${Math.round(st!.crit * 100)}% ×${st!.critDmg.toFixed(1)} · hits ${st!.targets}` : `${c.gun} · not hired yet`}</span></div>
     <div class="hire-btns">
       ${full ? `<button class="btn ghost" disabled>${cap >= C.maxPerType ? 'Full 20/20' : 'Barracks full'}</button>` : `<button class="btn" data-action="hire" data-cls="${cls}" ${costAttr(hcol, hirePrev(cls).ln)}>Hire ${hirePrev(cls).n > 1 ? `×${hirePrev(cls).n} ` : ''}· ${cost(hcol, hirePrev(cls).ln)}</button>`}
-      ${u.count > 1 ? `<button class="btn ghost sq" data-action="dismiss" data-cls="${cls}" aria-label="Dismiss one">−1</button>` : ''}
     </div>
   </div>
   <div class="unit-body">
