@@ -537,7 +537,7 @@ function railRender() {
   } else {
     icons = us.map((c) => { const u = game.unit(c.id), col = M.strainById(c.primary).color;
       return `<button class="zr-z ${u.count ? '' : 'new'} ${urailCan(c.id) ? 'can' : ''} ${urailPick === c.id ? 'on' : ''}" data-action="urail-pick" data-arg="${c.id}" style="--dna:${col}" aria-label="${esc(c.plural)}: ${u.count}">
-        <img class="px" src="${classIcon(c.id)}" alt=""><span>${u.count ? `×${u.count}` : 'New'}</span></button>`; }).join('');
+        <img class="px" src="${classIcon(c.id)}" alt=""><span>${u.count ? `×${u.count}` : 'New'}</span>${u.evo !== undefined ? '<i class="zr-crown" aria-label="ultimate form">★</i>' : ''}</button>`; }).join('');
     if (urailPick) {
       const c = M.classById(urailPick), u = game.unit(c.id);
       pop = `<div class="zr-pop u-pop ${u.count ? '' : 'narrow'}" style="--dna:${M.strainById(c.primary).color}">
@@ -675,7 +675,7 @@ function squadHtml() {
     const ab = M.abilityStage(u);
     return `<div class="ucard" style="--c1:${M.strainById(c.primary).color};--c2:${M.strainById(c.secondary).color}" title="${c.ability.name}: ${esc(ab ? c.ability.stages[ab - 1] : 'not unlocked yet')}">
       <img class="px portrait" src="${classIcon(c.id)}" alt="">
-      <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
+      <div class="u-main"><b>${c.plural}${u.evo !== undefined ? ' <span class="z-ult-tag">Ultimate</span>' : ''}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
         <span class="sub">${u.count ? `Lv ${M.nlv(u, 'dmg')} · ${fmtLn(game.unitDps(u))} DPS` : `${c.gun} · not hired yet`}</span></div>
       ${u.count ? `${upgradeRow(c.id)}${ultButton(c.id, true)}${gearShelf(c.id)}` : recruitPanel(c)}
     </div>`;
