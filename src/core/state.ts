@@ -272,7 +272,8 @@ export class Game {
       }
     }
   }
-  isEquipped(uid: number) { return Object.values(this.s.units).some((u) => u.gun === uid || u.attach === uid || u.charm === uid); }
+  /** In use = carried by a unit type you actually have soldiers of (guns are pre-issued to unhired types too). */
+  isEquipped(uid: number) { return Object.values(this.s.units).some((u) => u.count > 0 && (u.gun === uid || u.attach === uid || u.charm === uid)); }
   // ---------- selling ----------
   private item(uid: number): Gun | Gear | undefined { return this.gun(uid) ?? this.gearItem(uid); }
   /** What an item sells for: ~20 s of that colour's income, doubling per rarity step. Guns pay in their unit type's
@@ -298,6 +299,7 @@ export class Game {
     this.s.guns = this.s.guns.filter((g) => g.uid !== uid);
     this.s.gear = this.s.gear.filter((g) => g.uid !== uid);
     this.s.newItems = this.s.newItems.filter((x) => x !== uid);
+    for (const u of Object.values(this.s.units)) { if (u.gun === uid) u.gun = null; if (u.attach === uid) u.attach = null; if (u.charm === uid) u.charm = null; }
     if (!quiet) this.emit('change');
     return v;
   }
@@ -334,7 +336,9 @@ export class Game {
     const total = this.s.guns.length + this.s.gear.length;
     if (total <= STASH_CAP) return;
     const score = (x: Gun | Gear) => ('cls' in x ? M.lnGunPower(x) : Math.log(1 + x.value) * 20);
-    const all = [...this.s.guns, ...this.s.gear].filter((x) => !this.isEquipped(x.uid)).sort((a, b) => score(a) - score(b));
+    // never trim anything a unit type holds, hired or not (e.g. the gun waiting for a type you'll hire later)
+    const held = (uid: number) => Object.values(this.s.units).some((u) => u.gun === uid || u.attach === uid || u.charm === uid);
+    const all = [...this.s.guns, ...this.s.gear].filter((x) => !held(x.uid)).sort((a, b) => score(a) - score(b));
     const drop = new Set(all.slice(0, total - STASH_CAP).map((x) => x.uid));
     this.s.guns = this.s.guns.filter((x) => !drop.has(x.uid));
     this.s.gear = this.s.gear.filter((x) => !drop.has(x.uid));
