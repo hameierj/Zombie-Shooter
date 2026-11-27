@@ -103,6 +103,7 @@ export function shot(cls: ClassId) {
     case 'mg': hiss(0.04, { freq: 4000, gain: 0.13 }); tone(160, 0.04, { type: 'square', to: 90, gain: 0.04 }); break;
     case 'drone': tone(420, 0.18, { type: 'sawtooth', to: 620, gain: 0.05 }); break;
     case 'mortar': tone(120, 0.18, { type: 'sine', to: 60, gain: 0.25 }); hiss(0.1, { freq: 500, gain: 0.14 }); break;
+    case 'rail': tone(300, 0.22, { type: 'sawtooth', to: 2400, gain: 0.06 }); hiss(0.12, { type: 'highpass', freq: 4000, gain: 0.14 }); break;
     case 'tesla': tone(1400, 0.12, { type: 'square', to: 300, gain: 0.06 }); hiss(0.1, { type: 'highpass', freq: 3000, gain: 0.1 }); break;
   }
 }

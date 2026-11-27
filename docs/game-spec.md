@@ -42,11 +42,10 @@ Every released type has **its own two dials**, paid in its own colour:
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
 
 The **keep-up meter** is an option in Settings, **off by default**: players read the battlefield instead, and the
-shredder glows and pulses red while zombies are reaching it. The **Shredder** (first card on the Squad menu) is upgradeable (endless,
-Green DNA, ×1.1 damage per level): its damage is shared by the zombies grinding on it and counts towards keeping up.
-It always takes at least 2% of a zombie's HP per second, so every zombie at the wall dies eventually and you can't get
-permanently stuck (zombies killed only by that minimum pay DNA in proportion to the Shredder's real damage, so it can't
-be farmed). When the shredder stays swamped for 20 s, a message suggests upgrading it or the squad. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
+shredder glows and pulses red while zombies are reaching it. The **shredder** grinds every zombie that reaches it by
+1% of its HP per second (no upgrades), so the road always clears and you can't get permanently stuck. Shredded
+zombies drop **no DNA** and don't count for the combo: only the squad's kills pay. When the shredder stays swamped for
+20 s, a message suggests upgrading the squad. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
 whether the squad would still keep up. If the squad falls behind, zombies pile up at the shredder, which grinds them
 slowly. You never lose.
 
@@ -62,6 +61,7 @@ slowly. You never lose.
 | Grenadier | Grenade Launcher | Cluster Bombs: extra splash | Purple + Green | Horde 6 |
 | Machine Gunner | Machine Gun | Overheat: +20/40/70% attack speed | Yellow + Red | Elite Horde 1 (8) |
 | Drone Operator | Attack Drones (whole road) | Swarm: +1/2/3 drones (targets) | Teal + Yellow | Elite Horde 2 (9) |
+| Railgunner | Railgun (charged beam that pierces a line) | Overcharge: pierces +1/2/3, +10/20/30% damage | Purple + Red | Elite Horde 3 (10) |
 | Mortar Team | Mortar (whole road, big splash) | Barrage: more targets, +10/20/30% damage | Red + Purple | Elite Horde 4 (11) |
 | Tesla Trooper | Arc Gun (chains) | Chain Lightning: arcs to +1/2/3 zombies | Purple + Teal | Elite Horde 6 (13) |
 
@@ -153,6 +153,6 @@ Damage levels in each unit's tree, and tiers are lowered if needed so the squad 
 ## 10. Ranges and the road
 Range is how far up the road a unit shoots, measured from the shredder. Base ranges: Shotgunners 15%, Pyros 20%,
 Tesla Troopers 30%, Pistoleers 40%, Machine Gunners 50%, Riflemen 60%, Grenadiers 65%, Hunters 75%, Mortar Team 85%,
-Drone Operators 90%, Snipers 100%. Range upgrades add up to +50%, but only Snipers can cover the whole road (others cap
+Railgunners 80%, Drone Operators 90%, Snipers 100%. Range upgrades add up to +50%, but only Snipers can cover the whole road (others cap
 at 95%). Zombies take about 16 s to walk the road, and the view is zoomed out (~400 art units across the short side).
 See `unit-ranges.png`.

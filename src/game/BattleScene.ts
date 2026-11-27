@@ -24,7 +24,7 @@ const STUCK_SEC = 20;          // seconds of a swamped shredder before offering 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
   strain: ZombieId; variety: VarietyId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
-  grindEff?: number;  // DNA share when the shredder kills it (only its real damage counts, not the minimum grind)
+  shredded?: boolean;  // killed by the shredder: no DNA (only the squad's kills pay)
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
 }
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
@@ -35,7 +35,7 @@ const hex = (css: string) => Number.parseInt(css.slice(1), 16);
 /** Range-line colour per unit type. */
 const RANGE_COLOR: Record<ClassId, number> = {
   pistol: 0xf2f2f2, bow: 0x7ddc5a, shotgun: 0xff9a3c, rifle: 0x4aa3ff, sniper: 0x7fe8ff, flamer: 0xff5a5a, grenade: 0xd8c46a,
-  mg: 0xc0c8d0, drone: 0x4ad6c8, mortar: 0xb08850, tesla: 0x9a8aff,
+  mg: 0xc0c8d0, drone: 0x4ad6c8, rail: 0x5a8cff, mortar: 0xb08850, tesla: 0x9a8aff,
 };
 
 export class BattleScene extends Phaser.Scene {
@@ -281,9 +281,8 @@ export class BattleScene extends Phaser.Scene {
         // in the blades: the shredder's damage is shared by every zombie on it, and always takes at least
         // a small share of their HP, so even an overwhelming pile-up dies eventually
         z.phase += dt * 3;
-        const share = Math.exp(Math.min(30, game.lnShredDps() - z.lnHp)) / Math.max(1, this.atWallCount);
-        z.hp -= Math.max(C.shredder.floor, share) * dt;
-        z.grindEff = Math.min(1, share / C.shredder.floor);
+        z.hp -= C.shredFrac * dt;
+        z.shredded = true;
         sfx.grind();
         if (Math.random() < dt * 6) { const [x, y] = this.toScreen(1, z.l); this.burst(x - 6 * this.px, y - 10 * this.px, 0x8a1c1c, 2); }
         if (z.hp <= 0) this.kill(z);
@@ -441,7 +440,7 @@ export class BattleScene extends Phaser.Scene {
       }
     }
     const vm = M.VARIETIES[z.variety].dna;
-    const loot = game.zombieKilled(z.strain, z.tier, { mult: (sp?.dna ?? 1) * vm * (z.grindEff ?? 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
+    const loot = game.zombieKilled(z.strain, z.tier, { mult: z.shredded ? 0 : (sp?.dna ?? 1) * vm, lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
     if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 
@@ -502,6 +501,16 @@ export class BattleScene extends Phaser.Scene {
             this.cameras.main.shake(140, 0.004);
             sfx.boom();
           } });
+        break;
+      }
+      case 'rail': {
+        // an instant straight beam through the line of zombies it pierces
+        s.flashT = 0.08;
+        const far = hits.map((z) => this.zombieCenter(z)).reduce((a, b) => (b[0] > a[0] ? b : a));
+        const beam = this.add.graphics().setDepth(8700).setBlendMode(Phaser.BlendModes.ADD);
+        for (const [w, col, a] of [[5, 0x3a6aff, 0.45], [2, 0xd8ecff, 1]] as const) beam.lineStyle(w * px, col, a).lineBetween(mx, my, far[0] + 30 * px, far[1]);
+        this.tweens.add({ targets: beam, alpha: 0, duration: 180, onComplete: () => beam.destroy() });
+        for (const z of hits) { const [x, y] = this.zombieCenter(z); this.spark(x, y); }
         break;
       }
       case 'tesla': {

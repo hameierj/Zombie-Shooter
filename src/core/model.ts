@@ -9,7 +9,7 @@
 // Squad power grows from two halves of similar size: Damage ranks (DNA) and Guns (rare drops at your current tier).
 // The big passive tree gives squad-wide perks; hordes are optional challenges that unlock unit types and tree regions.
 
-export type ClassId = 'pistol' | 'bow' | 'shotgun' | 'rifle' | 'sniper' | 'flamer' | 'grenade' | 'mg' | 'drone' | 'mortar' | 'tesla';
+export type ClassId = 'pistol' | 'bow' | 'shotgun' | 'rifle' | 'sniper' | 'flamer' | 'grenade' | 'mg' | 'drone' | 'rail' | 'mortar' | 'tesla';
 /** A DNA colour. Each colour is named after the first zombie type of its family. */
 export type StrainId = 'shambler' | 'runner' | 'brute' | 'spitter' | 'bloater';
 export type ColourId = StrainId;
@@ -162,6 +162,8 @@ export const CLASSES: ClassDef[] = [
     ability: { name: 'Overheat', stages: ['Longer bursts: +20% attack speed', '+40% attack speed', '+70% attack speed'] } },
   { id: 'drone',   name: 'Drone Operator', plural: 'Drone Operators', gun: 'Attack Drones', dps: 68, range: 0.90, rate: 1.6, targets: 1, crit: 0.15, horde: 9, hire0: 2e8, primary: 'spitter', secondary: 'runner',
     ability: { name: 'Swarm', stages: ['+1 drone: hits 1 more zombie', '+2 drones', '+3 drones'] } },
+  { id: 'rail',    name: 'Railgunner', plural: 'Railgunners', gun: 'Railgun', dps: 76, range: 0.80, rate: 0.5, targets: 4, crit: 0.25, horde: 10, hire0: 6e8, primary: 'bloater', secondary: 'brute',
+    ability: { name: 'Overcharge', stages: ['Pierces 1 more zombie, +10% damage', 'Pierces 2 more, +20% damage', 'Pierces 3 more, +30% damage'] } },
   { id: 'mortar',  name: 'Mortar Gunner', plural: 'Mortar Team', gun: 'Mortar', dps: 85, range: 0.85, rate: 0.35, targets: 5, crit: 0.05, horde: 11, hire0: 1.5e9, primary: 'brute', secondary: 'bloater',
     ability: { name: 'Barrage', stages: ['Shells hit 1 more zombie, +10% damage', '+2 zombies, +20% damage', '+3 zombies, +30% damage'] } },
   { id: 'tesla',   name: 'Tesla Trooper', plural: 'Tesla Troopers', gun: 'Arc Gun', dps: 112, range: 0.30, rate: 1.6, targets: 3, crit: 0.10, horde: 13, hire0: 1e10, primary: 'bloater', secondary: 'spitter',
@@ -179,6 +181,7 @@ export const MATCH: Partial<Record<ClassId, Partial<Record<StrainId, number>>>> 
   grenade: { bloater: 1.4, brute: 1.2, runner: 0.8 },
   mg:      { runner: 1.4, shambler: 1.2, brute: 0.8 },
   drone:   { spitter: 1.4, bloater: 1.2 },
+  rail:    { brute: 1.4, bloater: 1.2, runner: 0.8 },
   mortar:  { bloater: 1.5, brute: 1.3, runner: 0.7 },
   tesla:   { spitter: 1.3, shambler: 1.3, brute: 0.85 },
 };
@@ -232,10 +235,9 @@ export const CONFIG = {
   /** Each horde ends with a boss: the toughest zombie type in the horde with this many times the HP, walking slowly.
    * If the boss reaches the shredder, or too many horde zombies break through, the horde is lost. */
   bossHpMult: 10, bossSpeed: 0.45, breachLimit: 10,
-  /** The shredder grinds zombies that reach it: endless upgrade paid in Green DNA. Its damage is shared by the
-   * zombies on its blades, and it always takes at least `floor` of a zombie's HP per second, so every zombie
-   * eventually dies there (you can't get permanently stuck). It doesn't stop horde zombies breaking through. */
-  shredder: { dps0: 6, perLevel: 1.1, cost0: 40, costGrowth: 1.16, floor: 0.02 },
+  /** The shredder grinds every zombie that reaches it by 1% of its HP per second, so the road always clears.
+   * Shredded zombies drop no DNA (only the squad's kills pay), so overrunning yourself can't be farmed. */
+  shredFrac: 0.01,
   /** Odds at which a horde card says "should win" and War Drums starts it by itself. */
   hordeWinOdds: 1.1,
   /** Combo: every live kill adds 1; DNA earned is multiplied by up to ×1.5 at 300. It drops to 0 after 3 s
@@ -349,6 +351,7 @@ export function abilityFx(u: Unit) {
     case 'grenade': out.targets = k; break;
     case 'mg': out.spd = [0, 0.2, 0.4, 0.7][k]; break;
     case 'drone': out.targets = k; break;
+    case 'rail': out.targets = k; out.dmg = 1 + 0.1 * k; break;
     case 'mortar': out.targets = k; out.dmg = 1 + 0.1 * k; break;
     case 'tesla': out.targets = k; break;
   }
@@ -396,20 +399,17 @@ export function lnSquadDps(squad: SquadEntry[], fx: Fx, s: ZombieId) {
  * Keep-up ratio: how much of the incoming stream the squad can kill. Each type brings rate·HP of work per second;
  * the squad clears DPS against it. 1 means exactly keeping up; below 1 zombies pile up at the shredder.
  */
-export const lnShredDps = (lv: number) => Math.log(C.shredder.dps0) + lv * Math.log(C.shredder.perLevel);
-export const lnShredCost = (lv: number) => Math.log(C.shredder.cost0) + lv * Math.log(C.shredder.costGrowth);
-export function keepUp(squad: SquadEntry[], fx: Fx, st: Strains, shred = 0) {
+export function keepUp(squad: SquadEntry[], fx: Fx, st: Strains) {
   let load = 0;
-  const lnShred = lnShredDps(shred);
   for (const s of activeStrains(st)) {
     const x = st[s];
-    load += spawnRate(s, x.spawn) * varietyAvg(x.tier) * Math.exp(Math.min(60, lnZombieHp(s, x.tier, x.spawn) - logAdd(lnSquadDps(squad, fx, s), lnShred)));
+    load += spawnRate(s, x.spawn) * varietyAvg(x.tier) * Math.exp(Math.min(60, lnZombieHp(s, x.tier, x.spawn) - lnSquadDps(squad, fx, s)));
   }
   return load > 0 ? 1 / load : Infinity;
 }
 /** DNA per second of each colour at the current settings. */
-export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains, shred = 0): Record<StrainId, number> {
-  const f = Math.min(1, keepUp(squad, fx, st, shred));
+export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains): Record<StrainId, number> {
+  const f = Math.min(1, keepUp(squad, fx, st));
   const out = Object.fromEntries(COLOURS.map((c) => [c, -Infinity])) as Record<ColourId, number>;
   for (const s of activeStrains(st)) {
     const x = st[s];

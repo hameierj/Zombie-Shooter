@@ -5,8 +5,7 @@ import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
 import { game, type AutoSell, type Loot, type OfflineReport } from '../core/state.ts';
 import { REGIONS, TREE, treeNode } from '../core/tree.ts';
-import { charmIcon, classIcon, crateIcon, gunIcon, iconUrl, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
-const shredIcon = () => iconUrl('shred-teeth', 3);
+import { charmIcon, classIcon, crateIcon, gunIcon, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import { fmtInt, fmtLn, fmtMult, fmtNum, gearDesc, gearName, gunName, RARITY_COLOR } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
 
@@ -141,7 +140,6 @@ function act(d: ActionData): boolean {
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
     case 'sound-sfx': sfx.setSfx(!sfx.soundPrefs().sfx); openSettings(); break;
     case 'sound-music': sfx.setMusic(!sfx.soundPrefs().music); openSettings(); break;
-    case 'shredder': game.buyShredder(); break;
     case 'keep-pref': setShowKeep(!showKeep()); openSettings(); render(); break;
   }
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
@@ -150,7 +148,7 @@ function act(d: ActionData): boolean {
   if (a === 'tier-up') sfx.tierUp();
   else if (a === 'allocate') { if (paid) sfx.allocate(); }
   else if (a === 'sell' || a === 'sell-matching') sfx.buy();
-  else if (['buy-node', 'hire', 'spawn', 'release', 'shredder'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
+  else if (['buy-node', 'hire', 'spawn', 'release'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
   else if (a.startsWith('equip')) sfx.equip();
   else if (a !== 'horde') sfx.click();
   // the tap is finished, so a re-render the action asked for can happen right now (no waiting)
@@ -279,20 +277,11 @@ function zombiesHtml() {
   <h3>Special zombies</h3>
   <p class="sub small">About ${Math.round(M.SPECIAL_CHANCE * 100)}% of zombies in the stream are special. They glow in their colour.</p>
   <div class="specials">${M.SPECIALS.map((sp) => `<div class="sp"><i style="--c:#${sp.tint.toString(16).padStart(6, '0')}"></i><b>${sp.name}</b><span class="sub small">${sp.desc}</span></div>`).join('')}</div>
-  <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. ${showKeep() ? 'The word under each price is how your squad would cope after buying.' : 'Watch the shredder: when it flashes red, zombies are getting through. Upgrade it to grind them faster.'}</p>`;
+  <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. ${showKeep() ? 'The word under each price is how your squad would cope after buying.' : 'Watch the shredder: when it flashes red, zombies are getting through (shredded zombies drop no DNA).'}</p>`;
 }
 
 // ---------- Squad tab: overview of unit types, plus the item stash ----------
 function abilityPips(u: Unit) { const k = M.abilityStage(u); return `<span class="pips">${[1, 2, 3].map((i) => `<i class="${i <= k ? 'on' : ''}"></i>`).join('')}</span>`; }
-/** The shredder, first card on the Squad menu: endless upgrade paid in Green DNA. */
-function shredCardHtml() {
-  return `<div class="ucard shred-card" style="--c1:#c0c8d2;--c2:#7ddc5a">
-    <img class="px portrait" src="${shredIcon()}" alt="">
-    <div class="u-main"><b>Shredder</b><span class="count">Lv ${game.shredLevel}</span>
-      <span class="sub">Grinds ${fmtLn(game.lnShredDps())} damage/s</span></div>
-    <div class="quick"><button class="btn sbtn" data-action="shredder" ${costAttr('shambler', game.shredCost())}><span>Upgrade</span>${cost('shambler', game.shredCost())}</button></div>
-  </div>`;
-}
 function squadHtml() {
   const s = game.s;
   const cards = M.CLASSES.map((c) => {
@@ -317,7 +306,7 @@ function squadHtml() {
     ...s.gear.map((g) => ({ uid: g.uid, icon: g.kind === 'attach' ? modIcon(g.stat) : charmIcon(g.bane), rarity: g.rarity, label: g.kind === 'attach' ? g.stat.toUpperCase() : 'CHARM', power: g.value * 10 }))]
     .sort((a, b) => M.CONFIG.rarities.findIndex((r) => r.id === b.rarity) - M.CONFIG.rarities.findIndex((r) => r.id === a.rarity) || b.power - a.power);
   return `${keepCardHtml(game.keepUp())}<p class="sub">Tap a unit type for its gear, ability and upgrades. Every unit's upgrade tree is also on the <b>Tree</b> tab. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
-  <div class="grid2">${shredCardHtml()}${cards}</div>
+  <div class="grid2">${cards}</div>
   <h3>Items <small>${items.length}/60 · guns, attachments and charms (rare drops and horde rewards)</small></h3>
   ${autoSellHtml()}
   <div class="tiles">${items.map((it) => `<button class="tile" style="--rar:${RARITY_COLOR[it.rarity]}" data-action="item" data-arg="${it.uid}">
@@ -605,7 +594,7 @@ let overrunHintAt = 0;
 function offerRollBack() {
   if (performance.now() < overrunHintAt) return;
   overrunHintAt = performance.now() + 120000;
-  toast('<b>Overrun!</b><span>Zombies are piling up at the shredder. Upgrade the Shredder (Squad tab) or your squad.</span>', '#ff6767');
+  toast('<b>Overrun!</b><span>Zombies are piling up at the shredder, and shredded zombies drop no DNA. Upgrade your squad.</span>', '#ff6767');
 }
 function openSettings() {
   const snd = sfx.soundPrefs();

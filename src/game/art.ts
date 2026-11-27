@@ -417,7 +417,7 @@ function drawZombie(id: StrainId, frame: number): HTMLCanvasElement {
 // ---------- soldiers (side view, facing right, kneeling) ----------
 export const HERO_W = 20;
 export const HERO_H = 26;
-export const CLASS_ORDER: ClassId[] = ['pistol', 'bow', 'shotgun', 'rifle', 'sniper', 'flamer', 'grenade', 'mg', 'drone', 'mortar', 'tesla'];
+export const CLASS_ORDER: ClassId[] = ['pistol', 'bow', 'shotgun', 'rifle', 'sniper', 'flamer', 'grenade', 'mg', 'drone', 'mortar', 'tesla', 'rail'];
 const HERO_COLORS = [
   { vest: '#6a7a40', helmet: '#56662f', scarf: '#e04848', pants: '#3e4130' },
   { vest: '#4f7a36', helmet: '#3f6229', scarf: '#d8b04c', pants: '#4a3e2c' },
@@ -430,6 +430,7 @@ const HERO_COLORS = [
   { vest: '#2f6a68', helmet: '#24504e', scarf: '#4ad6c8', pants: '#2a3434' },   // drone operator
   { vest: '#7a6440', helmet: '#5e4e30', scarf: '#e0c070', pants: '#3e3426' },   // mortar team
   { vest: '#3e3a6a', helmet: '#2c2a50', scarf: '#9a8aff', pants: '#26243a' },   // tesla trooper
+  { vest: '#2e3e5e', helmet: '#e8eef6', scarf: '#5a8cff', pants: '#232a3a' },   // railgunner
 ];
 /** Where the gun's grip sits on the soldier canvas (art units). */
 export const HERO_GRIP = { x: 13, y: 13 };
@@ -553,6 +554,15 @@ function drawClassGun(cls: ClassId): HTMLCanvasElement {
         rr(ctx, 10.8, -1.7, 1.6, 3.4, 0.4); shade(ctx, '#3e4a2a', 10.8, -1.7, 1.6, 3.4); edge(ctx, 0.3);
         ctx.restore();
         ctx.strokeStyle = METAL_D; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(9.4, 4.4); ctx.lineTo(12.4, 9.6); ctx.stroke();
+        break;
+      case 'rail':
+        part(ctx, 0.6, 5, 4.4, 3, 1, '#2a3040');
+        part(ctx, 4.6, 3.6, 7.4, 3.8, 1.2, '#3a4660');                                                    // capacitor body
+        for (let x = 5.6; x < 11.4; x += 1.6) glow(ctx, x, 5.5, 0.9, '#5a8cff', 0.9);
+        part(ctx, 11.6, 3.4, 11, 1, 0.4, '#c8d2e0');                                                       // twin rails
+        part(ctx, 11.6, 6.6, 11, 1, 0.4, '#c8d2e0');
+        ctx.fillStyle = 'rgba(120,180,255,.55)'; ctx.fillRect(12, 4.6, 10.2, 1.8);
+        glow(ctx, 22.4, 5.5, 1.6, '#8ac0ff', 0.9);
         break;
       case 'tesla':
         part(ctx, 1, 5, 4.6, 3, 1, '#2c2a40');

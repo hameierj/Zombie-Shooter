@@ -21,8 +21,6 @@ export interface SaveData {
   autoHordeOn: boolean;
   /** Drops at or below this rarity are sold on pickup (never an upgrade, never a horde reward). null = off. */
   autoSell: AutoSell;
-  /** Shredder upgrade level. */
-  shredder: number;
   nextUid: number;
   kills: number;
   newItems: number[];
@@ -46,7 +44,7 @@ function freshSave(): SaveData {
   return {
     version: 6, dna: emptyDna(), strains: emptyStrains(), units,
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
-    alloc: [], hordes: 0, autoHordeOn: true, autoSell: null, shredder: 0, nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
+    alloc: [], hordes: 0, autoHordeOn: true, autoSell: null, nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
   };
 }
 
@@ -140,18 +138,13 @@ export class Game {
   }
 
   // ---------- zombie dials ----------
-  keepUp(st: Strains = this.s.strains) { return M.keepUp(this.squad(), this.fx, st, this.s.shredder ?? 0); }
+  keepUp(st: Strains = this.s.strains) { return M.keepUp(this.squad(), this.fx, st); }
   /** Keep-up ratio if one zombie type's tier or spawn level changed by +1. */
   keepUpIf(s: ZombieId, what: 'tier' | 'spawn') {
     const x = this.s.strains[s];
     return this.keepUp({ ...this.s.strains, [s]: { ...x, [what]: x[what] + 1 } });
   }
-  lnDnaPerSec() { return M.lnDnaPerSec(this.squad(), this.fx, this.s.strains, this.s.shredder ?? 0); }
-  // ---------- shredder ----------
-  get shredLevel() { return this.s.shredder ?? 0; }
-  shredCost() { return M.lnShredCost(this.shredLevel); }
-  lnShredDps() { return M.lnShredDps(this.shredLevel); }
-  buyShredder() { if (this.pay('shambler', this.shredCost())) { this.s.shredder = this.shredLevel + 1; this.emit('change'); } }
+  lnDnaPerSec() { return M.lnDnaPerSec(this.squad(), this.fx, this.s.strains); }
   get totalSpawnRate() { return M.totalSpawnRate(this.s.strains); }
   tierCost(s: ZombieId) { return M.lnTierCost(s, this.s.strains[s].maxTier); }
   raiseTier(s: ZombieId) {
@@ -388,9 +381,10 @@ export class Game {
 
   /** A zombie was shredded. `mult` scales its DNA (special zombies), `lootMult` its item chance. */
   zombieKilled(strain: ZombieId, tier: number, opts: { silent?: boolean; mult?: number; lootMult?: number } = {}): Loot | null {
-    if (!opts.silent) { this.combo++; this.comboIdle = 0; this.comboBest = Math.max(this.comboBest, this.combo); }
+    const paid = (opts.mult ?? 1) > 0;   // shredded zombies pay nothing and don't count for the combo
+    if (!opts.silent && paid) { this.combo++; this.comboIdle = 0; this.comboBest = Math.max(this.comboBest, this.combo); }
     const col = M.familyOf(strain);
-    this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + Math.log((opts.silent ? 1 : this.comboMult) * (opts.mult ?? 1))));
+    if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + Math.log((opts.silent ? 1 : this.comboMult) * (opts.mult ?? 1))));
     this.s.kills++;
     if (Math.random() >= Math.min(0.5, M.dropChance(this.s.strains, this.fx) * (opts.lootMult ?? 1))) return null;
     const loot = this.rollLoot();
