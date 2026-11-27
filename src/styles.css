@@ -1127,3 +1127,9 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .nd-card.ult .nd-go { background: #7a4ab8; }
 @media (max-width: 340px) { .ult-pick { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .ult-card, .ult-art img { animation: none; } }
+
+/* ---------- FPS counter ---------- */
+#fps { position: absolute; left: 8px; top: 8px; z-index: 30; pointer-events: none; padding: 3px 8px; border-radius: 8px; background: rgba(8,10,14,.72); border: 1px solid #2c333d;
+  font: 600 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color: #c8d0da; font-variant-numeric: tabular-nums; }
+#fps b { font-size: 13px; } #fps span { color: #8a94a2; }
+#fps.good b { color: #7ddc5a; } #fps.warn b { color: #ffd23f; } #fps.bad b { color: #ff6b6b; }

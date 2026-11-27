@@ -5,7 +5,7 @@ import { showTitle } from './title.ts';
 import { biohazard, evolveCard, hordeCards, overlayUp, showCards, ultCard } from './unlocks.ts';
 import { coachUp } from './tutorial.ts';
 import { titleUp } from './title.ts';
-import { showRanges, setShowRanges } from '../core/prefs';
+import { showRanges, setShowRanges, showFps, setShowFps } from '../core/prefs';
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
 import { Game, game, type AutoSell, type Loot } from '../core/state.ts';
@@ -207,6 +207,28 @@ export function initUI() {
   setInterval(refresh, 300);
   setInterval(tickNudge, 500);
   setInterval(tickCombo, 100);
+  fpsMeter();
+}
+
+// ---------- FPS counter (Settings → FPS counter): frames drawn in the last half second, and the slowest one ----------
+let fpsRaf = 0;
+function fpsMeter() {
+  let el = document.getElementById('fps');
+  if (!showFps()) { cancelAnimationFrame(fpsRaf); fpsRaf = 0; el?.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'fps'; el.setAttribute('aria-hidden', 'true'); ($('#field') ?? document.body).appendChild(el); }
+  if (fpsRaf) return;
+  let last = performance.now(), t0 = last, frames = 0, worst = 0;
+  const tick = (now: number) => {
+    frames++; worst = Math.max(worst, now - last); last = now;
+    if (now - t0 >= 500) {
+      const f = (frames * 1000) / (now - t0);
+      el!.className = f >= 50 ? 'good' : f >= 30 ? 'warn' : 'bad';
+      el!.innerHTML = `<b>${Math.round(f)}</b> FPS <span>· ${worst.toFixed(0)} ms max</span>`;
+      t0 = now; frames = 0; worst = 0;
+    }
+    fpsRaf = requestAnimationFrame(tick);
+  };
+  fpsRaf = requestAnimationFrame(tick);
 }
 
 // ---------- prompts: "new recruits ready" and "a horde is ready" (so nobody has to dig through the menus) ----------
@@ -360,6 +382,7 @@ function act(d: ActionData): boolean {
     case 'sound-music': sfx.setMusic(!sfx.soundPrefs().music); openSettings(); break;
     case 'ranges-pref': setShowRanges(!showRanges()); openSettings(); break;
     case 'keep-pref': setShowKeep(!showKeep()); openSettings(); render(); break;
+    case 'fps-pref': setShowFps(!showFps()); fpsMeter(); openSettings(); break;
   }
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
   const after = M.STRAIN_IDS.reduce((x, c) => x + Math.exp(Math.min(700, game.dna(c))), 0);
@@ -849,6 +872,7 @@ function openSettings() {
       ${sw('sound-music', 'Music', 'Background soundtrack', snd.music)}
       ${sw('ranges-pref', 'Range lines', 'How far each unit type can shoot', showRanges())}
       ${sw('keep-pref', 'Difficulty meters', 'Keep-up meter, upgrade hints and horde odds', showKeep())}
+      ${sw('fps-pref', 'FPS counter', 'Frames per second and the slowest frame, over the battlefield', showFps())}
     </section>
     <section class="set-sec"><h4>Saves</h4>
       <div class="save-cur"><div><b>Current game</b><span>${saveLine(m)}</span></div><span class="ok">✓ Saved ${ago(game.s.lastSeen)}</span></div>
