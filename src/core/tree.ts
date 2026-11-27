@@ -61,7 +61,7 @@ const LAYOUT: Record<number, { smalls: [Spec, Spec]; n1: Spec; na: Spec; nb: Spe
     k: S('Barracks', '+20% damage for the whole squad.', (f) => { f.dmg += 0.2; }),
   },
   1: {
-    smalls: [cdmg('bow', 'Hunter', 12), rng(8)],
+    smalls: [cdmg('bow', 'Hunter', 12), rng(4)],
     n1: S('Broadheads', 'Hunter arrows pierce 1 more zombie.', (f) => add(f.targets, 'bow', 1)),
     na: S('Eagle Eye', '+10% crit chance.', (f) => { f.crit += 0.1; }),
     nb: S('Steady Draw', '+25% Hunter attack speed.', (f) => add(f.classSpd, 'bow', 0.25)),
@@ -83,7 +83,7 @@ const LAYOUT: Record<number, { smalls: [Spec, Spec]; n1: Spec; na: Spec; nb: Spe
   },
   4: {
     smalls: [cdmg('sniper', 'Sniper', 12), crit(4)],
-    n1: S('Scope Zero', '+15% range.', (f) => { f.range += 0.15; }),
+    n1: S('Scope Zero', '+6% range.', (f) => { f.range += 0.06; }),
     na: S('Headhunter', '+50% crit damage.', (f) => { f.critDmg += 0.5; }),
     nb: S('Armor Piercing', 'Whole squad deals ×1.4 damage to Brutes.', (f) => mul(f.vs, 'brute', 1.4)),
     k: S('One Shot', 'Snipers deal ×2.5 damage.', (f) => mul(f.classMore, 'sniper', 2.5)),

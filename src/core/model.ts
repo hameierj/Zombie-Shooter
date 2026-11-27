@@ -310,7 +310,7 @@ export function rollGear(rng: () => number, uid: number, minRarity = 0): Gear {
   const d = rarityDef(rarity);
   if (rng() < 0.6) {
     const stat = (['dmg', 'spd', 'crit', 'range'] as AttachStat[])[Math.floor(rng() * 4)];
-    const scale = stat === 'crit' ? 0.25 : stat === 'range' ? 0.4 : 1;
+    const scale = stat === 'crit' ? 0.25 : stat === 'range' ? 0.2 : 1;
     return { uid, kind: 'attach', rarity, stat, value: Math.round(d.attach * scale * 1000) / 1000 };
   }
   const bane = rng() < 0.75 ? STRAIN_IDS[Math.floor(rng() * STRAIN_IDS.length)] : null;
@@ -367,7 +367,8 @@ export function unitStats(e: SquadEntry, fx: Fx) {
   const ab = abilityFx(u);
   const a = (stat: AttachStat) => (attach?.stat === stat ? attach.value : 0);
   // only Snipers cover the whole road; everyone else tops out just short of it
-  const range = Math.min(u.cls === 'sniper' ? 1 : 0.95, c.range * (1 + fx.range + 0.05 * nlv(u, 'range') + a('range')));
+  // range bonuses are minor: +2% per Range level, small attachments/passives, at most +30% in total
+  const range = Math.min(u.cls === 'sniper' ? 1 : 0.95, c.range * (1 + Math.min(0.3, fx.range + 0.02 * nlv(u, 'range') + a('range'))));
   const spdMult = 1 + fx.spd + (fx.classSpd[u.cls] ?? 0) + 0.04 * nlv(u, 'spd') + a('spd') + ab.spd;
   const shotsPerSec = c.rate * spdMult;
   const crit = Math.min(0.9, c.crit + fx.crit + 0.02 * nlv(u, 'crit') + a('crit'));

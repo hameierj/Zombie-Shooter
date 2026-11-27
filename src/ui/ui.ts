@@ -334,7 +334,7 @@ function nodeEffect(u: Unit, id: UnitNodeId, lv: number): string {
   switch (id) {
     case 'dmg': return `${fmtMult(Math.pow(C.dmgPerLevel, lv))} damage`;
     case 'spd': return `+${lv * 4}% attack speed`;
-    case 'range': return `+${lv * 5}% range`;
+    case 'range': return `+${lv * 2}% range`;
     case 'crit': return `+${lv * 2}% crit chance`;
     case 'critx': return `+${lv * 10}% crit damage`;
     case 'attach': return lv ? 'Attachment slot open' : 'Opens an attachment slot';

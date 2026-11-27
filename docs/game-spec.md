@@ -156,6 +156,7 @@ Damage levels in each unit's tree, and tiers are lowered if needed so the squad 
 ## 10. Ranges and the road
 Range is how far up the road a unit shoots, measured from the shredder. Base ranges: Shotgunners 15%, Pyros 20%,
 Tesla Troopers 30%, Pistoleers 40%, Machine Gunners 50%, Riflemen 60%, Grenadiers 65%, Hunters 75%, Mortar Team 85%,
-Railgunners 80%, Drone Operators 90%, Snipers 100%. Range upgrades add up to +50%, but only Snipers can cover the whole road (others cap
+Railgunners 80%, Drone Operators 90%, Snipers 100%. Range bonuses are minor: +2% per Range level (+20% at level 10), small attachments and passives, at most +30%
+in total; only Snipers can cover the whole road (others cap
 at 95%). Zombies take about 16 s to walk the road, and the view is zoomed out (~400 art units across the short side).
 See `unit-ranges.png`.
