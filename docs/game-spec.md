@@ -154,11 +154,11 @@ banner) right after you beat a horde.
 The odds (shown with **Difficulty meters** on) account for the type and boss: count × HP × a difficulty factor for
 speed, fog or healing, plus the extra zombies a boss brings, against the time until the boss arrives and walks in.
 Browser play tests: every horde type and boss won at 1.3, and 5 of 6 lost at 0.85. War Drums starts at 1.10.
-Hordes 1–7 are at effective tiers 16, 30, 52, 76, 96, 110 and 122, and unlock the unit types and regions above
-(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 134, 145, 156, 166, 176, 186,
+Hordes 1–7 are at effective tiers 14, 24, 40, 56, 70, 82 and 94, and unlock the unit types and regions above
+(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 104, 114, 124, 133, 142, 151,
 then +10 each (some unlock the newer recruits, the rest give an epic+ item). Horde zombies are always each colour's first
-form. These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde): hordes at about 6,
-14, 28, 44, 61, 76 and 91 min, then one about every 15–20 min (tier price 80·1.15^(t−1); the sim counts
+form. These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde): hordes at about 9,
+16, 28, 43, 58, 75 and 97 min, then one about every 15–25 min (tier price 80·1.15^(t−1); the sim counts
 combo and specials as ×1.4 income). If the next horde is far
 above your toughest zombies, its card says so and points you at raising zombie tiers.
 
@@ -280,6 +280,13 @@ while the app is in the background).
   suit), Pyro (firefighter coat, gas mask, fuel tank), Grenadier (beret, grenade bandolier), Machine Gunner
   (sleeveless, bandana, shades, ammo belt), Drone Operator (hoodie, glowing visor), Mortar Team (desert tan, boonie,
   ear defenders), Tesla Trooper (rubber suit, copper coils, brass goggles), Railgunner (white power armour).
+
+## 12b. Squad vs zombies balance
+Zombie HP grows ×1.2 per tier while their DNA grows ×1.15 (`hpR` vs `R`): higher tiers get relatively tougher, so the
+squad's one-off boosts (speed, crit, crit damage, hires, passives, abilities) get used up over time and units need
+real investment. Every unit price (upgrades, abilities, gear slots, hiring) is ×10 (`unitCostMult`), so a Damage level
+costs about as much as a zombie tier; capped upgrades rise ×1.4 per level. Balance sim (greedy player): keep-up ×1.6 at
+6 min, ×3 at 15 min, ×4.4 at 30 min, ×6 at 1 h (before: ×20 at 15 min and ×50–130 at 1 h).
 
 ## 13. Prestige
 On the **Hordes tab**: once you've cleared at least one horde in a run you can **prestige**: the run starts over (zombie

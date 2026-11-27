@@ -221,7 +221,10 @@ export const UNIT_NODES: UnitNodeDef[] = [
 export const unitNodeById = (id: UnitNodeId) => UNIT_NODES.find((n) => n.id === id)!;
 
 export const CONFIG = {
-  R: 1.15,                  // per DNA Count tier of a zombie type: ×1.15 DNA per zombie and ×1.15 HP
+  R: 1.15, 
+  hpR: 1.2,                 // zombie HP ×this per tier, a bit more than the DNA (R): higher tiers get relatively tougher, so the
+                            // squad's one-off boosts (speed, crit, hires, passives) get used up and units need real investment
+                 // per DNA Count tier of a zombie type: ×1.15 DNA per zombie and ×1.15 HP
   ITEM_SHARE: 0.5,          // guns cover half of each tier's HP growth; Damage ranks cover the other half
   dmgPerLevel: 1.06,        // Damage node: ×1.06 per level, price ×1.13 per level: one tier of zombie HP (×1.15, half of it
                             // covered by guns) costs about one tier of DNA, so each tier takes about the same play time
@@ -237,6 +240,9 @@ export const CONFIG = {
   spawnCost0: 0.5,          // a spawn level costs half the type's next tier…
   spawnCostGrowth: 1.2,     // …×1.2 per level
   hireGrowth: 1.8,
+  unitCostMult: 10,         // every unit upgrade and hire price ×this (units were far too cheap next to zombie tiers)
+  dmgCostGrowth: 1.13,      // Damage: price ×this per level
+  cappedCostGrowth: 1.4,    // Speed / Range / Crit / Crit ×: price ×this per level
   maxPerType: 20,
   unitsBase: 2,             // barracks: 2 of each type at first, +1 every 10 tiers of your best zombie type (20 at 180)
   unitExponent: 0.75,       // 20 units ≈ 9× one unit
@@ -310,10 +316,10 @@ const KIND_ORDER: HordeKind[] = ['classic', 'stampede', 'armoured', 'swarm', 'wa
 export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean; kind: HordeKind; boss: BossKind }
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
 // Horde tiers (effective tiers), set from the balance sim (which also counts combo and specials): hordes 1-7 at about
-// 6, 14, 28, 44, 61, 76 and 91 min (Hordes 1-4 also bring the yellow, red, teal and purple colours), then an Elite
-// horde about every 15-20 min. ELITE_TIERS continue the list; past its end, +10 each.
-const HORDE_TIERS = [16, 30, 52, 76, 96, 110, 122];
-const ELITE_TIERS = [134, 145, 156, 166, 176, 186];
+// 7, 16, 27, 42, 57, 74 and 97 min (Hordes 1-4 also bring the yellow, red, teal and purple colours), then an Elite
+// horde about every 15-25 min. Keep-up in the sim stays ~×2-4 for the first half hour (it was ×20-50). ELITE_TIERS continue the list; past its end, +10 each.
+const HORDE_TIERS = [14, 24, 40, 56, 70, 82, 94];
+const ELITE_TIERS = [104, 114, 124, 133, 142, 151];
 const ELITE_STEP = 10;
 export function hordeDef(k: number): HordeDef {
   const cls = CLASSES.find((c) => c.horde === k)?.id;
@@ -335,7 +341,7 @@ export const hordeMix = (k: number) => STRAINS.filter((s) => stageOf(s.id) === 0
 // ---------- Zombies ----------
 export const spawnRate = (s: ZombieId, spawn: number) => strainById(s).baseRate * (1 + C.spawnPerLevel * spawn) * live.spawnMult;
 export const lnZombieHp = (s: ZombieId, tier: number, spawn: number) =>
-  Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (effTier(s, tier) - 1) * lnR;
+  Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (effTier(s, tier) - 1) * Math.log(C.hpR);
 export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
   Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna) * (fx.dnaMore ?? 1)) + (effTier(s, tier) - 1) * lnR;
 /** Evolving (releasing a colour's next form) costs EVOLVE_TIERS more tiers' worth of the parent at the cap: about a
@@ -392,10 +398,10 @@ const classScale = (cls: ClassId) => Math.max(1, classById(cls).hire0 / 25) ** 0
 /** Every upgrade of a unit type is paid in its one DNA colour (its primary). */
 export const nodeColour = (cls: ClassId, _n?: UnitNodeDef): StrainId => classById(cls).primary;
 export const lnUnitNodeCost = (cls: ClassId, n: UnitNodeDef, level: number, fx: Fx) =>
-  Math.log(n.cost0 * classScale(cls) * (n.id === 'dmg' ? 1 - fx.trainDiscount : 1)) + level * Math.log(n.growth);
+  Math.log(n.cost0 * C.unitCostMult * classScale(cls) * (n.id === 'dmg' ? 1 - fx.trainDiscount : 1)) + level * Math.log(n.id === 'dmg' ? C.dmgCostGrowth : n.kind === 'capped' ? C.cappedCostGrowth : n.growth);
 export const unitNodeMaxed = (n: UnitNodeDef, level: number) => (n.kind === 'unlock' ? level >= 1 : n.kind === 'capped' ? level >= (n.max ?? 1) : false);
 export const lnHireCost = (cls: ClassId, owned: number, fx?: Fx) =>
-  Math.log(classById(cls).hire0 * (1 - (fx?.hireDiscount ?? 0))) + owned * Math.log(C.hireGrowth);
+  Math.log(classById(cls).hire0 * C.unitCostMult * (1 - (fx?.hireDiscount ?? 0))) + owned * Math.log(C.hireGrowth);
 /** Price of the next passive in a region. Each region starts at 15 of its colour, scaled up by how far that colour has
  * come by the time the region opens (the tiers between the horde that brought the colour and the horde that opens the
  * region), so a late region isn't an instant buy; then every passive taken there makes the next ×treeCostGrowth. */
