@@ -337,7 +337,11 @@ function refresh() {
   const pill = $('#hud-keep');
   pill.hidden = !showKeep();
   pill.className = `keep-pill ${k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad'}`;
-  pill.textContent = k >= 1.1 ? 'keeping up' : k >= 0.9 ? 'barely' : 'overrun';
+  // the multiplier, colour-coded; with room to spare, a mini bar and the word too
+  const word = k >= 1.1 ? 'keeping up' : k >= 0.9 ? 'barely' : 'overrun';
+  const html = `<i class="kp-bar"><em style="width:${Math.min(100, (k / 2) * 100).toFixed(0)}%"></em></i><span class="kp-word">${word}</span><b class="kp-x">${fmtMult(k)}</b>`;
+  if (pill.dataset.h !== html) { pill.dataset.h = html; pill.innerHTML = html; }
+  pill.title = `Squad keeps up with ${fmtMult(k)} of the zombies arriving (${word})`;
   for (const b of document.querySelectorAll<HTMLElement>('#tabs [data-action="tab"]')) {
     b.classList.toggle('active', b.dataset.arg === tab);
     const badge = b.dataset.arg === 'tree' ? game.allocatableCount() > 0

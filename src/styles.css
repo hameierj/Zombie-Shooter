@@ -1034,3 +1034,12 @@ button.tc-head { cursor: pointer; }
 /* iOS Safari ignores user-scalable=no: a quick double tap anywhere that isn't a button zooms the page (and the zoom can
    stick across a reload). Tapping through the unlock cards or tips fast did exactly that. Taps only, everywhere. */
 html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-action: manipulation; }
+/* keep-up pill: just the colour-coded multiplier on phones; a mini bar + word where there's room */
+.keep-pill { display: inline-flex; align-items: center; gap: 6px; }
+.keep-pill .kp-x { font-weight: inherit; font-variant-numeric: tabular-nums; }
+.keep-pill .kp-word, .keep-pill .kp-bar { display: none; }
+.keep-pill .kp-bar { width: 44px; height: 5px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; position: relative; }
+.keep-pill .kp-bar em { display: block; height: 100%; border-radius: inherit; background: currentColor; transition: width .3s; }
+.keep-pill .kp-bar::after { content: ''; position: absolute; left: 50%; top: -1px; bottom: -1px; width: 1px; background: rgba(255,255,255,.45); }   /* ×1 mark */
+@media (min-width: 430px) { .keep-pill .kp-bar { display: block; } }
+@media (min-width: 560px) { .keep-pill .kp-word { display: inline; } }
