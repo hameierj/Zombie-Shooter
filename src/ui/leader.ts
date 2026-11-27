@@ -33,51 +33,108 @@ export const canRename = () => { const p = getPlayer(); return !!p && !p.renamed
 export const cleanName = (s: string) => s.replace(/[^\p{L}\p{N} _-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
 
 // ---------- the leaderboard's stats ----------
-export interface Entry { id: string; name: string; tier: number; hordes: number; kills: number; bosses: number; runs: number; at: number }
+import { fmtLn } from '../core/format.ts';
+import { MASTERY, regionComplete } from '../core/tree.ts';
+import { vialIcon } from '../game/art.ts';
+/** A row on the board: the commander and a bag of stats (DNA totals are natural logs, like everything in the economy). */
+export interface Entry { id: string; name: string; s: Record<string, number> }
+export interface SortDef { key: string; label: string; fmt: (v: number) => string; icon?: string; colour?: string }
+const time = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
+export const SORTS: SortDef[] = [
+  { key: 'hordes', label: 'Hordes', fmt: fmtInt },
+  { key: 'kills', label: 'Kills', fmt: fmtInt },
+  { key: 'headshots', label: 'Headshots', fmt: fmtInt },
+  { key: 'tier', label: 'Zombie tier', fmt: fmtInt },
+  { key: 'unit_lv', label: 'Troop level', fmt: (v) => `Lv ${fmtInt(v)}` },
+  { key: 'play', label: 'Play time', fmt: time },
+  { key: 'combo', label: 'Best combo', fmt: fmtInt },
+  { key: 'ults', label: 'Ultimates', fmt: fmtInt },
+  { key: 'mastery', label: 'Masteries', fmt: (v) => `${v}/8` },
+  { key: 'soldiers', label: 'Soldiers', fmt: fmtInt },
+  { key: 'runs', label: 'Prestiges', fmt: fmtInt },
+  ...M.COLOURS.map((c) => ({ key: `dna_${c}`, label: `${M.strainById(c).dna} DNA`, fmt: (v: number) => fmtLn(v), icon: vialIcon(c), colour: M.strainById(c).color })),
+];
+export const sortDef = (k: string) => SORTS.find((x) => x.key === k) ?? SORTS[0];
 export function myEntry(): Entry | null {
   const p = getPlayer();
   if (!p) return null;
-  const s = game.s;
-  return { id: p.id, name: p.name, tier: M.bestTier(s.strains), hordes: s.hordes + (s.prestige?.earned ?? 0), kills: s.kills, bosses: s.bossKills ?? 0, runs: s.prestige?.runs ?? 0, at: Date.now() };
+  const s = game.s, owned = Object.values(s.units).filter((u) => u.count > 0);
+  const st: Record<string, number> = {
+    hordes: s.hordes + (s.prestige?.earned ?? 0), kills: s.kills, bosses: s.bossKills ?? 0, headshots: s.headshots ?? 0, tier: M.bestTier(s.strains),
+    unit_lv: Math.max(0, ...owned.map((u) => M.nlv(u, 'dmg'))), play: Math.floor(s.playSec ?? 0), combo: s.bestCombo ?? 0,
+    ults: owned.filter((u) => u.evo !== undefined).length + Object.values(s.strains).filter((z) => z.ult).length,
+    mastery: MASTERY.filter((_, i) => regionComplete(s.alloc, i)).length, soldiers: owned.reduce((a, u) => a + u.count, 0), runs: s.prestige?.runs ?? 0,
+  };
+  for (const c of M.COLOURS) { const v = s.earnedDna?.[c]; if (v !== undefined && Number.isFinite(v)) st[`dna_${c}`] = Math.round(v * 1000) / 1000; }
+  return { id: p.id, name: p.name, s: st };
 }
-/** The online board: a Supabase project set up with docs/leaderboard.sql. The anon key is public by design (the database
- * only allows reading the board and submitting your own row through submit_score). Empty = local-only board. */
+/** The online board: a Supabase project set up with docs/leaderboard.sql (+ docs/leaderboard-v2.sql for the stats). The key
+ * is the project's public key by design: the database only allows reading the board and submitting your own row. */
 const SUPA_URL = 'https://yeigxhkozedgymktunkj.supabase.co';
 const SUPA_KEY = 'sb_publishable_LYuhi1OSn4qsiUNAQ_4znw_L1zKTwdp';
 const supa = (path: string, init: RequestInit = {}) => fetch(`${SUPA_URL}/rest/v1/${path}`, { ...init, headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
-export const BOARD: { submit(e: Entry): Promise<void>; top(n: number): Promise<Entry[]> } | null = SUPA_URL && SUPA_KEY ? {
-  async submit(e) {
+const LEGACY = ['hordes', 'tier', 'kills', 'bosses', 'runs'];
+let v2 = true;   // false if the database hasn't had the stats upgrade yet (then only the original columns exist)
+export const BOARD = SUPA_URL && SUPA_KEY ? {
+  async submit(e: Entry) {
     const p = getPlayer(); if (!p?.secret) return;
-    const r = await supa('rpc/submit_score', { method: 'POST', body: JSON.stringify({ p_id: e.id, p_secret: p.secret, p_name: e.name, p_hordes: e.hordes, p_tier: e.tier, p_kills: e.kills, p_bosses: e.bosses, p_runs: e.runs }) });
+    if (v2) {
+      const r = await supa('rpc/submit_stats', { method: 'POST', body: JSON.stringify({ p_id: e.id, p_secret: p.secret, p_name: e.name, p_stats: e.s }) });
+      if (r.ok) return;
+      if (r.status !== 404) throw new Error(`submit ${r.status}`);
+      v2 = false;
+    }
+    const r = await supa('rpc/submit_score', { method: 'POST', body: JSON.stringify({ p_id: e.id, p_secret: p.secret, p_name: e.name, p_hordes: e.s.hordes, p_tier: e.s.tier, p_kills: e.s.kills, p_bosses: e.s.bosses, p_runs: e.s.runs }) });
     if (!r.ok) throw new Error(`submit ${r.status}`);
   },
-  async top(n) {
-    const r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs&order=hordes.desc,tier.desc,kills.desc&limit=${n}`);
+  async top(key: string, n: number): Promise<Entry[]> {
+    const legacy = LEGACY.includes(key);
+    if (!v2 && !legacy) return [];
+    const order = legacy ? `${key}.desc,hordes.desc,tier.desc` : `stats->${key}.desc.nullslast,hordes.desc`;
+    let r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs${v2 ? ',stats' : ''}&order=${order}&limit=${n}`);
+    if (!r.ok && v2) { v2 = false; if (!legacy) return []; r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs&order=${order}&limit=${n}`); }
     if (!r.ok) throw new Error(`top ${r.status}`);
-    return (await r.json() as Omit<Entry, 'at'>[]).map((x) => ({ ...x, kills: Number(x.kills), at: 0 }));
+    type Row = { id: string; name: string; hordes: number; tier: number; kills: number | string; bosses: number; runs: number; stats?: Record<string, number> };
+    return (await r.json() as Row[]).map((x) => ({ id: x.id, name: x.name, s: { ...(x.stats ?? {}), hordes: x.hordes, tier: x.tier, kills: Number(x.kills), bosses: x.bosses, runs: x.runs } }));
   },
 } : null;
-let cache: Entry[] = [];
+export const boardV2 = () => v2;
+const cache = new Map<string, Entry[]>();
+const loading = new Set<string>();
 let lastSubmit = 0;
-/** Push your stats (at most once a minute) and refresh the cached top list. */
-export async function syncBoard(force = false) {
+/** Push your stats (at most once a minute) and refresh the list for a sort. */
+export async function syncBoard(force = false, key = 'hordes') {
   const me = myEntry();
   if (!BOARD || !me) return;
   try {
     if (force || Date.now() - lastSubmit > 60_000) { lastSubmit = Date.now(); await BOARD.submit(me); }
-    cache = await BOARD.top(50);
-  } catch { /* offline: keep the last list */ }
+    loading.add(key);
+    cache.set(key, await BOARD.top(key, 50));
+  } catch { /* offline: keep the last list */ } finally { loading.delete(key); }
 }
-export function leaderboardHtml() {
-  const me = myEntry();
-  if (!me) return `<div class="lb card"><div class="lb-h"><b>Leaderboard</b></div><p class="sub small">Beat Horde 1 to take command and get on the board.</p></div>`;
-  const rows = BOARD && cache.length ? cache : [me];
-  const sorted = [...rows].sort((a, b) => b.hordes - a.hordes || b.tier - a.tier || b.kills - a.kills).slice(0, 20);
-  if (!sorted.some((e) => e.id === me.id)) sorted.push(me);
-  return `<div class="lb card"><div class="lb-h"><b>Leaderboard</b><span class="lb-name">${esc(me.name)}</span></div>
-    <div class="lb-t"><div class="lb-r lb-head"><span>#</span><span>Commander</span><span>Hordes</span><span>Best tier</span><span>Kills</span><span>Bosses</span></div>
-    ${sorted.map((e, i) => `<div class="lb-r ${e.id === me.id ? 'me' : ''}"><span>${i + 1}</span><span class="nm">${esc(e.name)}${e.runs ? ` <i>P${e.runs}</i>` : ''}</span><span>${fmtInt(e.hordes)}</span><span>${fmtInt(e.tier)}</span><span>${fmtInt(e.kills)}</span><span>${fmtInt(e.bosses)}</span></div>`).join('')}</div>
-    ${BOARD ? '' : '<p class="sub small" style="margin:6px 0 0">The global board is coming online soon; for now it shows your own record.</p>'}</div>`;
+/** Small leaderboard teaser on the Hordes tab. */
+export function leaderboardHtml() { return ''; }
+/** The Leaderboard tab: sort chips, then the top 50 for that stat (your own row always shown and highlighted). */
+export function leaderboardPageHtml(key: string) {
+  const me = myEntry(), d = sortDef(key);
+  const chips = `<div class="lbp-sorts" role="tablist" aria-label="Rank by">${SORTS.map((x) => `<button class="lbp-chip ${x.key === d.key ? 'on' : ''}" data-action="rank-sort" data-arg="${x.key}" role="tab" aria-selected="${x.key === d.key}" ${x.colour ? `style="--cc:${x.colour}"` : ''}>${x.icon ? `<img class="px" src="${x.icon}" alt="">` : ''}${esc(x.label)}</button>`).join('')}</div>`;
+  if (!me) return `${chips}<div class="lbp-empty card"><b>Beat Horde 1 to take command</b><span>HQ will ask your name, and you'll join the board.</span></div>`;
+  const list = BOARD ? cache.get(d.key) : undefined;
+  let rows = list ? list.filter((e) => e.s[d.key] !== undefined) : [];
+  if (!BOARD || !list) rows = [me];
+  const mine = rows.findIndex((e) => e.id === me.id);
+  if (mine >= 0) rows[mine] = me;   // your freshest numbers
+  const sorted = [...rows].sort((a, b) => (b.s[d.key] ?? -1) - (a.s[d.key] ?? -1) || (b.s.hordes ?? 0) - (a.s.hordes ?? 0));
+  const myRank = sorted.findIndex((e) => e.id === me.id);
+  const row = (e: Entry, i: number | null) => { const v = e.s[d.key];
+    return `<div class="lbp-r ${e.id === me.id ? 'me' : ''} ${i !== null && i < 3 ? `top${i + 1}` : ''}"><span class="rk">${i === null ? '—' : i + 1}</span>
+      <div class="who"><b>${esc(e.name)}${e.s.runs ? ` <i>P${e.s.runs}</i>` : ''}</b><span>${fmtInt(e.s.hordes ?? 0)} hordes · tier ${fmtInt(e.s.tier ?? 0)} · ${fmtInt(e.s.kills ?? 0)} kills</span></div>
+      <span class="val" ${d.colour ? `style="color:${d.colour}"` : ''}>${v === undefined ? '–' : esc(d.fmt(v))}</span></div>`; };
+  const note = !BOARD ? '<p class="sub small">Showing your own record.</p>'
+    : loading.has(d.key) && !list ? '<p class="sub small">Loading the board…</p>'
+    : !v2 && !LEGACY.includes(d.key) ? '<p class="sub small">This ranking switches on once the leaderboard database gets its stats upgrade.</p>' : '';
+  return `${chips}<div class="lbp-head"><span>Ranked by <b>${esc(d.label)}</b></span><span>${myRank >= 0 ? `You: <b>#${myRank + 1}</b>` : 'You: outside the top 50'}</span></div>
+    ${note}<div class="lbp-list">${sorted.slice(0, 50).map((e, i) => row(e, i)).join('')}${myRank < 0 ? row(me, null) : ''}</div>`;
 }
 
 // ---------- the cutscene ----------

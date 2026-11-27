@@ -580,7 +580,7 @@ export class BattleScene extends Phaser.Scene {
         if (r.cls === 'flamer' && M.abilityStage(r)) z.burn = 1.5;
         if (execChance && !z.boss && z.alive && Math.random() < execChance) {   // any zombie but a boss, horde zombies included
           const [hx, hy] = this.zombieCenter(z);
-          this.floatText('HEADSHOT', hx, hy - 30 * this.px, true);
+          this.floatText('HEADSHOT', hx, hy - 30 * this.px, true); game.headshot();
           this.skullPop(hx, hy - 4 * this.px);
           this.damage(z, z.hp + 1, '', false);
           continue;
@@ -591,7 +591,7 @@ export class BattleScene extends Phaser.Scene {
           if (procs > 0) {
             ln += Math.log(1 + (BOSS_HEADSHOT - 1) * Math.min(procs, perDrawn) / perDrawn);
             const [hx, hy] = this.zombieCenter(z);
-            this.floatText(`HEADSHOT ×${BOSS_HEADSHOT}`, hx, hy - 34 * this.px, true);
+            this.floatText(`HEADSHOT ×${BOSS_HEADSHOT}`, hx, hy - 34 * this.px, true); game.headshot();
             this.skullPop(hx, hy - 8 * this.px);
             this.damage(z, Math.exp(Math.min(700, ln - z.lnHp)), '', true);
             continue;

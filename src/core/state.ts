@@ -23,6 +23,10 @@ export interface SaveData {
   nextUid: number;
   kills: number;
   bossKills?: number;
+  /** Lifetime DNA earned per colour (ln), and the best combo ever: leaderboard stats, kept through prestige. */
+  earnedDna?: Partial<Record<StrainId, number>>;
+  bestCombo?: number;
+  headshots?: number;
   /** The commander's name for the leaderboard (chosen in the cutscene after Horde 1). */
   player?: { id: string; name: string; secret?: string };
   /** Auto-buy (free after Horde 10): each category is switched on or off on its own, from the map. */
@@ -155,6 +159,12 @@ export class Game {
   dna(c: StrainId) { return this.s.dna[c] ?? -Infinity; }
   private setDna(c: StrainId, v: number) { this.s.dna[c] = v === -Infinity ? null : v; }
   canAfford(c: StrainId, ln: number) { return ln <= this.dna(c) + 1e-9; }
+  /** Earn DNA (kills, steady income, sales): adds to the balance and to the lifetime total. */
+  private gain(c: StrainId, ln: number) {
+    if (!Number.isFinite(ln)) return;
+    this.setDna(c, M.logAdd(this.dna(c), ln));
+    const e = (this.s.earnedDna ??= {}); e[c] = M.logAdd(e[c] ?? -Infinity, ln);
+  }
   private pay(c: StrainId, ln: number) { if (!this.canAfford(c, ln)) return false; this.setDna(c, M.logSub(this.dna(c), ln)); return true; }
   /** DNA colours you can earn (released zombie types). */
   get colours(): StrainId[] { const act = new Set(M.activeStrains(this.s.strains).map(M.familyOf)); return M.COLOURS.filter((c) => act.has(c)); }
@@ -307,6 +317,7 @@ export class Game {
     }
     return bought;
   }
+  headshot() { this.s.headshots = (this.s.headshots ?? 0) + 1; }
   bossKilled() { this.s.bossKills = (this.s.bossKills ?? 0) + 1; }
 
   // ---------- zombie ultimate forms ----------
@@ -454,7 +465,7 @@ export class Game {
     if (this.isEquipped(uid)) return null;
     const v = this.sellValue(uid);
     if (!v) return null;
-    this.setDna(v.colour, M.logAdd(this.dna(v.colour), v.ln));
+    this.gain(v.colour, v.ln);
     this.s.guns = this.s.guns.filter((g) => g.uid !== uid);
     this.s.gear = this.s.gear.filter((g) => g.uid !== uid);
     this.s.newItems = this.s.newItems.filter((x) => x !== uid);
@@ -570,9 +581,9 @@ export class Game {
   zombieKilled(strain: ZombieId, tier: number, opts: { silent?: boolean; mult?: number; lootMult?: number; shredded?: boolean } = {}): Loot | null {
     const paid = (opts.mult ?? 1) > 0;
     // shredded zombies don't count for the combo
-    if (!opts.silent && !opts.shredded) { const c = this.comboState; c.n++; c.idle = 0; c.last = strain; this.comboBest = Math.max(this.comboBest, c.n); }
+    if (!opts.silent && !opts.shredded) { const c = this.comboState; c.n++; c.idle = 0; c.last = strain; this.comboBest = Math.max(this.comboBest, c.n); if (c.n > (this.s.bestCombo ?? 0)) this.s.bestCombo = c.n; }
     const col = this.payColour(strain);
-    if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + (this.s.strains[strain]?.ult ? Math.log(M.CONFIG.zUltDna) : 0) + Math.log((opts.silent ? 1 : this.comboMultOf(strain)) * (opts.mult ?? 1))));
+    if (paid) this.gain(col, M.lnDnaPerKill(strain, tier, this.fx) + (this.s.strains[strain]?.ult ? Math.log(M.CONFIG.zUltDna) : 0) + Math.log((opts.silent ? 1 : this.comboMultOf(strain)) * (opts.mult ?? 1)));
     this.s.kills++;
     if (Math.random() >= Math.min(0.5, M.dropChance(this.s.strains, this.fx) * (opts.lootMult ?? 1))) return null;
     const loot = this.rollLoot();
@@ -585,7 +596,7 @@ export class Game {
   steadyCombo = 1;
   earnSteady(dt: number) {
     const rate = this.lnDnaPerSec(), lm = Math.log(dt * this.steadyCombo);
-    for (const c of M.STRAIN_IDS) if (Number.isFinite(rate[c])) this.setDna(c, M.logAdd(this.dna(c), rate[c] + lm));
+    for (const c of M.STRAIN_IDS) if (Number.isFinite(rate[c])) this.gain(c, rate[c] + lm);
   }
   get autoHorde() { return this.fx.autoHorde && this.s.autoHordeOn; }
 
@@ -709,9 +720,9 @@ export class Game {
       const d = M.perkById(id);
       for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
     }
-    const playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, player = this.s.player;
+    const playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
     this.s = freshSave();
-    this.s.prestige = p; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.player = player;
+    this.s.prestige = p; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
     this.applyHeadStart();
     this.fxCache = null; this.syncLive();
     this.save();

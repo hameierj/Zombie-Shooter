@@ -4,7 +4,7 @@
 import { showTitle } from './title.ts';
 import { biohazard, evolveCard, hordeCards, overlayUp, showCards, ultCard, zombieUltCard } from './unlocks.ts';
 import { coachUp } from './tutorial.ts';
-import { canRename, commanderScene, getPlayer, leaderboardHtml, maybeCommanderScene, syncBoard } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, syncBoard } from './leader.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps } from '../core/prefs';
 import * as M from '../core/model.ts';
@@ -16,7 +16,7 @@ import { fmtInt, fmtLn, fmtMult, fmtNum, gearDesc, gearName, gunName, RARITY_COL
 import * as sfx from '../audio/sfx.ts';
 
 const C = M.CONFIG;
-type Tab = 'zombies' | 'squad' | 'tree' | 'hordes';
+type Tab = 'zombies' | 'squad' | 'tree' | 'hordes' | 'ranks';
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const vial = (c: StrainId) => `<img class="px vial" src="${vialIcon(c)}" alt="${M.strainById(c).dna} DNA">`;
@@ -145,7 +145,9 @@ const hordeRunning = () => battlePhase === 'intro' || battlePhase === 'horde';
 
 /** The open menu, or null when the full-screen zombie map is showing. */
 let tab: Tab | null = null;
-const TITLES: Record<Tab, string> = { zombies: 'Zombies', squad: 'Squad', tree: 'Passive Tree', hordes: 'Hordes' };
+const TITLES: Record<Tab, string> = { zombies: 'Zombies', squad: 'Squad', tree: 'Passive Tree', hordes: 'Hordes', ranks: 'Leaderboard' };
+/** The Leaderboard tab's current ranking. */
+let rankSort = (() => { try { return localStorage.getItem('zombie-idle-rank-sort') ?? 'hordes'; } catch { return 'hordes'; } })();
 
 let unitNode: UnitNodeId = 'dmg';
 /** Which tree the Tree tab shows: the global passive web or one unit type's own tree. */
@@ -308,7 +310,7 @@ function act(d: ActionData): boolean {
     case 'tab':
       // tapping the open tab collapses the menu to the map; tapping another opens it
       tab = tab === arg ? null : (arg as Tab);
-      if (tab === 'hordes') void syncBoard().then(() => { if (tab === 'hordes') soft(); });
+      if (tab === 'ranks') void syncBoard(false, rankSort).then(() => { if (tab === 'ranks') soft(); });
       if (tab === 'squad') game.markSeen();
       render();
       break;
@@ -324,6 +326,7 @@ function act(d: ActionData): boolean {
     case 'zombie-ult': game.zombieUlt(sid); break;
     case 'global': game.buyGlobal(arg as M.ColourId, 1); break;
     case 'scavenger': game.buyScavenger(); break;
+    case 'rank-sort': rankSort = arg; try { localStorage.setItem('zombie-idle-rank-sort', arg); } catch { /* ignore */ } render(); void syncBoard(false, arg).then(() => { if (tab === 'ranks' && rankSort === arg) soft(); }); break;
     case 'rename': if (canRename()) { closeModal(); commanderScene(true); } break;
     case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals'; const cfg = game.autoCfg; cfg[k] = !cfg[k]; game.save(); autoChip(); if (!$('#modal').hidden) openSettings();
       break; }
@@ -463,7 +466,7 @@ function render() {
   body.dataset.key = key;
   $('#panel-title').textContent = TITLES[tab];
   body.className = '';
-  body.innerHTML = tab === 'zombies' ? zombiesHtml() : tab === 'squad' ? squadHtml() : tab === 'tree' ? treeTabHtml() : hordesHtml();
+  body.innerHTML = tab === 'zombies' ? zombiesHtml() : tab === 'squad' ? squadHtml() : tab === 'tree' ? treeTabHtml() : tab === 'ranks' ? leaderboardPageHtml(rankSort) : hordesHtml();
   body.scrollTop = scroll;
   refresh();
 }
@@ -881,7 +884,7 @@ function autoChip() {
   el.classList.toggle('any', game.autoAny);
 }
 function killsHtml() {
-  return `<div class="kills"><div><b>${fmtInt(game.s.kills)}</b><span>zombies killed</span></div><div><b>${fmtInt(game.s.bossKills ?? 0)}</b><span>bosses killed</span></div><div><b>${fmtInt(game.s.hordes)}</b><span>hordes beaten</span></div><div><b>${fmtInt(game.comboBest)}</b><span>best combo</span></div></div>`;
+  return `<div class="kills"><div><b>${fmtInt(game.s.kills)}</b><span>zombies killed</span></div><div><b>${fmtInt(game.s.headshots ?? 0)}</b><span>headshots</span></div><div><b>${fmtInt(game.s.hordes)}</b><span>hordes beaten</span></div><div><b>${fmtInt(game.s.bestCombo ?? 0)}</b><span>best combo</span></div></div>`;
 }
 function hordesHtml() {
   const next = game.nextHorde;
