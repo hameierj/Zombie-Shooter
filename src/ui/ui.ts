@@ -142,13 +142,11 @@ let unitNode: UnitNodeId = 'dmg';
 /** Which tree the Tree tab shows: the global passive web or one unit type's own tree. */
 let treeView: 'global' | ClassId = 'global';
 /** Global tree layout: an easy list (default) or the pan/zoom web. Remembered on the device. */
-let treeMode: 'list' | 'web' = (() => { try { return localStorage.getItem('zombie-idle-tree-mode') === 'web' ? 'web' : 'list'; } catch { return 'list'; } })();
-const openRegions = new Set<number>();
-let selectedNode = 'start';
+/** The passive-tree region that's open (one at a time); -1 = all closed, null = pick one with something ready. */
+let treeOpen: number | null = null;
 let lastPointer = 0;
 let pointerDown = 0;
 let softTimer = 0;
-const view = { x: 0, y: 0, s: 0.6, dragged: false };
 
 // ---------- init ----------
 export function initUI() {
@@ -223,8 +221,7 @@ function act(d: ActionData): boolean {
     case 'tier-up': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].tier; i++) { t = game.s.strains[sid].tier; game.raiseTier(sid); } break;
     case 'spawn': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].spawn; i++) { t = game.s.strains[sid].spawn; game.buySpawn(sid); } break;
     case 'release': game.release(sid); break;
-    case 'tree-mode': treeMode = arg === 'web' ? 'web' : 'list'; try { localStorage.setItem('zombie-idle-tree-mode', treeMode); } catch { /* ignore */ } render(); break;
-    case 'region': { const r = Number(arg); if (openRegions.has(r)) openRegions.delete(r); else openRegions.add(r); render(); break; }
+    case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
     case 'buy-node': game.buyNode(cls, arg as UnitNodeId, n || amtN()); break;
@@ -239,10 +236,7 @@ function act(d: ActionData): boolean {
     }
     case 'unlock-unit': game.hire(cls); break;
     case 'hire': for (let i = 0, t = -1; i < amtN() && t !== game.unit(cls).count; i++) { t = game.unit(cls).count; game.hire(cls); } break;
-    case 'node': if (!view.dragged) { selectedNode = arg; render(); } break;
-    case 'allocate': game.allocate(arg); break;
-    case 'zoom': view.s = Math.max(0.35, Math.min(2.5, view.s * (arg === 'in' ? 1.25 : 0.8))); applyView(); break;
-    case 'center': view.x = 0; view.y = 0; view.s = 0.6; applyView(); break;
+    case 'allocate': { const had = game.s.alloc.length; game.allocate(arg); if (game.s.alloc.length > had) { const n = treeNode(arg); treeFresh = arg; toast(`<b>${esc(n.size === 'small' ? n.desc : n.name)}</b><span>${esc(n.size === 'small' ? REGIONS[n.region].name : n.desc)}</span>`, REGIONS[n.region].color); } break; }
     case 'horde': game.startHorde(); tab = null; render(); break;
     case 'toggle': game.s.autoHordeOn = !game.s.autoHordeOn; render(); break;
     case 'settings': openSettings(); break;
@@ -339,9 +333,9 @@ function render() {
   const scroll = body.dataset.key === key ? body.scrollTop : 0;
   body.dataset.key = key;
   $('#panel-title').textContent = TITLES[tab];
-  body.className = tab === 'tree' && treeView === 'global' && treeMode === 'web' ? 'tree-mode' : '';
+  body.className = '';
   body.innerHTML = tab === 'zombies' ? zombiesHtml() : tab === 'squad' ? squadHtml() : tab === 'tree' ? treeTabHtml() : hordesHtml();
-  if (tab === 'tree' && treeView === 'global' && treeMode === 'web') bindTree(); else body.scrollTop = scroll;
+  body.scrollTop = scroll;
   refresh();
 }
 
@@ -475,92 +469,52 @@ function nodeEffect(u: Unit, id: UnitNodeId, lv: number): string {
 // ---------- Tree tab: sub-tabs for the global passive web and every unit type's own tree ----------
 function treeTabHtml() {
   treeView = 'global';
-  return treeMode === 'web' ? treeHtml() : treeListHtml();
+  return treeChecklistHtml();
 }
 
-const modeToggle = () => `<div class="seg2"><button class="${treeMode === 'list' ? 'on' : ''}" data-action="tree-mode" data-arg="list">List</button><button class="${treeMode === 'web' ? 'on' : ''}" data-action="tree-mode" data-arg="web">Web</button></div>`;
-let treeDist: Map<string, number> | null = null;
-/** Steps from the Command Post, to list each region's passives in the order you'd reach them. */
-function distFromStart() {
-  if (treeDist) return treeDist;
-  treeDist = new Map([['start', 0]]);
-  const q = ['start'];
-  while (q.length) { const id = q.shift()!; for (const l of treeNode(id).links) if (!treeDist.has(l)) { treeDist.set(l, treeDist.get(id)! + 1); q.push(l); } }
-  return treeDist;
+// ---------- Passive tree: one checklist per region (3 steps, two paths side by side, then the keystone goal) ----------
+const STEP_PREV: Record<string, string[]> = { s1: [], s2: ['s1'], n1: ['s2'], a1: ['n1'], a2: ['a1'], na: ['a2'], b1: ['n1'], b2: ['b1'], nb: ['b2'], k: ['na', 'nb'] };
+const STEP_IDS = Object.keys(STEP_PREV);
+let treeFresh = '';   // the passive just taken (pops in)
+function treeStep(ri: number, k: string, num: number, first = false) {
+  const id = `r${ri}.${k}`, n = treeNode(id);
+  const has = game.s.alloc.includes(id), can = game.canAllocate(id);
+  const col = game.treeColour(id), ln = game.treeCost();
+  const kind = n.size === 'notable' ? 'notable' : n.size === 'keystone' ? 'key' : '';
+  const state = has ? 'owned' : can ? 'avail' : 'locked';
+  const act = has ? '<span class="tc-own">✓ Owned</span>'
+    : can ? `<button class="tc-buy" data-action="allocate" data-arg="${id}" ${costAttr(col, ln)}>${vial(col)}${fmtLn(ln)}</button>`
+    : `<span class="tc-hint">${k === 'k' ? 'after 6 in either path' : `after step ${num - 1}`}</span>`;
+  return `<div class="tc-step ${state} ${kind} ${first ? 'first' : ''} ${treeFresh === id ? 'just' : ''}"><div class="tc-mark">${has ? '✓' : num}</div>
+    <div class="tc-txt"><b>${esc(n.size === 'small' ? n.desc : n.name)}</b>${n.size === 'small' ? '' : `<span>${esc(n.desc)}</span>`}</div><div class="tc-act">${act}</div></div>`;
 }
-function passiveRow(n: (typeof TREE)[number]) {
-  const has = game.s.alloc.includes(n.id), can = game.canAllocate(n.id), open = game.regionOpen(n.region);
-  const col = game.treeColour(n.id), ln = game.treeCost();
-  const state = has ? 'on' : can ? 'can' : open ? 'off' : 'locked';
-  const right = has ? '<span class="pstate good">✓</span>'
-    : can ? `<button class="btn sbtn" data-action="allocate" data-arg="${n.id}" ${costAttr(col, ln)}><span>Allocate</span>${cost(col, ln)}</button>`
-    : `<span class="pstate sub small">${open ? 'Connect first' : '🔒'}</span>`;
-  return `<div class="prow ${state} ${n.size}" style="--c:${REGIONS[n.region].color}">
-    <span class="pdot"></span><div class="pinfo"><b>${esc(n.name)}</b><span class="sub small">${esc(n.desc)}</span></div>${right}</div>`;
+function treeRing(got: number, color: string) {
+  const r = 17, L = 2 * Math.PI * r;
+  return `<span class="tc-ringwrap"><span class="tc-count">${got}/10</span><svg class="tc-ring" viewBox="0 0 42 42"><circle cx="21" cy="21" r="${r}" fill="none" stroke="#2c333d" stroke-width="4"/><circle cx="21" cy="21" r="${r}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(got / 10) * L} ${L}" transform="rotate(-90 21 21)"/></svg></span>`;
 }
-function treeListHtml() {
-  const dist = distFromStart();
-  const avail = TREE.filter((n) => game.canAllocate(n.id));
-  const col0 = avail[0] ? game.treeColour(avail[0].id) : 'shambler';
-  const regions = REGIONS.map((reg, i) => {
-    const nodes = TREE.filter((n) => n.region === i).sort((a, b) => (dist.get(a.id) ?? 99) - (dist.get(b.id) ?? 99));
-    const got = nodes.filter((n) => game.s.alloc.includes(n.id)).length;
-    const open = game.regionOpen(i), shown = openRegions.has(i);
-    return `<div class="preg" style="--c:${reg.color}">
-      <button class="preg-head" data-action="region" data-arg="${i}"><span class="pdot"></span><b>${reg.name}</b>
-        <span class="sub small">${open ? `${got}/${nodes.length} · paid in ${vial(reg.dna)}` : `🔒 Beat Horde ${reg.horde}`}</span><span class="chev">${shown ? '▾' : '▸'}</span></button>
-      ${shown ? `<div class="prows">${nodes.map(passiveRow).join('')}</div>` : ''}
+function treeChecklistHtml() {
+  const ready = (ri: number) => STEP_IDS.filter((k) => game.canAffordNode(`r${ri}.${k}`)).length;
+  const avail = (ri: number) => STEP_IDS.filter((k) => game.canAllocate(`r${ri}.${k}`)).length;
+  if (treeOpen === null) { const i = REGIONS.findIndex((_, ri) => ready(ri) > 0); treeOpen = i >= 0 ? i : REGIONS.findIndex((_, ri) => avail(ri) > 0); }
+  const totalReady = REGIONS.reduce((a, _, ri) => a + ready(ri), 0);
+  const regions = REGIONS.map((reg, ri) => {
+    const got = STEP_IDS.filter((k) => game.s.alloc.includes(`r${ri}.${k}`)).length, key = treeNode(`r${ri}.k`);
+    const colour = M.strainById(reg.dna);
+    if (!game.regionOpen(ri)) return `<div class="tc-region locked" style="--rc:${reg.color}"><div class="tc-head">${treeRing(got, reg.color)}<div><b>${reg.name}</b><span class="tc-sub">🔒 Beat Horde ${reg.horde} to open · paid in ${colour.dna}</span></div><span></span></div><p class="tc-lockinfo">Goal: <b>${esc(key.name)}</b>: ${esc(key.desc)}</p></div>`;
+    const open = treeOpen === ri, rd = ready(ri), av = avail(ri);
+    const sub = got === 10 ? 'Complete' : rd ? `<span class="tc-ready">${rd} ready to take</span> · paid in ${colour.dna}` : av ? `${av} next · paid in ${colour.dna}` : `Paid in ${colour.dna}`;
+    return `<div class="tc-region ${open ? 'open' : ''}" style="--rc:${reg.color}">
+      <button class="tc-head" data-action="region" data-arg="${ri}" aria-expanded="${open}">${treeRing(got, reg.color)}<div><b>${reg.name}</b><span class="tc-sub">${sub}</span></div><span class="tc-chev">▶</span></button>
+      ${open ? `<div class="tc-goal"><i></i><div>Goal: <em>${esc(key.name)}</em>. ${esc(key.desc)}</div></div>
+      <div class="tc-body">${treeStep(ri, 's1', 1, true)}${treeStep(ri, 's2', 2)}${treeStep(ri, 'n1', 3)}
+        <div class="tc-forkhead"><span>Path A</span><span>Path B</span></div>
+        <div class="tc-fork"><div class="tc-col">${['a1', 'a2', 'na'].map((k, i) => treeStep(ri, k, 4 + i, i === 0)).join('')}</div><div class="tc-col">${['b1', 'b2', 'nb'].map((k, i) => treeStep(ri, k, 4 + i, i === 0)).join('')}</div></div>
+        ${treeStep(ri, 'k', 7)}</div>` : ''}
     </div>`;
   }).join('');
-  return `<div class="tree-top">${modeToggle()}<span class="sub small"><b>${game.s.alloc.length}</b> passives · next costs ${cost(col0, game.treeCost())}</span></div>
-  <h3>Available now <small>${avail.length ? 'connected to what you own' : 'nothing to allocate yet'}</small></h3>
-  <div class="prows">${avail.map(passiveRow).join('') || '<p class="sub">Beat the next horde to open a new region.</p>'}</div>
-  <h3>Regions <small>tap to expand</small></h3>
-  ${regions}`;
-}
-
-// ---------- Tree tab (POE-style web with pan / pinch zoom) ----------
-function treeHtml() {
-  const alloc = new Set(game.s.alloc);
-  const has = (id: string) => id === 'start' || alloc.has(id);
-  const edges: string[] = [];
-  const seen = new Set<string>();
-  for (const n of TREE) for (const l of n.links) {
-    const key = [n.id, l].sort().join('|');
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const o = treeNode(l);
-    const on = has(n.id) && has(l);
-    const col = on ? REGIONS[Math.max(n.region, o.region)]?.color ?? '#c8b070' : '#3a3d36';
-    edges.push(`<line x1="${n.x}" y1="${n.y}" x2="${o.x}" y2="${o.y}" stroke="${col}" stroke-width="${on ? 6 : 4}"/>`);
-  }
-  const R = { start: 26, keystone: 22, notable: 15, small: 9 };
-  const nodes = TREE.map((n) => {
-    const col = n.region < 0 ? '#c8b070' : REGIONS[n.region].color;
-    const state = has(n.id) ? 'on' : game.canAllocate(n.id) ? 'can' : game.regionOpen(n.region) ? 'off' : 'locked';
-    const r = R[n.size];
-    const shape = n.size === 'keystone'
-      ? `<polygon points="${[0, 1, 2, 3, 4, 5].map((i) => `${n.x + r * Math.cos((Math.PI / 3) * i)},${n.y + r * Math.sin((Math.PI / 3) * i)}`).join(' ')}"/>`
-      : `<circle cx="${n.x}" cy="${n.y}" r="${r}"/>`;
-    return `<g class="tn ${state} ${n.size} ${n.id === selectedNode ? 'sel' : ''}" style="--c:${col}" data-action="node" data-arg="${n.id}">${shape}<circle class="hit" cx="${n.x}" cy="${n.y}" r="${Math.max(r, 20)}"/></g>`;
-  }).join('');
-  const labels = REGIONS.map((reg, i) => {
-    const k = treeNode(`r${i}.k`);
-    const open = game.regionOpen(i);
-    return `<text x="${k.x * 1.17}" y="${k.y * 1.17 + 5}" class="rlabel ${open ? '' : 'locked'}" fill="${reg.color}">${open ? reg.name : `🔒 ${reg.name} · Horde ${reg.horde}`}</text>`;
-  }).join('');
-  const sel = treeNode(selectedNode);
-  const col = game.treeColour(sel.id);
-  const selState = sel.id === 'start' || alloc.has(sel.id) ? 'Allocated' : !game.regionOpen(sel.region) ? `Locked: beat Horde ${REGIONS[sel.region].horde} (${M.hordeDef(REGIONS[sel.region].horde).name}) to open ${REGIONS[sel.region].name}.` : !game.s.strains[col].unlocked ? `Paid in ${M.strainById(col).dna} DNA: release ${M.strainById(col).plural} first.` : game.canAllocate(sel.id) ? '' : 'Allocate a connected passive first.';
-  return `
-  <div class="tree-top">${modeToggle()}<span class="sub small"><b>${game.s.alloc.length}</b> passives</span>
-    <span class="tree-ctl"><button class="icon-btn" data-action="zoom" data-arg="out" aria-label="Zoom out">−</button><button class="icon-btn" data-action="zoom" data-arg="in" aria-label="Zoom in">+</button><button class="icon-btn" data-action="center" aria-label="Recenter">◎</button></span></div>
-  <div class="tree-view" id="tree-view"><svg id="tree-svg" width="100%" height="100%"><g id="tree-g">${edges.join('')}${nodes}${labels}</g></svg></div>
-  <div class="tree-sheet" style="--c:${sel.region < 0 ? '#c8b070' : REGIONS[sel.region].color}">
-    <div><b>${esc(sel.name)}</b> <small class="sub">${sel.size === 'start' ? '' : `${sel.size} · ${REGIONS[sel.region].name}`}</small></div>
-    <p class="sub">${esc(sel.desc)}</p>
-    ${selState ? `<p class="${selState === 'Allocated' ? 'good' : 'sub'}">${selState}</p>` : `<button class="btn wide" data-action="allocate" data-arg="${sel.id}" ${costAttr(col, game.treeCost())}>Allocate · ${cost(col, game.treeCost())}</button>`}
-  </div>`;
+  treeFresh = '';
+  return `<div class="tc-summary"><span><b>${game.s.alloc.length}</b> passives${totalReady ? ` · <span class="tc-ready">${totalReady} ready</span>` : ''}</span><span>Each one raises the next price ×${C.treeCostGrowth} · next <b>${fmtLn(game.treeCost())}</b></span></div>
+  <div class="tc-list">${regions}</div>`;
 }
 
 // ---------- Hordes tab ----------
@@ -596,50 +550,6 @@ function hordesHtml() {
     </div>`;
   }).join('')}</div>`;
 }
-
-function applyView() {
-  const g = document.getElementById('tree-g');
-  const v = document.getElementById('tree-view');
-  if (!g || !v) return;
-  const { width, height } = v.getBoundingClientRect();
-  g.setAttribute('transform', `translate(${width / 2 + view.x},${height / 2 + view.y}) scale(${view.s})`);
-}
-function bindTree() {
-  const v = document.getElementById('tree-view')!;
-  applyView();
-  const pts = new Map<number, { x: number; y: number }>();
-  let start = { x: 0, y: 0, d: 0, s: 1, vx: 0, vy: 0 };
-  const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
-  v.addEventListener('pointerdown', (e) => {
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    // Don't capture the pointer yet: capturing on press would retarget the click away from the node you pressed
-    // (that broke tapping nodes with a mouse). Capture only once the press turns into a drag.
-    view.dragged = false;
-    start = { x: e.clientX, y: e.clientY, d: pts.size === 2 ? dist() : 0, s: view.s, vx: view.x, vy: view.y };
-  });
-  v.addEventListener('pointermove', (e) => {
-    if (!pts.has(e.pointerId)) return;
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 2 && start.d) {
-      view.s = Math.max(0.35, Math.min(2.5, start.s * (dist() / start.d)));
-      view.dragged = true;
-    } else if (pts.size === 1) {
-      const dx = e.clientX - start.x, dy = e.clientY - start.y;
-      if (!view.dragged && Math.hypot(dx, dy) > 6) { view.dragged = true; try { v.setPointerCapture(e.pointerId); } catch { /* ignore */ } }
-      view.x = start.vx + dx; view.y = start.vy + dy;
-    }
-    applyView();
-  });
-  const up = (e: PointerEvent) => {
-    pts.delete(e.pointerId);
-    if (pts.size === 1) { const [p] = [...pts.values()]; start = { x: p.x, y: p.y, d: 0, s: view.s, vx: view.x, vy: view.y }; }
-    setTimeout(() => { if (!pts.size) view.dragged = false; }, 50);
-  };
-  v.addEventListener('pointerup', up);
-  v.addEventListener('pointercancel', up);
-  v.addEventListener('wheel', (e) => { e.preventDefault(); view.s = Math.max(0.35, Math.min(2.5, view.s * (e.deltaY < 0 ? 1.1 : 0.9))); applyView(); }, { passive: false });
-}
-
 
 function openModal(html: string) { const m = $('#modal'); m.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true">${html}</div>`; m.hidden = false; }
 function closeModal() { $('#modal').hidden = true; }

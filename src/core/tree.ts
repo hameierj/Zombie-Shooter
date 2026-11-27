@@ -132,11 +132,7 @@ function build(): TreeNode[] {
     mk('nb', 'notable', L.nb, 5.2, 11, [`${p}.b2`]);
     mk('k', 'keystone', L.k, 6.2, 0, [`${p}.na`, `${p}.nb`]);
   });
-  // Ring links between neighbouring regions make it a web rather than separate spokes.
-  for (let ri = 0; ri < REGIONS.length; ri++) {
-    const next = (ri + 1) % REGIONS.length;
-    nodes.find((n) => n.id === `r${ri}.b2`)!.links.push(`r${next}.a2`);
-  }
+  // Each region is a straight path: 3 steps, two side paths, then the keystone (no links between regions).
   // make links symmetric
   for (const n of nodes) for (const l of n.links) { const o = nodes.find((m) => m.id === l)!; if (!o.links.includes(n.id)) o.links.push(n.id); }
   return nodes;
