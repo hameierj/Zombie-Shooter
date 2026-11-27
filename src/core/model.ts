@@ -248,8 +248,8 @@ export const CONFIG = {
   spawnHpPerLevel: 0.03,    // …and +3% HP
   releaseSec: 180,          // (RELEASE_COST was tuned to ~3 min of a normal run's income)…
   releaseTier: 50,          // a colour's next form opens when the current one reaches the tier cap (TIER_CAP)
-  spawnCost0: 0.5,          // a spawn level costs half the type's next tier…
-  spawnCostGrowth: 1.2,     // …×1.2 per level
+  spawnCost0: 0.5,          // the first spawn level costs half the type's tier-1 price…
+  spawnCostGrowth: 1.6,     // …×1.6 per spawn level (its own ladder: buying DNA tiers doesn't change it)
   hireGrowth: 2.1,
   unitCostMult: 2,         // unit prices ×this; cheap to start, but each level/hire costs more than the last,
   dmgCostGrowth: 1.165,      // Damage: price ×this per level (faster than a zombie tier's ×1.15, so the squad can't run away)
@@ -363,9 +363,9 @@ export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
 export const EVOLVE_TIERS = 4;
 export const lnReleaseCost = (s: ZombieId, _lnRate?: number) => { const from = strainById(s).unlock?.from ?? s; return lnTierCost(from, TIER_CAP) + Math.log(EVOLVE_TIERS); };
 export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (effTier(s, tier) - 1) * lnR + stageOf(s) * Math.log(C.formCostMult);
-/** A spawn level is priced against the type's current tier (spawnCost0 × its next tier's price, ×spawnCostGrowth per
- * level), so it stays a real choice instead of becoming free once tiers climb. */
-export const lnSpawnCost = (s: ZombieId, lv: number, tier = 1) => lnTierCost(s, tier) + Math.log(C.spawnCost0) + lv * Math.log(C.spawnCostGrowth);
+/** Spawn has its own price ladder, separate from the DNA tier: it starts at spawnCost0 × the type's tier-1 price and rises
+ * ×spawnCostGrowth only when you buy a spawn level (steeper than a tier's ×1.15, so it can't become free). */
+export const lnSpawnCost = (s: ZombieId, lv: number, _tier = 1) => lnTierCost(s, 1) + Math.log(C.spawnCost0) + lv * Math.log(C.spawnCostGrowth);
 export const activeStrains = (st: Strains) => ZOMBIE_IDS.filter((s) => st[s]?.unlocked);
 export const totalSpawnRate = (st: Strains) => activeStrains(st).reduce((a, s) => a + spawnRate(s, st[s].spawn), 0);
 /** Chance that one shredded zombie drops an item. */

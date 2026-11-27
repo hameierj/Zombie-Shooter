@@ -53,7 +53,7 @@ Every released type has **its own two dials**, paid in its own colour:
 | Dial | Range | Effect |
 |---|---|---|
 | **DNA Count** (tier) | 1 → 50 (last form: ∞) | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
-| **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type. Priced against the type's tier: half its next tier, ×1.2 per level, so it stays a real choice |
+| **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type. Its own price ladder: the first level costs half the type's tier-1 price, then ×1.6 per spawn level; buying DNA tiers never changes it |
 
 The **keep-up meter** (Settings → Difficulty meters, which also shows horde odds) is **off by default**: players read the battlefield instead, and the
 shredder glows and pulses red while zombies are reaching it. The **shredder** grinds every zombie that reaches it by
