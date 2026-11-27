@@ -64,18 +64,18 @@ phaser.events.once(Phaser.Core.Events.READY, () => setTimeout(fitCanvas, 0));
 // ---------- UI ----------
 initUI();
 
-// ---------- session timer (top right): time played since the app was opened; pauses while it's hidden ----------
+// ---------- play timer (top right): TOTAL time played on this save; counts only while the app is open and visible ----------
 const timeEl = document.getElementById('hud-time')!;
-let playedMs = 0, lastTick = performance.now();
-const fmtTime = (ms: number) => {
-  const t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
-  return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
+let lastTick = performance.now();
+const fmtTime = (sec: number) => {
+  const t = Math.floor(sec), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
 };
 setInterval(() => {
   const now = performance.now();
-  if (!document.hidden) playedMs += Math.min(now - lastTick, 2000);   // a long gap means the app was asleep
+  if (!document.hidden) game.s.playSec = (game.s.playSec ?? 0) + Math.min(now - lastTick, 2000) / 1000;   // a long gap = the app was asleep
   lastTick = now;
-  timeEl.textContent = fmtTime(playedMs);
+  timeEl.textContent = fmtTime(game.s.playSec ?? 0);
 }, 250);
 
 // ---------- persistence & app lifecycle ----------

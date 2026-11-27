@@ -24,6 +24,8 @@ export interface SaveData {
   kills: number;
   newItems: number[];
   lastSeen: number;
+  /** Total time actually played (seconds, only while the app is open and visible). */
+  playSec: number;
 }
 /** A dropped item; `sold` is set when auto-sell turned it straight into DNA. */
 export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale; alsoSold?: number };
@@ -42,7 +44,7 @@ function freshSave(): SaveData {
   return {
     version: 6, dna: emptyDna(), strains: emptyStrains(), units,
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
-    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
+    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(), playSec: 0,
   };
 }
 
@@ -506,7 +508,7 @@ export class Game {
   /** A short summary of a save, for the save-slot list. */
   static summary(d: SaveData) {
     return { best: M.bestTier(d.strains), hordes: d.hordes, kills: d.kills, types: M.activeStrains(d.strains).length,
-      soldiers: Object.values(d.units).reduce((a, u) => a + u.count, 0) };
+      soldiers: Object.values(d.units).reduce((a, u) => a + u.count, 0), playSec: d.playSec ?? 0 };
   }
   importSave(code: string) {
     this.s = Game.decode(code);

@@ -118,7 +118,7 @@ interface ZSpec {
 }
 const ZOMBIES: Record<string, ZSpec> = {
   shambler: {
-    skin: '#8db86a', shirt: '#6e5ca0', pants: '#3c4060', eye: '#ff3b3b', wide: 7,
+    skin: '#8db86a', shirt: '#4e9a3c', pants: '#3c4a36', eye: '#ff3b3b', wide: 7,
     headW: 6.4, headH: 6.2, torsoW: 7.4, torsoH: 7.6, legH: 6.5, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
     extra: (ctx, a) => {
       // torn shirt: a hole showing skin, a blood stain
@@ -138,13 +138,13 @@ const ZOMBIES: Record<string, ZSpec> = {
     },
   },
   brute: {
-    skin: '#7f9e5e', shirt: '#5d6470', pants: '#353140', eye: '#ff3b3b', wide: 10,
+    skin: '#7f9e5e', shirt: '#8e2e2a', pants: '#352a2a', eye: '#ff3b3b', wide: 10,
     headW: 7.2, headH: 6.4, torsoW: 11.4, torsoH: 9.6, legH: 6.4, legW: 3.4, lean: 0, stride: 2, belly: 0,
     extra: (ctx, a) => {
       // riot armour plate with hazard stripe and shoulder pad
-      rr(ctx, a.tx + 0.8, a.ty + 1, 9.6, 5.4, 1.4); shade(ctx, '#7b8390', a.tx, a.ty, 10, 6); edge(ctx);
-      ctx.fillStyle = '#e0443c'; ctx.fillRect(a.tx + 1.2, a.ty + 3.2, 8.8, 1);
-      rr(ctx, a.tx + 6.4, a.ty - 1.4, 6, 3.4, 1.6); shade(ctx, '#8d96a2', a.tx + 6, a.ty - 2, 6, 4); edge(ctx);
+      rr(ctx, a.tx + 0.8, a.ty + 1, 9.6, 5.4, 1.4); shade(ctx, '#c0443a', a.tx, a.ty, 10, 6); edge(ctx);
+      ctx.fillStyle = '#ffd23f'; ctx.fillRect(a.tx + 1.2, a.ty + 3.2, 8.8, 1);
+      rr(ctx, a.tx + 6.4, a.ty - 1.4, 6, 3.4, 1.6); shade(ctx, '#d0564a', a.tx + 6, a.ty - 2, 6, 4); edge(ctx);
     },
     front: (ctx, a) => {
       // steel skull cap
@@ -153,7 +153,7 @@ const ZOMBIES: Record<string, ZSpec> = {
     },
   },
   spitter: {
-    skin: '#74b884', shirt: '#e8e6d6', pants: '#4a4636', eye: '#6dffe6', wide: 7,
+    skin: '#74b884', shirt: '#7fd8cc', pants: '#2e4a48', eye: '#6dffe6', wide: 7,
     headW: 6.2, headH: 6.2, torsoW: 7.4, torsoH: 7.6, legH: 6.4, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
     extra: (ctx, a) => {
       // acid stains on the lab coat
@@ -181,21 +181,21 @@ const ZOMBIES: Record<string, ZSpec> = {
   },
   // ----- Green family -----
   crawler: {
-    skin: '#82a862', shirt: '#8a6a4a', pants: '#3a3020', eye: '#ff3b3b', wide: 8,
+    skin: '#82a862', shirt: '#5f8f3c', pants: '#34402a', eye: '#ff3b3b', wide: 8,
     headW: 6.2, headH: 5.6, torsoW: 8.4, torsoH: 5.6, legH: 3.2, legW: 2.2, lean: 3, stride: 1, belly: 0,
     extra: (ctx, a) => { ell(ctx, a.tx + 5.6, a.ty + 3.8, 1.6, 0.8); ctx.fillStyle = 'rgba(150,20,30,.75)'; ctx.fill(); ell(ctx, a.tx + 2.4, a.ty + 1.8, 1, 0.7); ctx.fillStyle = '#82a862'; ctx.fill(); },
   },
   office: {
-    skin: '#98bc76', shirt: '#e6e8f0', pants: '#2a2e3a', eye: '#ff3b3b', wide: 7,
+    skin: '#98bc76', shirt: '#cfeac0', pants: '#2a3a2e', eye: '#ff3b3b', wide: 7,
     headW: 6.4, headH: 6.2, torsoW: 7.4, torsoH: 7.6, legH: 6.5, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
     extra: (ctx, a) => {
       ctx.beginPath(); ctx.moveTo(a.tx + 3.4, a.ty + 0.6); ctx.lineTo(a.tx + 4.4, a.ty + 0.6); ctx.lineTo(a.tx + 4.6, a.ty + 5); ctx.lineTo(a.tx + 3.9, a.ty + 5.8); ctx.lineTo(a.tx + 3.2, a.ty + 5); ctx.closePath();
-      shade(ctx, '#d83a3a', a.tx + 3, a.ty, 2, 6); edge(ctx, 0.3);
+      shade(ctx, '#3aa84a', a.tx + 3, a.ty, 2, 6); edge(ctx, 0.3);
     },
     front: (ctx, a) => { rr(ctx, a.hx + 0.6, a.hy + 1.6, 2.8, 1.4, 0.5); ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 0.45; ctx.stroke(); ctx.fillStyle = 'rgba(160,220,255,.35)'; ctx.fill(); },
   },
   farmer: {
-    skin: '#8fb26a', shirt: '#c8463a', pants: '#3a5a9a', eye: '#ff3b3b', wide: 7,
+    skin: '#8fb26a', shirt: '#4c9a3e', pants: '#3a5a9a', eye: '#ff3b3b', wide: 7,
     headW: 6.4, headH: 6.2, torsoW: 7.4, torsoH: 7.6, legH: 6.5, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
     extra: (ctx, a) => {
       rr(ctx, a.tx + 0.8, a.ty + 3, 5.8, 4.4, 0.8); shade(ctx, '#3d5ea0', a.tx, a.ty + 3, 6, 4.4); edge(ctx, 0.3);
@@ -204,32 +204,32 @@ const ZOMBIES: Record<string, ZSpec> = {
     front: (ctx, a) => {
       ell(ctx, a.hx + 3.2, a.hy + 0.6, 5.6, 1.2); shade(ctx, '#e0bc50', a.hx - 2.4, a.hy - 0.6, 11, 2.4); edge(ctx, 0.35);
       rr(ctx, a.hx + 0.8, a.hy - 2.2, 4.8, 2.8, 1.2); shade(ctx, '#ecc860', a.hx + 0.8, a.hy - 2.2, 4.8, 2.8); edge(ctx, 0.35);
-      ctx.fillStyle = '#b83a30'; ctx.fillRect(a.hx + 0.9, a.hy - 0.2, 4.6, 0.6);
+      ctx.fillStyle = '#3a8a34'; ctx.fillRect(a.hx + 0.9, a.hy - 0.2, 4.6, 0.6);
     },
   },
   prisoner: {
-    skin: '#8cae6a', shirt: '#ff8a2a', pants: '#ff8a2a', eye: '#ff3b3b', wide: 7,
+    skin: '#8cae6a', shirt: '#6cc24a', pants: '#6cc24a', eye: '#ff3b3b', wide: 7,
     headW: 6.4, headH: 6.2, torsoW: 7.4, torsoH: 7.6, legH: 6.5, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
     extra: (ctx, a) => { rr(ctx, a.tx + 1.2, a.ty + 1.8, 4.6, 2, 0.4); ctx.fillStyle = '#f4f4f4'; ctx.fill(); ctx.fillStyle = '#222'; for (const x of [1.8, 3, 4.2]) ctx.fillRect(a.tx + x, a.ty + 2.3, 0.7, 1); },
     front: (ctx, a) => { ctx.fillStyle = '#3a2a20'; ctx.fillRect(a.hx + 1, a.hy - 0.2, 4.4, 0.8); },
   },
   // ----- Yellow family -----
   jogger: {
-    skin: '#a2c874', shirt: '#4ad6ff', pants: '#22242a', eye: '#ffe24a', wide: 6,
+    skin: '#a2c874', shirt: '#f2c230', pants: '#22242a', eye: '#ffe24a', wide: 6,
     headW: 5.4, headH: 5.4, torsoW: 5.8, torsoH: 6.4, legH: 8.2, legW: 2.2, lean: 2, stride: 3.2, belly: 0,
-    front: (ctx, a) => { rr(ctx, a.hx - 0.2, a.hy + 0.8, 5.8, 1.1, 0.5); shade(ctx, '#ff4a4a', a.hx, a.hy + 0.8, 5.8, 1.1); edge(ctx, 0.3); },
+    front: (ctx, a) => { rr(ctx, a.hx - 0.2, a.hy + 0.8, 5.8, 1.1, 0.5); shade(ctx, '#ffe27a', a.hx, a.hy + 0.8, 5.8, 1.1); edge(ctx, 0.3); },
   },
   courier: {
-    skin: '#9cc070', shirt: '#e0402a', pants: '#2a3a5a', eye: '#ffe24a', wide: 6,
+    skin: '#9cc070', shirt: '#e8b82a', pants: '#2a3a5a', eye: '#ffe24a', wide: 6,
     headW: 5.4, headH: 5.4, torsoW: 5.8, torsoH: 6.4, legH: 8.2, legW: 2.2, lean: 2, stride: 3.2, belly: 0,
-    extra: (ctx, a) => { rr(ctx, a.tx + 4.4, a.ty - 0.4, 4.4, 5.6, 1); shade(ctx, '#ffd23f', a.tx + 4.4, a.ty - 0.4, 4.4, 5.6); edge(ctx); },
+    extra: (ctx, a) => { rr(ctx, a.tx + 4.4, a.ty - 0.4, 4.4, 5.6, 1); shade(ctx, '#8a5a2a', a.tx + 4.4, a.ty - 0.4, 4.4, 5.6); edge(ctx); },
     front: (ctx, a) => { ctx.beginPath(); ctx.ellipse(a.hx + 2.8, a.hy + 1.4, 3.2, 2.4, 0, Math.PI, Math.PI * 2); ctx.closePath(); shade(ctx, '#ffd23f', a.hx, a.hy - 1, 6, 3); edge(ctx, 0.35); },
   },
   skater: {
-    skin: '#9fc272', shirt: '#7a4ab0', pants: '#5a5a62', eye: '#ffe24a', wide: 6,
+    skin: '#9fc272', shirt: '#f0c83a', pants: '#5a5a62', eye: '#ffe24a', wide: 6,
     headW: 5.4, headH: 5.4, torsoW: 6, torsoH: 6.4, legH: 8.2, legW: 2.2, lean: 2, stride: 3.2, belly: 0,
-    extra: (ctx, a) => { ctx.fillStyle = '#a77ad8'; ctx.fillRect(a.tx + 0.6, a.ty + 3.2, 4.8, 0.8); },
-    front: (ctx, a) => { ctx.beginPath(); ctx.ellipse(a.hx + 3, a.hy + 1.2, 3, 2, 0, Math.PI, Math.PI * 2); ctx.closePath(); shade(ctx, '#2a9a52', a.hx, a.hy - 0.8, 6, 2); edge(ctx, 0.35); rr(ctx, a.hx + 5, a.hy + 0.4, 2.2, 0.9, 0.4); shade(ctx, '#2a9a52', a.hx + 5, a.hy + 0.4, 2.2, 0.9); edge(ctx, 0.3); },
+    extra: (ctx, a) => { ctx.fillStyle = '#b88a1a'; ctx.fillRect(a.tx + 0.6, a.ty + 3.2, 4.8, 0.8); },
+    front: (ctx, a) => { ctx.beginPath(); ctx.ellipse(a.hx + 3, a.hy + 1.2, 3, 2, 0, Math.PI, Math.PI * 2); ctx.closePath(); shade(ctx, '#2a2a30', a.hx, a.hy - 0.8, 6, 2); edge(ctx, 0.35); rr(ctx, a.hx + 5, a.hy + 0.4, 2.2, 0.9, 0.4); shade(ctx, '#2a2a30', a.hx + 5, a.hy + 0.4, 2.2, 0.9); edge(ctx, 0.3); },
   },
   athlete: {
     skin: '#a6c878', shirt: '#ffd23f', pants: '#1a3a8a', eye: '#ffe24a', wide: 6,
@@ -239,7 +239,7 @@ const ZOMBIES: Record<string, ZSpec> = {
   },
   // ----- Red family -----
   bouncer: {
-    skin: '#82a062', shirt: '#1f1f25', pants: '#2a2a30', eye: '#ff3b3b', wide: 10,
+    skin: '#82a062', shirt: '#b2302c', pants: '#2a2a30', eye: '#ff3b3b', wide: 10,
     headW: 7.2, headH: 6.4, torsoW: 11, torsoH: 9.6, legH: 6.4, legW: 3.4, lean: 0, stride: 2, belly: 0,
     extra: (ctx, a) => { ctx.beginPath(); ctx.moveTo(a.tx + 2.4, a.ty + 0.8); ctx.quadraticCurveTo(a.tx + 5.4, a.ty + 4, a.tx + 8.4, a.ty + 0.8); ctx.strokeStyle = '#f0c840'; ctx.lineWidth = 0.7; ctx.stroke(); },
     front: (ctx, a) => { rr(ctx, a.hx - 0.4, a.hy + 1.6, 4.6, 1.4, 0.6); ctx.fillStyle = '#0a0a0c'; ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(a.hx + 0.4, a.hy + 1.9, 1, 0.4); },
@@ -258,48 +258,48 @@ const ZOMBIES: Record<string, ZSpec> = {
     },
   },
   butcher: {
-    skin: '#80a062', shirt: '#ece8dc', pants: '#3a3030', eye: '#ff3b3b', wide: 10,
+    skin: '#80a062', shirt: '#c8443a', pants: '#3a3030', eye: '#ff3b3b', wide: 10,
     headW: 7.2, headH: 6.4, torsoW: 11, torsoH: 9.6, legH: 6.4, legW: 3.4, lean: 0, stride: 2, belly: 0,
-    extra: (ctx, a) => { for (const [x, y, r] of [[2.4, 3.4, 1], [6, 5.6, 1.3], [8.4, 2.4, 0.8]]) { ell(ctx, a.tx + x, a.ty + y, r, r * 0.7); ctx.fillStyle = 'rgba(170,20,30,.8)'; ctx.fill(); } },
+    extra: (ctx, a) => { for (const [x, y, r] of [[2.4, 3.4, 1], [6, 5.6, 1.3], [8.4, 2.4, 0.8]]) { ell(ctx, a.tx + x, a.ty + y, r, r * 0.7); ctx.fillStyle = 'rgba(90,10,14,.75)'; ctx.fill(); } },
     front: (ctx, a) => {
       rr(ctx, a.tx - 10.4, a.ty - 0.6, 4, 4, 0.5); shade(ctx, '#d0d6de', a.tx - 10.4, a.ty - 0.6, 4, 4, 0.4, 0.3); edge(ctx, 0.35);
       rr(ctx, a.tx - 7, a.ty + 2, 2.6, 1, 0.4); ctx.fillStyle = '#5a4028'; ctx.fill();
     },
   },
   juggernaut: {
-    skin: '#72905a', shirt: '#4c5058', pants: '#2a2a32', eye: '#ff2a2a', wide: 11,
+    skin: '#72905a', shirt: '#7a2626', pants: '#2a2228', eye: '#ff2a2a', wide: 11,
     headW: 8, headH: 7, torsoW: 12, torsoH: 10.4, legH: 6, legW: 4, lean: 0, stride: 1.2, belly: 0,
-    extra: (ctx, a) => { rr(ctx, a.tx + 0.4, a.ty + 0.4, 11.2, 6, 2); shade(ctx, '#5e646e', a.tx, a.ty, 12, 6.4, 0.4, 0.35); edge(ctx); ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(a.tx + 1, a.ty + 2.6, 10, 0.7); },
+    extra: (ctx, a) => { rr(ctx, a.tx + 0.4, a.ty + 0.4, 11.2, 6, 2); shade(ctx, '#a83a32', a.tx, a.ty, 12, 6.4, 0.4, 0.35); edge(ctx); ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(a.tx + 1, a.ty + 2.6, 10, 0.7); },
     front: (ctx, a) => {
-      rr(ctx, a.hx - 0.2, a.hy - 1, 8.4, 7.4, 3); shade(ctx, '#6a707a', a.hx, a.hy - 1, 8.4, 7.4, 0.45, 0.35); edge(ctx);
+      rr(ctx, a.hx - 0.2, a.hy - 1, 8.4, 7.4, 3); shade(ctx, '#b4443a', a.hx, a.hy - 1, 8.4, 7.4, 0.45, 0.35); edge(ctx);
       rr(ctx, a.hx + 0.2, a.hy + 2.2, 5, 1.1, 0.5); ctx.fillStyle = '#1a0a0a'; ctx.fill(); glow(ctx, a.hx + 1.6, a.hy + 2.7, 1.6, '#ff2a2a', 1);
     },
   },
   // ----- Teal family -----
   labtech: {
-    skin: '#7cb488', shirt: '#ecece4', pants: '#4a4a5a', eye: '#6dffe6', wide: 7,
+    skin: '#7cb488', shirt: '#3fb5a8', pants: '#2a4a4a', eye: '#6dffe6', wide: 7,
     headW: 6.2, headH: 6.2, torsoW: 7.4, torsoH: 7.6, legH: 6.4, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
-    extra: (ctx, a) => { rr(ctx, a.tx + 4.4, a.ty + 1, 1, 2.6, 0.4); ctx.fillStyle = '#4ad6c8'; ctx.fill(); },
+    extra: (ctx, a) => { rr(ctx, a.tx + 4.4, a.ty + 1, 1, 2.6, 0.4); ctx.fillStyle = '#e8fffa'; ctx.fill(); },
     front: (ctx, a) => { rr(ctx, a.hx + 0.2, a.hy + 1.2, 4, 2, 0.9); shade(ctx, '#3a9a8a', a.hx, a.hy + 1.2, 4, 2); edge(ctx, 0.3); ell(ctx, a.hx + 1.4, a.hy + 1.8, 0.5, 0.4); ctx.fillStyle = '#dffff8'; ctx.fill(); },
   },
   sewer: {
     skin: '#78a876', shirt: '#2a7070', pants: '#2a7070', eye: '#6dffe6', wide: 7,
     headW: 6.2, headH: 6.2, torsoW: 7.4, torsoH: 7.6, legH: 6.4, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
     extra: (ctx, a) => { ctx.fillStyle = '#4ad6c8'; ctx.fillRect(a.tx + 0.6, a.ty + 4.4, 6.2, 0.8); },
-    front: (ctx, a) => { ctx.beginPath(); ctx.ellipse(a.hx + 3.2, a.hy + 1.2, 4, 2.8, 0, Math.PI, Math.PI * 2); ctx.closePath(); shade(ctx, '#ffd23f', a.hx - 0.8, a.hy - 1.6, 8, 2.8); edge(ctx, 0.35); rr(ctx, a.hx - 1.2, a.hy + 0.9, 8.8, 0.8, 0.4); shade(ctx, '#e8b820', a.hx - 1.2, a.hy + 0.9, 8.8, 0.8); edge(ctx, 0.25); },
+    front: (ctx, a) => { ctx.beginPath(); ctx.ellipse(a.hx + 3.2, a.hy + 1.2, 4, 2.8, 0, Math.PI, Math.PI * 2); ctx.closePath(); shade(ctx, '#4ad6c8', a.hx - 0.8, a.hy - 1.6, 8, 2.8); edge(ctx, 0.35); rr(ctx, a.hx - 1.2, a.hy + 0.9, 8.8, 0.8, 0.4); shade(ctx, '#2fa89a', a.hx - 1.2, a.hy + 0.9, 8.8, 0.8); edge(ctx, 0.25); },
   },
   diver: {
-    skin: '#74a474', shirt: '#ecd444', pants: '#ecd444', eye: '#6dffe6', wide: 7,
+    skin: '#74a474', shirt: '#3fc4b4', pants: '#3fc4b4', eye: '#6dffe6', wide: 7,
     headW: 6.2, headH: 6.2, torsoW: 7.4, torsoH: 7.6, legH: 6.4, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
     front: (ctx, a) => {
-      rr(ctx, a.hx - 0.8, a.hy - 1, 7.8, 7.6, 3); shade(ctx, '#ecd444', a.hx - 0.8, a.hy - 1, 7.8, 7.6); edge(ctx);
+      rr(ctx, a.hx - 0.8, a.hy - 1, 7.8, 7.6, 3); shade(ctx, '#4ad6c8', a.hx - 0.8, a.hy - 1, 7.8, 7.6); edge(ctx);
       rr(ctx, a.hx + 0.2, a.hy + 0.8, 4.4, 2.6, 1); const g = ctx.createLinearGradient(a.hx, a.hy + 0.8, a.hx + 4, a.hy + 3.4); g.addColorStop(0, '#9ffff0'); g.addColorStop(1, '#1f6a6a'); ctx.fillStyle = g; ctx.fill(); edge(ctx, 0.3);
       glow(ctx, a.hx + 1.6, a.hy + 2, 1.2, '#6dffe6', 0.8);
       ell(ctx, a.hx - 0.6, a.hy + 4.6, 1.4, 1.2); shade(ctx, '#2a2a2a', a.hx - 2, a.hy + 3.4, 2.8, 2.4); edge(ctx, 0.3);
     },
   },
   plague: {
-    skin: '#70946a', shirt: '#26262c', pants: '#1e1e24', eye: '#6dffe6', wide: 7,
+    skin: '#70946a', shirt: '#1f6a64', pants: '#173a38', eye: '#6dffe6', wide: 7,
     headW: 6.2, headH: 6.2, torsoW: 7.4, torsoH: 8.2, legH: 5.6, legW: 2.4, lean: 1, stride: 2.2, belly: 0,
     front: (ctx, a) => {
       ctx.beginPath(); ctx.moveTo(a.hx + 0.6, a.hy + 2.2); ctx.quadraticCurveTo(a.hx - 4, a.hy + 3, a.hx - 4.6, a.hy + 5.2); ctx.quadraticCurveTo(a.hx - 1.4, a.hy + 4.6, a.hx + 1, a.hy + 4.6); ctx.closePath();
@@ -310,7 +310,7 @@ const ZOMBIES: Record<string, ZSpec> = {
   },
   // ----- Purple family -----
   chef: {
-    skin: '#a08eb4', shirt: '#f2f2f2', pants: '#2a2a3a', eye: '#e0a8ff', wide: 10,
+    skin: '#a08eb4', shirt: '#c8aef0', pants: '#2a2a3a', eye: '#e0a8ff', wide: 10,
     headW: 6.2, headH: 5.4, torsoW: 11.4, torsoH: 8.6, legH: 5.4, legW: 3.2, lean: 0, stride: 1.2, belly: 5.4,
     extra: (ctx, a) => { ctx.fillStyle = 'rgba(200,60,60,.8)'; ctx.fillRect(a.tx - 1.6, a.ty + 3.2, 3, 0.8); },
     front: (ctx, a) => { rr(ctx, a.hx + 0.4, a.hy - 3, 5.4, 3.4, 1); shade(ctx, '#ffffff', a.hx, a.hy - 3, 5.4, 3.4, 0.2, 0.15); edge(ctx, 0.35); for (const x of [0.8, 3, 5.2]) { ell(ctx, a.hx + x, a.hy - 3.4, 1.6, 1.4); shade(ctx, '#ffffff', a.hx + x - 1.6, a.hy - 4.8, 3.2, 2.8, 0.2, 0.15); edge(ctx, 0.3); } },

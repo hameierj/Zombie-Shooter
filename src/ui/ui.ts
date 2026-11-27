@@ -237,6 +237,7 @@ function act(d: ActionData): boolean {
       }
       break;
     }
+    case 'unlock-unit': game.hire(cls); break;
     case 'hire': for (let i = 0, t = -1; i < amtN() && t !== game.unit(cls).count; i++) { t = game.unit(cls).count; game.hire(cls); } break;
     case 'node': if (!view.dragged) { selectedNode = arg; render(); } break;
     case 'allocate': game.allocate(arg); break;
@@ -313,6 +314,15 @@ function refresh() {
     const ok = game.canAfford(el.dataset.col as StrainId, Number(el.dataset.cost));
     el.disabled = !ok;
     if (el.classList.contains('mu') && el.classList.contains('afford') !== ok) { el.classList.toggle('afford', ok); flipped = true; }
+  }
+  // recruit cards: grow the progress bar, and switch to the Unlock button once it's affordable
+  for (const bar of document.querySelectorAll<HTMLElement>('.rc-bar[data-need]')) {
+    const col = bar.dataset.col as StrainId, need = Number(bar.dataset.need), have = game.dna(col);
+    const pct = Number.isFinite(have) ? Math.min(100, Math.exp(have - need) * 100) : 0;
+    bar.querySelector<HTMLElement>('i')!.style.width = `${pct}%`;
+    const btn = bar.nextElementSibling as HTMLElement | null;
+    if (btn && game.s.strains[col].unlocked) btn.firstChild!.textContent = `${Math.floor(pct)}% of the way`;
+    if (game.s.strains[col].unlocked && game.canAfford(col, need)) flipped = true;
   }
   if (flipped) soft();
   const kc = document.querySelector<HTMLElement>('.keep.slim');
@@ -411,18 +421,33 @@ function zombiesHtml() {
 
 // ---------- Squad tab: overview of unit types, plus the item stash ----------
 function abilityPips(u: Unit) { const k = M.abilityStage(u); return `<span class="pips">${[1, 2, 3].map((i) => `<i class="${i <= k ? 'on' : ''}"></i>`).join('')}</span>`; }
+/** A unit type you haven't hired yet: what it brings, and one big Unlock button (or how close you are). */
+function recruitPanel(c: M.ClassDef) {
+  const col = game.hireColour(c.id), ln = game.hireCost(c.id);
+  const released = game.s.strains[col].unlocked;
+  const ready = released && game.canAfford(col, ln);
+  const have = game.dna(col);
+  const pct = Number.isFinite(have) ? Math.max(0, Math.min(100, Math.exp(have - ln) * 100)) : 0;
+  const vs = Object.entries(M.MATCH[c.id] ?? {}).filter(([, m]) => (m as number) > 1).map(([z]) => M.strainById(z as M.StrainId).dna);
+  return `<div class="rc-panel ${ready ? 'rc-ready' : ''}">
+    <div class="rc-facts"><span class="rc-tag">${c.ability.tags[0]} → ${c.ability.tags[2].replace(/^[A-Za-z]+ /, '')}</span>${vs.length ? `<span class="rc-vs">Strong vs ${vs.join(', ')}</span>` : ''}</div>
+    ${ready ? '' : `<div class="rc-bar" data-col="${col}" data-need="${ln}"><i style="width:${pct}%"></i></div>`}
+    <button class="btn rc-btn ${ready ? '' : 'wait'}" ${ready ? `data-action="unlock-unit" data-cls="${c.id}" ${costAttr(col, ln)}` : 'disabled'}>
+      ${ready ? `UNLOCK ${c.plural.toUpperCase()}` : released ? `${Math.floor(pct)}% of the way` : `Needs ${M.strainById(col).dna} DNA`}<span class="rc-price">${vial(col)}${fmtLn(ln)}</span></button>
+  </div>`;
+}
 function squadHtml() {
   const s = game.s;
   const cards = M.CLASSES.map((c) => {
     const u = game.unit(c.id);
     const open = game.classUnlocked(c.id);
-    if (!open) return `<div class="ucard locked"><img class="px portrait" src="${classIcon(c.id)}" alt=""><div class="u-main"><b>${c.plural}</b><span class="sub">${c.gun}</span></div><span class="lock">🔒 Horde ${c.horde}</span></div>`;
+    if (!open) return `<div class="ucard locked"><img class="px portrait" src="${classIcon(c.id)}" alt=""><div class="u-main"><b>${c.plural}</b><span class="sub">${c.gun} · 🔒 Beat Horde ${c.horde} to unlock</span></div></div>`;
     const ab = M.abilityStage(u);
     return `<div class="ucard" style="--c1:${M.strainById(c.primary).color};--c2:${M.strainById(c.secondary).color}" title="${c.ability.name}: ${esc(ab ? c.ability.stages[ab - 1] : 'not unlocked yet')}">
       <img class="px portrait" src="${classIcon(c.id)}" alt="">
       <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
         <span class="sub">${u.count ? `Lv ${M.nlv(u, 'dmg')} · ${fmtLn(game.unitDps(u))} DPS` : `${c.gun} · not hired yet`}</span></div>
-      ${u.count ? `${upgradeRow(c.id)}${gearShelf(c.id)}` : `<div class="ugrid">${hireBtn(c.id)}<p class="sub small hint">Hire one to unlock upgrades and gear. Upgrades are paid in ${vial(c.primary)} and ${vial(c.secondary)}.</p></div>`}
+      ${u.count ? `${upgradeRow(c.id)}${gearShelf(c.id)}` : recruitPanel(c)}
     </div>`;
   }).join('');
   return `${topBar()}<p class="sub">Hire and upgrade each unit right on its card; Ability and Gear slots unlock stage by stage. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
@@ -656,7 +681,8 @@ const slotName = (id: string) => (id === 'backup' ? 'Backup' : `Slot ${id}`);
 interface Slot { code: string; savedAt: number }
 function slotRead(id: string): Slot | null { try { const r = localStorage.getItem(slotKey(id)); return r ? JSON.parse(r) as Slot : null; } catch { return null; } }
 function slotWrite(id: string, code: string) { try { localStorage.setItem(slotKey(id), JSON.stringify({ code, savedAt: Date.now() })); return true; } catch { toast('<b>Could not save</b><span>Storage is full or blocked</span>', '#ff6767'); return false; } }
-const saveLine = (m: ReturnType<typeof Game.summary>) => `Tier ${fmtInt(m.best)} · ${m.hordes} horde${m.hordes === 1 ? '' : 's'} · ${m.soldiers} soldier${m.soldiers === 1 ? '' : 's'}`;
+const playTime = (sec: number) => { const m = Math.floor(sec / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
+const saveLine = (m: ReturnType<typeof Game.summary>) => `Tier ${fmtInt(m.best)} · ${m.hordes} horde${m.hordes === 1 ? '' : 's'} · ${m.soldiers} soldier${m.soldiers === 1 ? '' : 's'}${m.playSec >= 60 ? ` · ${playTime(m.playSec)} played` : ''}`;
 function ago(t: number) {
   const s = Math.max(0, (Date.now() - t) / 1000);
   if (s < 45) return 'just now';
