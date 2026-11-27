@@ -2,7 +2,9 @@
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import { showTitle } from './title.ts';
-import { biohazard, evolveCard, hordeCards, showCards } from './unlocks.ts';
+import { biohazard, evolveCard, hordeCards, overlayUp, showCards } from './unlocks.ts';
+import { coachUp } from './tutorial.ts';
+import { titleUp } from './title.ts';
 import { showRanges, setShowRanges } from '../core/prefs';
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
@@ -200,7 +202,42 @@ export function initUI() {
   render();
   refresh();
   setInterval(refresh, 300);
+  setInterval(tickNudge, 500);
   setInterval(tickCombo, 100);
+}
+
+// ---------- prompts: "new recruits ready" and "a horde is ready" (so nobody has to dig through the menus) ----------
+let nudgeKey = '';
+const nudgeOff = new Map<string, number>();   // dismissed prompt → when it may come back
+function tickNudge() {
+  const el = document.getElementById('nudge');
+  if (!el) return;
+  const quiet = !!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !($('#modal') as HTMLElement).hidden;
+  let key = '', html = '';
+  if (!quiet) {
+    const off = (k: string) => (nudgeOff.get(k) ?? 0) > performance.now();
+    const fresh = M.CLASSES.find((c) => game.classUnlocked(c.id) && game.unit(c.id).count === 0 && game.canHire(c.id) && !off(`hire-${c.id}`));
+    if (fresh) {
+      key = `hire-${fresh.id}`;
+      const col = M.strainById(fresh.primary).color;
+      html = `<div class="nd-card" style="--c:${col}"><img class="px nd-ic" src="${classIcon(fresh.id)}" alt="">
+        <div class="nd-t"><b>${esc(fresh.plural)}</b><span>Ready to hire</span></div>
+        <button class="btn nd-go" data-action="nudge-hire" data-cls="${fresh.id}">Hire ${cost(fresh.primary, game.hireCost(fresh.id))}</button>
+        <button class="nd-x" data-action="nudge-x" data-arg="${key}" aria-label="Dismiss">✕</button></div>`;
+    } else if (battlePhase === 'stream' && !game.autoHorde && game.hordeOdds() >= C.hordeWinOdds && !off(`horde-${game.nextHorde}`)) {
+      const h = M.hordeDef(game.nextHorde), bd = M.BOSSES[h.boss];
+      key = `horde-${h.index}`;
+      html = `<div class="nd-card horde" style="--c:#ff5a4a"><img class="px nd-ic" src="${zombieIcon(bd.look)}" alt="">
+        <div class="nd-t"><b>${h.elite ? 'Elite horde' : `Horde ${h.index}`} ready</b><span>Should win · Boss: ${esc(bd.name)}</span></div>
+        <button class="btn nd-go" data-action="nudge-horde" aria-label="Start the horde">Fight!</button>
+        <button class="nd-x" data-action="nudge-x" data-arg="${key}" aria-label="Dismiss">✕</button></div>`;
+    }
+  }
+  if (key === nudgeKey) return;
+  nudgeKey = key;
+  if (!key) { el.classList.remove('in'); window.setTimeout(() => { if (!nudgeKey) el.hidden = true; }, 220); return; }
+  el.innerHTML = html; el.hidden = false; void el.offsetWidth; el.classList.add('in');
+  sfx.nextCard();
 }
 
 /** The combo meter over the battlefield (hidden while a menu covers the map or the combo is small). */
@@ -276,6 +313,9 @@ function act(d: ActionData): boolean {
     case 'hire': for (let i = 0, t = -1; i < amtN() && t !== game.unit(cls).count; i++) { t = game.unit(cls).count; game.hire(cls); } break;
     case 'allocate': { const had = game.s.alloc.length; game.allocate(arg); if (game.s.alloc.length > had) { const n = treeNode(arg); treeFresh = arg; toast(`<b>${esc(n.size === 'small' ? n.desc : n.name)}</b><span>${esc(n.size === 'small' ? REGIONS[n.region].name : n.desc)}</span>`, REGIONS[n.region].color); } break; }
     case 'horde': game.startHorde(); tab = null; render(); break;
+    case 'nudge-hire': game.hire(cls); tickNudge(); break;
+    case 'nudge-horde': game.startHorde(); tickNudge(); break;
+    case 'nudge-x': nudgeOff.set(arg, arg.startsWith('horde') ? performance.now() + 120000 : Infinity); tickNudge(); break;
     case 'prestige': openPrestige(); break;
     case 'perk': game.buyPerk(arg as M.PerkId); openPrestige(); break;
     case 'prestige-go': picks = {}; openPicker(); break;

@@ -286,6 +286,12 @@ while the app is in the background).
   (sleeveless, bandana, shades, ammo belt), Drone Operator (hoodie, glowing visor), Mortar Team (desert tan, boonie,
   ear defenders), Tesla Trooper (rubber suit, copper coils, brass goggles), Railgunner (white power armour).
 
+## 12a. Prompts
+Two small cards slide up above the tabs (left of the quick rail) so nobody has to dig through menus: **{Unit} · Ready to hire**
+when a newly unlocked unit type's first soldier is affordable (Hire button, hires one), and **Horde N ready** when the
+squad should win the next horde and War Drums isn't on (Fight! starts it). Each has a ✕ (a horde prompt comes back after
+2 min). They never show over a menu, card, tip, dialog or during a horde.
+
 ## 12b. Squad vs zombies balance
 Zombie HP grows ×1.2 per tier while their DNA grows ×1.15 (`hpR` vs `R`): higher tiers get relatively tougher, so the
 squad's one-off boosts get used up over time. Units are cheap to start (prices ×2, `unitCostMult`) but every level
