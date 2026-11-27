@@ -11,6 +11,7 @@ import { initUI } from './ui/ui.ts';
 import { music, pauseAudio, unlockAudio } from './audio/sfx.ts';
 import { showTitle, titleUp } from './ui/title.ts';
 import { overlayUp } from './ui/unlocks.ts';
+import { coachUp, initTutorial } from './ui/tutorial.ts';
 
 const app = document.getElementById('app')!;
 const field = document.getElementById('field')!;
@@ -69,6 +70,7 @@ phaser.events.once(Phaser.Core.Events.READY, () => setTimeout(fitCanvas, 0));
 // ---------- UI ----------
 initUI();
 showTitle();
+initTutorial();
 // music follows the battle: the horde track from the WARNING until the horde ends
 game.on((evt, data) => { if (evt === 'phase') music(data === 'intro' || data === 'horde' ? 'horde' : 'battle'); });
 
@@ -81,7 +83,7 @@ const fmtTime = (sec: number) => {
 };
 setInterval(() => {
   const now = performance.now();
-  if (!document.hidden && !titleUp() && !overlayUp()) game.s.playSec = (game.s.playSec ?? 0) + Math.min(now - lastTick, 2000) / 1000;   // a long gap = the app was asleep
+  if (!document.hidden && !titleUp() && !overlayUp() && !coachUp()) game.s.playSec = (game.s.playSec ?? 0) + Math.min(now - lastTick, 2000) / 1000;   // a long gap = the app was asleep
   lastTick = now;
   timeEl.textContent = fmtTime(game.s.playSec ?? 0);
 }, 250);

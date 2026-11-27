@@ -65,7 +65,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
         const up = { ...strains, [x.id]: { ...st, tier: st.tier + 1 } };
         if (st.tier < M.tierCapOf(x.id) && keep(up) >= 1.15) opts.push({ col: x.family, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); equip(); } });
         const sp = { ...strains, [x.id]: { ...st, spawn: st.spawn + 1 } };
-        if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ col: x.family, ln: M.lnSpawnCost(x.id, st.spawn), go: () => { st.spawn++; } });
+        if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ col: x.family, ln: M.lnSpawnCost(x.id, st.spawn, st.maxTier), go: () => { st.spawn++; } });
       }
       for (const u of Object.values(units)) {
         const c = M.classById(u.cls);
@@ -108,7 +108,8 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
     const k = Math.min(1, M.keepUp(sq, f, strains));
     const rate = M.lnDnaPerSec(sq, f, strains);
     let kills = 0;
-    for (const c of M.COLOURS) s.dna[c] = M.logAdd(s.dna[c], rate[c] + Math.log(DT));
+    // real play also earns combo (per type, ~×1.3 on average) and special zombies (~+10%)
+    for (const c of M.COLOURS) s.dna[c] = M.logAdd(s.dna[c], rate[c] + Math.log(DT * Number(process.env.LIVE ?? 1.4)));
     for (const x of M.activeStrains(strains)) kills += M.spawnRate(x, strains[x].spawn) * k * DT;
     if (rng() < kills * M.dropChance(strains, f)) drop();
     if (profile.hordes && M.hordeOdds(sq, f, s.hordes + 1) >= 1.1) {

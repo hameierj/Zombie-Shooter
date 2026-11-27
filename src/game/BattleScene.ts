@@ -8,6 +8,7 @@
 import { showRanges } from '../core/prefs';
 import { titleUp } from '../ui/title.ts';
 import { overlayUp } from '../ui/unlocks.ts';
+import { coachUp } from '../ui/tutorial.ts';
 import Phaser from 'phaser';
 import * as M from '../core/model.ts';
 import type { ClassId, Gun, SpecialId, VarietyId, ZombieId } from '../core/model.ts';
@@ -255,7 +256,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   update(_t: number, deltaMs: number) {
-    if (titleUp() || overlayUp()) { this.tickShooters(0); return; }   // paused behind the start screen or the unlock cards   // paused behind the start screen (soldiers placed, nothing moves)
+    if (titleUp() || overlayUp() || coachUp()) { this.tickShooters(0); this.drawFx(); return; }   // paused behind the start screen, unlock cards or a tutorial step   // paused behind the start screen (soldiers placed, nothing moves)
     const dt = Math.min(0.1, deltaMs / 1000);
     this.phaseT += dt;
     this.teeth.tilePositionY -= dt * 30 * RES;
@@ -292,10 +293,17 @@ export class BattleScene extends Phaser.Scene {
       if (this.phase === 'end' && this.phaseT > 1.5) {
         this.setPhase('stream');
         if (this.newGround) {
-          this.newGround = false; this.relayout();
-          const bd = M.BOSSES[M.hordeDef(game.nextHorde).boss];
-          this.cameras.main.flash(500, 255, 255, 255);
-          this.showBanner(bd.place.toUpperCase(), `NEW BATTLEGROUND · NEXT BOSS: ${bd.name.toUpperCase()}`, 'info', 2000);
+          // scene change: push in and fade to black, swap the battleground, then settle back out of the dark
+          this.newGround = false;
+          const cam = this.cameras.main, bd = M.BOSSES[M.hordeDef(game.nextHorde).boss];
+          cam.zoomTo(1.12, 520, 'Quad.easeIn');
+          cam.fadeOut(520, 0, 0, 0);
+          cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+            this.relayout();
+            cam.setZoom(1.08); cam.zoomTo(1, 900, 'Quad.easeOut');
+            cam.fadeIn(700, 0, 0, 0);
+            this.time.delayedCall(250, () => this.showBanner(bd.place.toUpperCase(), `NEW BATTLEGROUND · NEXT BOSS: ${bd.name.toUpperCase()}`, 'info', 2200));
+          });
         }
       }
     } else if (this.phase === 'intro') {
@@ -338,7 +346,7 @@ export class BattleScene extends Phaser.Scene {
     }
     game.comboTick(dt);
     // steady income through the horde and until the restarted stream lands its first kill (no lump, no gap)
-    if (this.phase !== 'stream') this.awaitStream = true;
+    if (this.phase !== 'stream' && !this.awaitStream) { this.awaitStream = true; game.steadyCombo = game.comboMultAvg; }
     if (this.awaitStream) game.earnSteady(dt);
     this.tickZombies(dt);
     this.tickShooters(dt);
@@ -382,11 +390,11 @@ export class BattleScene extends Phaser.Scene {
         // pulled into the blades (not just vanishing)
         const s = z.sprite; z.sprite = undefined;
         if (s) this.tweens.add({ targets: s, x: this.lay.shredX * this.px + 8 * this.px, scaleX: 0.2, alpha: 0, duration: 260, ease: 'Quad.easeIn', onComplete: () => s.destroy() });
-        game.comboBreak();
+        game.comboBreak(z.strain);
         sfx.grind();
       }
       else {
-        if (!z.atWall) { z.atWall = true; game.comboBreak(); }
+        if (!z.atWall) { z.atWall = true; game.comboBreak(z.strain); }
         // in the blades: the shredder's damage is shared by every zombie on it, and always takes at least
         // a small share of their HP, so even an overwhelming pile-up dies eventually
         z.phase += dt * 3;
@@ -612,8 +620,9 @@ export class BattleScene extends Phaser.Scene {
     if (!z.horde && this.phase === 'stream' && !z.shredded) this.awaitStream = false;
     const vm = M.VARIETIES[z.variety].dna;
     // horde zombies pay DNA at YOUR tier, not the horde's (a tier-30 horde shouldn't hand a tier-10 player a fortune)
-    // horde kills pay no DNA: during a horde you earn your steady stream income instead (game.earnSteady), so no lump
-    const loot = game.zombieKilled(z.strain, z.tier, { shredded: !!z.shredded, mult: z.horde ? 0 : (sp?.dna ?? 1) * vm * (z.shredded ? C.shredDna * Math.min(1, this.keepCache) ** 2 : 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
+    // only the squad's stream kills pay: horde kills pay nothing (you earn steady income instead, game.earnSteady) and
+    // the shredder pays nothing
+    const loot = game.zombieKilled(z.strain, z.tier, { shredded: !!z.shredded, mult: z.horde || z.shredded ? 0 : (sp?.dna ?? 1) * vm, lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
     if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 
@@ -915,8 +924,13 @@ export class BattleScene extends Phaser.Scene {
 
   /** One dashed line per hired unit type at the edge of its range, with that type's gun as a marker. */
   private rangeIcons = new Map<ClassId, Phaser.GameObjects.Image>();
+  /** Tutorial: show the range lines for a while even if they're switched off in Settings. */
+  private rangeFlash = 0;
+  flashRanges(sec: number) { this.rangeFlash = this.time.now + sec * 1000; }
+  /** Tutorial: the shredder strip and the squad's rooftop as fractions of the field's width. */
+  layoutFractions() { return { shred0: this.lay.shredX * this.px / this.W, shred1: (this.lay.shredX + 26) * this.px / this.W, roof1: this.lay.bunkerRight * this.px / this.W }; }
   private drawRanges(g: Phaser.GameObjects.Graphics) {
-    if (!showRanges()) { for (const icon of this.rangeIcons.values()) icon.setVisible(false); return; }
+    if (!showRanges() && this.time.now > this.rangeFlash) { for (const icon of this.rangeIcons.values()) icon.setVisible(false); return; }
     const px = this.px;
     const top = this.lay.roadTop * px, bot = this.lay.roadBot * px;
     const owned = game.owned.filter((u) => u.count > 0);

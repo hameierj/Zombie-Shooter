@@ -48,13 +48,12 @@ Every released type has **its own two dials**, paid in its own colour:
 | Dial | Range | Effect |
 |---|---|---|
 | **DNA Count** (tier) | 1 → 50 (last form: ∞) | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
-| **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
+| **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type. Priced against the type's tier: half its next tier, ×1.2 per level, so it stays a real choice |
 
 The **keep-up meter** (Settings → Difficulty meters, which also shows horde odds) is **off by default**: players read the battlefield instead, and the
 shredder glows and pulses red while zombies are reaching it. The **shredder** grinds every zombie that reaches it by
 1% of its HP per second (no upgrades), so the road always clears and you can't get permanently stuck. There is no limit on how many can be at the shredder: a pile is drawn as a queue backing up the road (5 rows), and walkers stop behind it on screen. Horde zombies that break through are pulled into the blades; a lost horde fades away. Shredded
-zombies pay **25% of their DNA × keep-up²** and don't count for the combo: a little help when slightly behind,
-almost nothing when hopelessly overrun on purpose (so pushing tiers sky-high can't be farmed). When the shredder stays swamped for
+zombies pay **no DNA** and don't count for the combo: only the squad's kills pay. When the shredder stays swamped for
 20 s, a message suggests upgrading the squad. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
 whether the squad would still keep up. If the squad falls behind, zombies pile up at the shredder, which grinds them
 slowly. You never lose.
@@ -155,17 +154,20 @@ banner) right after you beat a horde.
 The odds (shown with **Difficulty meters** on) account for the type and boss: count × HP × a difficulty factor for
 speed, fog or healing, plus the extra zombies a boss brings, against the time until the boss arrives and walks in.
 Browser play tests: every horde type and boss won at 1.3, and 5 of 6 lost at 0.85. War Drums starts at 1.10.
-Hordes 1–7 are at effective tiers 18, 34, 78, 104, 130, 145 and 158, and unlock the unit types and regions above
-(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 172, 184, 196, 207, 217, 227,
+Hordes 1–7 are at effective tiers 16, 30, 52, 76, 96, 110 and 122, and unlock the unit types and regions above
+(Hordes 1–4 also bring the yellow, red, teal and purple colours). Elite hordes follow at 134, 145, 156, 166, 176, 186,
 then +10 each (some unlock the newer recruits, the rest give an epic+ item). Horde zombies are always each colour's first
 form. These are set from the balance sim (`node tools/sim.ts`, which prints the minute of each horde): hordes at about 6,
-13, 29, 41, 62, 73 and 90 min, then one every 20–40 min. If the next horde is far
+14, 28, 44, 61, 76 and 91 min, then one about every 15–20 min (tier price 80·1.15^(t−1); the sim counts
+combo and specials as ×1.4 income). If the next horde is far
 above your toughest zombies, its card says so and points you at raising zombie tiers.
 
 ## 5b. Combo
-Every kill while you're playing adds 1 to the **combo**, shown over the battlefield. DNA from kills is multiplied by
-up to **×1.5** at a 300 combo. The combo resets after 3 seconds without a kill and **halves whenever a zombie reaches
-the shredder**, so pushing the dials past what the squad can handle costs you the bonus. Offline time earns no combo.
+**Each zombie type has its own combo.** Every squad kill of a type adds 1 to that type's combo, and that type's DNA is
+multiplied by up to **×1.5** at a 150 combo. A type's combo resets after a few seconds without a kill of that type
+(3 s plus 2 s ÷ its spawn rate, so rare types aren't punished) and **halves whenever one of that type reaches the
+shredder**. The badge over the battlefield shows your best running combo with that zombie's face. During a horde the
+steady income uses your average combo from when the horde started.
 
 ## 6. Automation and time away
 **Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are
@@ -236,6 +238,18 @@ while the app is in the background).
 `docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).
 
 ## 12. Title screen, music and look
+- **Tutorial** (`src/ui/tutorial.ts`): ten coach steps that appear when they become useful: the battle and DNA, the
+  shredder (spotlighting the barricade), range (range lines shown for 9 s), raising a tier (the rail's Shambler),
+  the squad (the rail's Units switch), combos, the first horde (Hordes tab), the new yellow colour (its DNA chip),
+  the tree, and evolution (once a type nears tier 50). Each dims the screen around a pulsing spotlight with an animated
+  tapping finger and a speech bubble ("Tip n of 10"), pauses the game and the clock until "Got it", and is saved
+  (`tut` in the save; "Skip tutorial" marks all). At most one step every 7 s, never over a menu, card or dialog. Saves
+  from before the tutorial that are well into a run skip the basics.
+- **Evolving from the rail**: a type at tier 50 gets a spinning biohazard badge on its rail icon; its pop-over adds an
+  **Evolve → next form** button (hazard stripes, a scanning shine, toxic glow when affordable). The Zombies tab's Evolve
+  button has the biohazard too, and the evolution card spins a big biohazard behind the zombie.
+- **Battleground transition**: after a horde win (once the unlock cards are closed) the camera pushes in and fades to
+  black, the new battleground is swapped in, then it fades back in as the camera settles, with the place's banner.
 - **Unlock cards**: after a horde is won (once the VICTORY banner has shown) the battle and the play-time clock pause
   and each unlock gets its own card: the horde and its reward item, a new recruit (gun, range, targets, ability, where to
   hire), a new zombie colour (its DNA), and a new passive-tree region (its colour and goal). Evolving a zombie type gets a

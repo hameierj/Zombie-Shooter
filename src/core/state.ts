@@ -30,6 +30,8 @@ export interface SaveData {
   prestige: M.Prestige;
   /** Economy version: 2 = tier cap + evolutions + horde-unlocked colours (older saves are converted on load). */
   econ?: number;
+  /** Tutorial steps already shown. */
+  tut?: string[];
 }
 /** A dropped item; `sold` is set when auto-sell turned it straight into DNA. */
 export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & { sold?: Sale; alsoSold?: number };
@@ -96,6 +98,8 @@ function migrate(data: { version: number }): SaveData {
     autoSell: 'best' };   // auto-sell always keeps the best of each kind and sells the rest
   if (s.econ !== 2) out.strains = toEcon2(out.strains);
   out.econ = 2;
+  // saves from before the tutorial existed: don't teach the basics to someone well into a run
+  if (!out.tut && out.kills > 300) out.tut = ['welcome', 'shredder', 'range', 'tier', 'squad', 'combo', ...(out.hordes > 0 ? ['horde', 'colour', 'tree'] : [])];
   // colours are horde rewards: make sure every colour you've earned is out
   for (const [id, k] of Object.entries(M.COLOUR_HORDE) as [M.ZombieId, number][]) if (out.hordes >= k) out.strains[id].unlocked = true;
   return out;
@@ -193,7 +197,7 @@ export class Game {
     for (const g of this.s.guns) if (g.ilvl < floor) g.ilvl = floor;
   }
   lowerTier(s: ZombieId) { const x = this.s.strains[s]; if (x.tier > 1) { x.tier--; this.emit('change'); } }
-  spawnCost(s: ZombieId) { return M.lnSpawnCost(s, this.s.strains[s].spawn); }
+  spawnCost(s: ZombieId) { const x = this.s.strains[s]; return M.lnSpawnCost(s, x.spawn, x.maxTier); }
   buySpawn(s: ZombieId) {
     const x = this.s.strains[s];
     if (x.spawn < C.spawnMax && this.pay(M.familyOf(s), this.spawnCost(s))) { x.spawn++; this.emit('change'); }
@@ -422,14 +426,28 @@ export class Game {
   // ---------- the stream ----------
   /** A zombie was shredded: bank its DNA (silently) and maybe drop an item. */
   // ---------- combo (live play only; not saved) ----------
-  combo = 0;
+  // Each zombie type has its OWN combo: kills of that type build it and multiply that type's DNA. It drops after a few
+  // seconds without a kill of that type (longer for rare types), and halves when one of that type reaches the shredder.
+  private combos = new Map<ZombieId, { n: number; idle: number }>();
   comboBest = 0;
-  private comboIdle = 0;
-  get comboMult() { return M.comboMult(this.combo, 0.1 * M.plv(this.s.prestige, 'combo')); }
-  /** Called every frame by the battle: the combo drops to 0 after a few seconds without a kill. */
-  comboTick(dt: number) { if (this.combo && (this.comboIdle += dt) >= M.CONFIG.combo.timeoutSec) this.combo = 0; }
-  /** A zombie reached the shredder: the combo halves. */
-  comboBreak() { this.combo = Math.floor(this.combo / 2); }
+  private comboBonus() { return 0.1 * M.plv(this.s.prestige, 'combo'); }
+  comboOf(s: ZombieId) { return this.combos.get(s)?.n ?? 0; }
+  comboMultOf(s: ZombieId) { return M.comboMult(this.comboOf(s), this.comboBonus()); }
+  /** The best running combo (for the badge): its type and count. */
+  get topCombo(): { id: ZombieId | null; n: number } { let id: ZombieId | null = null, n = 0; for (const [k, v] of this.combos) if (v.n > n) { n = v.n; id = k; } return { id, n }; }
+  get combo() { return this.topCombo.n; }
+  get comboMult() { return M.comboMult(this.combo, this.comboBonus()); }
+  /** Average combo multiplier over the zombie types out (used for the steady income during a horde). */
+  get comboMultAvg() { const ids = M.activeStrains(this.s.strains); return ids.length ? ids.reduce((a, s) => a + this.comboMultOf(s), 0) / ids.length : 1; }
+  /** Called every frame by the battle: a type's combo drops to 0 after a few seconds without a kill of it. */
+  comboTick(dt: number) {
+    for (const [s, c] of this.combos) {
+      const x = this.s.strains[s], rate = x ? M.spawnRate(s, x.spawn) : 1;
+      if ((c.idle += dt) >= M.CONFIG.combo.timeoutSec + 2 / Math.max(0.2, rate)) this.combos.delete(s);
+    }
+  }
+  /** A zombie of this type reached the shredder: that type's combo halves. */
+  comboBreak(s?: ZombieId) { if (!s) return; const c = this.combos.get(s); if (c) c.n = Math.floor(c.n / 2); }
 
   /** The colour a kill pays in: its family's, or (for horde zombies of a family you haven't released yet) the nearest
    * released colour it descends from, so you never get DNA you can't see or use. */
@@ -447,9 +465,9 @@ export class Game {
   zombieKilled(strain: ZombieId, tier: number, opts: { silent?: boolean; mult?: number; lootMult?: number; shredded?: boolean } = {}): Loot | null {
     const paid = (opts.mult ?? 1) > 0;
     // shredded zombies don't count for the combo
-    if (!opts.silent && !opts.shredded) { this.combo++; this.comboIdle = 0; this.comboBest = Math.max(this.comboBest, this.combo); }
+    if (!opts.silent && !opts.shredded) { const c = this.combos.get(strain) ?? { n: 0, idle: 0 }; c.n++; c.idle = 0; this.combos.set(strain, c); this.comboBest = Math.max(this.comboBest, c.n); }
     const col = this.payColour(strain);
-    if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + Math.log((opts.silent ? 1 : this.comboMult) * (opts.mult ?? 1))));
+    if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + Math.log((opts.silent ? 1 : this.comboMultOf(strain)) * (opts.mult ?? 1))));
     this.s.kills++;
     if (Math.random() >= Math.min(0.5, M.dropChance(this.s.strains, this.fx) * (opts.lootMult ?? 1))) return null;
     const loot = this.rollLoot();
@@ -458,8 +476,10 @@ export class Game {
   }
   /** During a horde the stream pauses, and horde kills pay no DNA. Instead you keep earning your normal stream income
    * (with your combo) every second, so income stays a straight line through hordes instead of a lump at the end. */
+  /** Combo multiplier used for the steady income: your average combo when the horde started. */
+  steadyCombo = 1;
   earnSteady(dt: number) {
-    const rate = this.lnDnaPerSec(), lm = Math.log(dt * this.comboMult);
+    const rate = this.lnDnaPerSec(), lm = Math.log(dt * this.steadyCombo);
     for (const c of M.STRAIN_IDS) if (Number.isFinite(rate[c])) this.setDna(c, M.logAdd(this.dna(c), rate[c] + lm));
   }
   get autoHorde() { return this.fx.autoHorde && this.s.autoHordeOn; }
@@ -584,9 +604,9 @@ export class Game {
       const d = M.perkById(id);
       for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
     }
-    const playSec = this.s.playSec;
+    const playSec = this.s.playSec, tut = this.s.tut;
     this.s = freshSave();
-    this.s.prestige = p; this.s.playSec = playSec;
+    this.s.prestige = p; this.s.playSec = playSec; this.s.tut = tut;
     this.applyHeadStart();
     this.fxCache = null; this.syncLive();
     this.save();

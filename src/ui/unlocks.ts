@@ -7,7 +7,15 @@ import { REGIONS, treeNode } from '../core/tree.ts';
 import { classIcon, crateIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import * as sfx from '../audio/sfx.ts';
 
-export interface Card { eyebrow: string; title: string; body: string; icon: string; color: string; extra?: string }
+export interface Card { eyebrow: string; title: string; body: string; icon: string; color: string; extra?: string; bio?: boolean }
+/** An animated biohazard symbol (inline SVG, coloured by currentColor). */
+export function biohazard(cls = 'bio') {
+  const pts = [0, 120, 240].map((a) => [Math.cos(((a - 90) * Math.PI) / 180), Math.sin(((a - 90) * Math.PI) / 180)]);
+  const id = `bm${Math.random().toString(36).slice(2, 8)}`;
+  return `<svg class="${cls}" viewBox="-16 -16 32 32" aria-hidden="true"><defs><mask id="${id}"><rect x="-16" y="-16" width="32" height="32" fill="#fff"/>${
+    pts.map(([x, y]) => `<circle cx="${(x * 7.6).toFixed(2)}" cy="${(y * 7.6).toFixed(2)}" r="4.7" fill="#000"/>`).join('')}<circle r="2.3" fill="#000"/></mask></defs><g mask="url(#${id})">${
+    pts.map(([x, y]) => `<circle cx="${(x * 5).toFixed(2)}" cy="${(y * 5).toFixed(2)}" r="7.2" fill="currentColor"/>`).join('')}</g><circle r="4.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`;
+}
 let up = false;
 export const overlayUp = () => up;
 const queue: Card[] = [];
@@ -44,7 +52,7 @@ export function hordeCards(k: number, reward: { title: string; sub: string; icon
 }
 export function evolveCard(id: ZombieId): Card {
   const st = M.strainById(id), stage = M.stageOf(id);
-  return { eyebrow: 'Evolution', title: `${st.plural}!`, color: st.color, icon: zombieIcon(id),
+  return { eyebrow: 'Evolution', title: `${st.plural}!`, color: st.color, icon: zombieIcon(id), bio: true,
     body: `Form ${stage + 1} of the ${esc(st.dna.toLowerCase())} family. Tier 1 is as tough and as rich as tier ${M.TIER_CAP * stage + 1}.<br><span class="uk-sub">They join the stream alongside the older forms${M.isLastForm(id) ? ', and this final form has no tier cap' : `; at tier ${M.TIER_CAP} the next form opens`}.</span>` };
 }
 
@@ -75,7 +83,7 @@ function show() {
   const sparks = Array.from({ length: 16 }, (_, i) => `<i style="--a:${(i / 16) * 360 + Math.random() * 12}deg;--d:${70 + Math.random() * 70}px;--t:${0.5 + Math.random() * 0.35}s"></i>`).join('');
   const last = queue.length === 1;
   el.innerHTML = `<div class="uk-card" style="--c:${c.color}">
-      <div class="uk-stage"><div class="uk-rays"></div><div class="uk-sparks">${sparks}</div><img class="uk-icon px" src="${c.icon}" alt=""></div>
+      <div class="uk-stage"><div class="uk-rays"></div>${c.bio ? biohazard('uk-bio') : ''}<div class="uk-sparks">${sparks}</div><img class="uk-icon px" src="${c.icon}" alt=""></div>
       <p class="uk-eyebrow">${esc(c.eyebrow)}</p>
       <h2 class="uk-title">${esc(c.title)}</h2>
       <p class="uk-body">${c.body}</p>

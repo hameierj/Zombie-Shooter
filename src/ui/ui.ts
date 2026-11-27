@@ -2,7 +2,7 @@
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import { showTitle } from './title.ts';
-import { evolveCard, hordeCards, showCards } from './unlocks.ts';
+import { biohazard, evolveCard, hordeCards, showCards } from './unlocks.ts';
 import { showRanges, setShowRanges } from '../core/prefs';
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
@@ -51,7 +51,7 @@ const amtCost = (col: StrainId, p: { n: number; ln: number }) => `${p.n > 1 ? `<
 const tierPrev = (z: M.ZombieId) => { const x = game.s.strains[z], cap = M.tierCapOf(z); return preview(M.familyOf(z), (i) => (x.tier + i >= cap ? null : x.tier + i < x.maxTier ? -Infinity : M.lnTierCost(z, x.maxTier + (x.tier + i - x.maxTier)))); };
 /** At the tier cap with nothing left to raise (the next form is the way up). */
 const atCap = (z: M.ZombieId) => { const x = game.s.strains[z]; return x.tier >= M.tierCapOf(z); };
-const spawnPrev = (z: M.ZombieId) => { const x = game.s.strains[z]; return preview(M.familyOf(z), (i) => (x.spawn + i < C.spawnMax ? M.lnSpawnCost(z, x.spawn + i) : null)); };
+const spawnPrev = (z: M.ZombieId) => { const x = game.s.strains[z]; return preview(M.familyOf(z), (i) => (x.spawn + i < C.spawnMax ? M.lnSpawnCost(z, x.spawn + i, x.maxTier) : null)); };
 const hirePrev = (c: ClassId) => { const u = game.unit(c); return preview(game.hireColour(c), (i) => (u.count + i < game.unitCap ? M.lnHireCost(c, u.count + i, game.fx) : null)); };
 const nodePrev = (c: ClassId, id: UnitNodeId) => {
   const ns = game.node(c, id);
@@ -207,11 +207,13 @@ export function initUI() {
 let lastCombo = 0;
 function tickCombo() {
   const el = $('#combo');
-  const n = game.combo, max = C.combo.max;
+  const top = game.topCombo, n = top.n, max = C.combo.max;
   el.hidden = !!tab || n < 5;
   if (el.hidden) { lastCombo = n; return; }
+  const face = $('#combo-face') as HTMLImageElement;
+  if (top.id && face.dataset.id !== top.id) { face.dataset.id = top.id; face.src = zombieIcon(top.id); face.alt = M.strainById(top.id).plural; }
   $('#combo-n').textContent = fmtInt(n);
-  $('#combo-x').textContent = `×${game.comboMult.toFixed(2)} DNA`;
+  $('#combo-x').textContent = `×${game.comboMult.toFixed(2)} ${top.id ? M.strainById(top.id).plural : ''} DNA`;
   $('#combo-bar').style.width = `${Math.min(100, (n / max) * 100)}%`;
   el.classList.toggle('max', n >= max);
   if (Math.floor(n / 50) > Math.floor(lastCombo / 50)) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
@@ -352,7 +354,7 @@ function refresh() {
   for (const el of document.querySelectorAll<HTMLButtonElement>('[data-cost]')) {
     const ok = game.canAfford(el.dataset.col as StrainId, Number(el.dataset.cost));
     el.disabled = !ok;
-    if (el.classList.contains('mu') && el.classList.contains('afford') !== ok) { el.classList.toggle('afford', ok); flipped = true; }
+    if ((el.classList.contains('mu') || el.classList.contains('evolve') || el.classList.contains('evolve-big')) && el.classList.contains('afford') !== ok) { el.classList.toggle('afford', ok); flipped = true; }
   }
   // recruit cards: grow the progress bar, and switch to the Unlock button once it's affordable
   for (const bar of document.querySelectorAll<HTMLElement>('.rc-bar[data-need]')) {
@@ -394,8 +396,10 @@ let urailPick: ClassId | null = null;
 function railCan(id: M.ZombieId) {
   const x = game.s.strains[id], col = M.familyOf(id);
   if (x.tier < x.maxTier) return true;
-  return (x.maxTier < M.tierCapOf(id) && game.canAfford(col, M.lnTierCost(id, x.maxTier))) || (x.spawn < C.spawnMax && game.canAfford(col, M.lnSpawnCost(id, x.spawn)));
+  return (x.maxTier < M.tierCapOf(id) && game.canAfford(col, M.lnTierCost(id, x.maxTier))) || (x.spawn < C.spawnMax && game.canAfford(col, M.lnSpawnCost(id, x.spawn, x.maxTier)));
 }
+/** The next form this type can evolve into right now (at the tier cap, not yet released), if any. */
+function nextForm(id: M.ZombieId) { const st = M.strainById(id); const fam = M.familyMembers(st.family); const nx = fam[M.stageOf(id) + 1]; return nx && !game.s.strains[nx.id].unlocked && game.releaseReady(nx.id) ? nx : null; }
 const UNIT_NODES_ALL: UnitNodeId[] = ['dmg', 'spd', 'range', 'crit', 'critx', 'ab1', 'ab2', 'ab3', 'attach', 'charm'];
 /** Can you hire one more of this unit type, or afford any of its upgrades? */
 function urailCan(c: ClassId) {
@@ -424,8 +428,8 @@ function railRender() {
     <button class="${railMode === 'u' ? 'on' : ''}" data-action="rail-mode" data-arg="u" role="tab" aria-selected="${railMode === 'u'}" aria-label="Units"><img class="px" src="${classIcon('pistol')}" alt="">${uCan && railMode !== 'u' ? '<i class="zr-dot"></i>' : ''}</button></div>`;
   let icons = '', pop = '';
   if (railMode === 'z') {
-    icons = zs.map((st) => `<button class="zr-z ${railCan(st.id) ? 'can' : ''} ${railPick === st.id ? 'on' : ''}" data-action="rail-pick" data-arg="${st.id}" style="--dna:${st.color}" aria-label="${esc(st.plural)}, tier ${game.s.strains[st.id].tier}">
-      <img class="px" src="${zombieIcon(st.id)}" alt=""><span>${fmtInt(game.s.strains[st.id].tier)}</span></button>`).join('');
+    icons = zs.map((st) => `<button class="zr-z ${railCan(st.id) ? 'can' : ''} ${railPick === st.id ? 'on' : ''} ${nextForm(st.id) ? 'evo' : ''}" data-action="rail-pick" data-arg="${st.id}" style="--dna:${st.color}" aria-label="${esc(st.plural)}, tier ${game.s.strains[st.id].tier}">
+      <img class="px" src="${zombieIcon(st.id)}" alt=""><span>${fmtInt(game.s.strains[st.id].tier)}</span>${nextForm(st.id) ? biohazard('zr-bio') : ''}</button>`).join('');
     if (railPick) {
       const st = M.strainById(railPick), x = game.s.strains[railPick], col = st.family, free = x.tier < x.maxTier;
       const tp = tierPrev(st.id), sp = spawnPrev(st.id);
@@ -435,7 +439,8 @@ function railRender() {
           ${atCap(st.id) ? '<button class="btn sbtn ghost" disabled><span>DNA</span><span class="cost">max</span></button>' : `<button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>`}
           ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)}><span>Spawn +</span>${amtCost(col, sp)}</button>`
             : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
-        </div></div>`;
+        </div>${(() => { const nx = nextForm(st.id); if (!nx) return ''; const ln = game.releaseCost(nx.id);
+          return `<button class="btn evolve-big ${game.canAfford(col, ln) ? 'afford' : ''}" data-action="release" data-strain="${nx.id}" ${costAttr(col, ln)}>${biohazard('bio')}<span class="ev-t"><b>Evolve → ${esc(nx.plural)}</b><small>A new, richer form joins the stream</small></span>${cost(col, ln)}</button>`; })()}</div>`;
     }
   } else {
     icons = us.map((c) => { const u = game.unit(c.id), col = M.strainById(c.primary).color;
@@ -493,7 +498,7 @@ function zombiesHtml() {
         <img class="px face" src="${zombieIcon(st.id)}" alt="">
         <div class="s-info"><b>${st.plural}</b><span class="sub">${traits(st)}</span></div>
         <div class="s-btns">${M.COLOUR_HORDE[st.id] ? `<span class="sub small lockmsg">🔒 Beat Horde ${M.COLOUR_HORDE[st.id]}</span>`
-          : fromOpen ? `<button class="btn sbtn" data-action="release" data-strain="${st.id}" ${costAttr(pc, ln)}><span>Evolve</span>${cost(pc, ln)}</button>`
+          : fromOpen ? `<button class="btn sbtn evolve ${game.canAfford(pc, ln) ? 'afford' : ''}" data-action="release" data-strain="${st.id}" ${costAttr(pc, ln)}>${biohazard('bio')}<span>Evolve</span>${cost(pc, ln)}</button>`
           : `<span class="sub small lockmsg">🔒 ${fx.unlocked ? `${from.plural} to tier ${M.TIER_CAP} (now ${fx.maxTier})` : `Evolve ${from.plural} first`}</span>`}</div>
       </div>`;
     }

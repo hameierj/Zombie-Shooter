@@ -980,3 +980,53 @@ button.tc-head { cursor: pointer; }
 .uk-next { min-height: 44px; padding: 0 20px; font-weight: 700; background: color-mix(in srgb, var(--c) 85%, #000); color: #111; border: 0; border-radius: 12px; box-shadow: 0 4px 0 rgba(0,0,0,.35); }
 .uk-next:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .uk-rays, .uk-icon, .uk-vial { animation: none; } .uk-sparks { display: none; } }
+#combo-face { position: absolute; left: -14px; top: 50%; width: 30px; height: 30px; margin-top: -15px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+#combo { padding-left: 22px !important; }
+
+/* ---------- evolve: biohazard ---------- */
+.bio { width: 18px; height: 18px; color: #9cff5a; flex: none; animation: bio-spin 6s linear infinite; filter: drop-shadow(0 0 4px rgba(156,255,90,.7)); }
+@keyframes bio-spin { to { transform: rotate(360deg); } }
+.sbtn.evolve { position: relative; overflow: hidden; }
+.sbtn.evolve .bio { margin-bottom: 1px; }
+.sbtn.evolve.afford, .evolve-big.afford { box-shadow: 0 0 0 2px rgba(156,255,90,.55), 0 0 16px rgba(156,255,90,.45); animation: tox-pulse 1.6s ease-in-out infinite; }
+@keyframes tox-pulse { 50% { box-shadow: 0 0 0 2px rgba(156,255,90,.85), 0 0 26px rgba(156,255,90,.7); } }
+.evolve-big { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; padding: 9px 10px; border-radius: 14px; text-align: left; overflow: hidden;
+  background: repeating-linear-gradient(-45deg, rgba(156,255,90,.10) 0 8px, rgba(0,0,0,0) 8px 16px), linear-gradient(180deg, #1f3a14, #142a0c); border: 1px solid rgba(156,255,90,.45); color: #e9ffd8; }
+.evolve-big::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(200,255,160,.22) 50%, transparent 70%); transform: translateX(-100%); animation: tox-scan 2.4s ease-in-out infinite; pointer-events: none; }
+@keyframes tox-scan { 60%, 100% { transform: translateX(100%); } }
+.evolve-big .bio { width: 30px; height: 30px; }
+.evolve-big .ev-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.evolve-big .ev-t b { font-size: 13.5px; } .evolve-big .ev-t small { font-size: 11px; color: #b8d8a0; }
+.evolve-big[disabled] { opacity: .6; }
+.zr-z .zr-bio { position: absolute; top: -6px; left: -6px; width: 18px; height: 18px; color: #9cff5a; background: #0f1a0a; border-radius: 50%; padding: 1px; animation: bio-spin 6s linear infinite; filter: drop-shadow(0 0 4px rgba(156,255,90,.8)); }
+.zr-z.evo { border-color: rgba(156,255,90,.8); box-shadow: 0 0 10px rgba(156,255,90,.45); }
+.uk-bio { position: absolute; width: 170px; height: 170px; color: color-mix(in srgb, var(--c) 70%, #9cff5a); opacity: .55; animation: bio-spin 7s linear infinite, uk-fade .6s ease-out; filter: drop-shadow(0 0 14px rgba(156,255,90,.6)); }
+@media (prefers-reduced-motion: reduce) { .bio, .zr-bio, .uk-bio { animation: none; } .evolve-big::after { display: none; } }
+
+/* ---------- tutorial coach marks ---------- */
+#coach { position: fixed; inset: 0; z-index: 70; animation: uk-fade .25s ease-out; }
+#coach.co-bye { animation: uk-fade .2s ease-in reverse forwards; }
+.co-spot { position: absolute; border-radius: 14px; box-shadow: 0 0 0 200vmax rgba(4,6,10,.66); pointer-events: none; animation: co-in .45s cubic-bezier(.2,1.4,.4,1) both; }
+.co-spot.big { border-radius: 4px; box-shadow: 0 0 0 200vmax rgba(4,6,10,.35); }
+.co-spot::after { content: ''; position: absolute; inset: -4px; border-radius: inherit; border: 2px solid #ffd34d; box-shadow: 0 0 16px rgba(255,211,77,.6); animation: co-ring 1.4s ease-in-out infinite; }
+@keyframes co-in { from { transform: scale(1.4); opacity: 0; } }
+@keyframes co-ring { 50% { inset: -9px; opacity: .45; } }
+.co-hand { position: absolute; width: 44px; height: 44px; margin: -6px 0 0 -10px; pointer-events: none; animation: co-tap 1.2s ease-in-out .3s infinite; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
+.co-hand svg { width: 100%; height: 100%; fill: #fff; stroke: #1a1a1a; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
+@keyframes co-tap { 0%, 100% { transform: translate(10px, 12px) scale(1); } 45% { transform: translate(0, 0) scale(.92); } 55% { transform: translate(0, 0) scale(.88); } }
+.co-bubble { position: absolute; padding: 12px 14px 10px; border-radius: 16px; background: #fffdf5; color: #1a1d22; box-shadow: 0 14px 40px rgba(0,0,0,.5);
+  animation: co-pop .4s cubic-bezier(.2,1.5,.4,1) .08s both; }
+.co-bubble::before { content: ''; position: absolute; left: calc(var(--ax) - 9px); width: 18px; height: 18px; background: inherit; transform: rotate(45deg); border-radius: 3px; }
+.co-bubble.down::before { top: -7px; }
+.co-bubble.up::before { bottom: -7px; }
+.co-bubble.mid::before { display: none; }
+@keyframes co-pop { from { transform: translateY(10px) scale(.9); opacity: 0; } }
+.co-step { display: block; font: 700 10.5px Inter, system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #a26b00; }
+.co-title { display: block; font: 400 20px/1.15 "Lilita One", system-ui, sans-serif; margin: 2px 0 4px; }
+.co-bubble p { margin: 0; font-size: 14px; line-height: 1.45; color: #333a44; }
+.co-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+.co-skip { background: none; border: 0; color: #7a828c; font: 600 12.5px Inter, system-ui, sans-serif; padding: 8px 4px; cursor: pointer; text-decoration: underline; }
+.co-ok { min-height: 40px; padding: 0 18px; font-weight: 700; background: #ffc22e; color: #1a1400; border: 0; border-radius: 11px; box-shadow: 0 3px 0 #b07c00; }
+@media (prefers-reduced-motion: reduce) { .co-hand, .co-spot::after { animation: none; } }
+#combo[hidden] { display: none !important; }
+#combo-face:not([src]) { display: none; }

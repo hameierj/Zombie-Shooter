@@ -227,15 +227,15 @@ export const CONFIG = {
                             // covered by guns) costs about one tier of DNA, so each tier takes about the same play time
   baseHp: 6,
   baseDna: 3,
-  tierCost0: 40,            // raising a type's DNA Count from tier t costs 40·1.15^(t−1) of its own DNA (t = effective tier)
+  tierCost0: 80,            // raising a type's DNA Count from tier t costs 80·1.15^(t−1) of its own DNA (t = effective tier)
   formCostMult: 2,          // each evolution stage makes that form's tiers and spawn levels 2× pricier, so every form takes longer
   spawnPerLevel: 0.12,      // +12% spawn rate per level…
   spawnMax: 30,
   spawnHpPerLevel: 0.03,    // …and +3% HP
   releaseSec: 180,          // (RELEASE_COST was tuned to ~3 min of a normal run's income)…
   releaseTier: 50,          // a colour's next form opens when the current one reaches the tier cap (TIER_CAP)
-  spawnCost0: 20,
-  spawnCostGrowth: 1.5,
+  spawnCost0: 0.5,          // a spawn level costs half the type's next tier…
+  spawnCostGrowth: 1.2,     // …×1.2 per level
   hireGrowth: 1.8,
   maxPerType: 20,
   unitsBase: 2,             // barracks: 2 of each type at first, +1 every 10 tiers of your best zombie type (20 at 180)
@@ -257,12 +257,12 @@ export const CONFIG = {
    * Shredded zombies pay `shredDna` of their DNA, times keep-up² (when the squad is hopelessly overrun on purpose
    * they pay almost nothing, so pushing tiers sky-high and letting the shredder grind can't be farmed). No combo. */
   shredFrac: 0.01,
-  shredDna: 0.25,
+  shredDna: 0,               // (unused: the shredder pays no DNA, only the squad’s kills do)
   /** Odds at which a horde card says "should win" and War Drums starts it by itself. */
   hordeWinOdds: 1.1,
   /** Combo: every live kill adds 1; DNA earned is multiplied by up to ×1.5 at 300. It drops to 0 after 3 s
    * without a kill, and halves whenever a zombie reaches the shredder. Offline time earns no combo. */
-  combo: { max: 300, bonus: 0.5, timeoutSec: 3 },
+  combo: { max: 150, bonus: 0.5, timeoutSec: 3 },   // per zombie type (see GameState.comboOf)
   rarities: [
     { id: 'common',    weight: 62, power: 1.0, attach: 0.10, charm: 0.20 },
     { id: 'uncommon',  weight: 25, power: 1.3, attach: 0.18, charm: 0.35 },
@@ -309,11 +309,11 @@ const BOSS_ORDER: BossKind[] = ['exploder', 'leaper', 'titan', 'brood', 'screame
 const KIND_ORDER: HordeKind[] = ['classic', 'stampede', 'armoured', 'swarm', 'waves', 'fog', 'hospital'];   // matches the first seven horde names
 export interface HordeDef { index: number; name: string; tier: number; unlocks: string; cls?: ClassId; region: number; elite: boolean; kind: HordeKind; boss: BossKind }
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
-// Horde tiers (effective tiers), set from the balance sim with the tier cap + evolutions: hordes 1-7 at about 6, 13, 29,
-// 41, 62, 73 and 90 min (Hordes 1-4 also bring the yellow, red, teal and purple colours), then an Elite horde every
-// 20-40 min. ELITE_TIERS continue the list; past its end, +10 each.
-const HORDE_TIERS = [18, 34, 78, 104, 130, 145, 158];
-const ELITE_TIERS = [172, 184, 196, 207, 217, 227];
+// Horde tiers (effective tiers), set from the balance sim (which also counts combo and specials): hordes 1-7 at about
+// 6, 14, 28, 44, 61, 76 and 91 min (Hordes 1-4 also bring the yellow, red, teal and purple colours), then an Elite
+// horde about every 15-20 min. ELITE_TIERS continue the list; past its end, +10 each.
+const HORDE_TIERS = [16, 30, 52, 76, 96, 110, 122];
+const ELITE_TIERS = [134, 145, 156, 166, 176, 186];
 const ELITE_STEP = 10;
 export function hordeDef(k: number): HordeDef {
   const cls = CLASSES.find((c) => c.horde === k)?.id;
@@ -343,7 +343,9 @@ export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
 export const EVOLVE_TIERS = 4;
 export const lnReleaseCost = (s: ZombieId, _lnRate?: number) => { const from = strainById(s).unlock?.from ?? s; return lnTierCost(from, TIER_CAP) + Math.log(EVOLVE_TIERS); };
 export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (effTier(s, tier) - 1) * lnR + stageOf(s) * Math.log(C.formCostMult);
-export const lnSpawnCost = (s: ZombieId, lv: number) => Math.log(C.spawnCost0 * strainById(s).dnaMult) + lv * Math.log(C.spawnCostGrowth) + TIER_CAP * stageOf(s) * lnR + stageOf(s) * Math.log(C.formCostMult);
+/** A spawn level is priced against the type's current tier (spawnCost0 × its next tier's price, ×spawnCostGrowth per
+ * level), so it stays a real choice instead of becoming free once tiers climb. */
+export const lnSpawnCost = (s: ZombieId, lv: number, tier = 1) => lnTierCost(s, tier) + Math.log(C.spawnCost0) + lv * Math.log(C.spawnCostGrowth);
 export const activeStrains = (st: Strains) => ZOMBIE_IDS.filter((s) => st[s]?.unlocked);
 export const totalSpawnRate = (st: Strains) => activeStrains(st).reduce((a, s) => a + spawnRate(s, st[s].spawn), 0);
 /** Chance that one shredded zombie drops an item. */
