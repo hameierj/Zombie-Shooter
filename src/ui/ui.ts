@@ -94,7 +94,7 @@ function gearShelf(c: ClassId) {
     const it = kind === 'gun' ? game.gun(u.gun) : game.gearItem(u[kind]);
     if (!it) return `<div class="sh empty"><span class="ico">–</span><div><b>${label}</b><span>none yet</span></div></div>`;
     const icon = kind === 'gun' ? gunIcon(c) : (it as Gear).kind === 'attach' ? modIcon((it as M.Attachment).stat) : charmIcon((it as M.Charm).bane);
-    const txt = kind === 'gun' ? `${gunName(it as Gun).split(' ')[0]} T${fmtInt((it as Gun).ilvl)}` : gearDesc(it as Gear);
+    const txt = kind === 'gun' ? `×${fmtLn(M.lnGunPower(it as Gun))} dmg` : gearDesc(it as Gear);
     return `<div class="sh" style="--rar:${RARITY_COLOR[it.rarity]}" title="${esc(kind === 'gun' ? gunName(it as Gun) : gearName(it as Gear))}"><img class="px" src="${icon}" alt=""><div><b>${label}</b><span>${esc(txt)}</span></div></div>`;
   };
   return `<div class="shelf">${shelf('gun', 'Gun')}${shelf('attach', 'Attachment')}${shelf('charm', 'Charm')}</div>`;
@@ -113,12 +113,14 @@ function upgradeRow(c: ClassId) {
     const state = done ? 'maxed' : ns.locked ? 'locked' : p.n > 0 ? 'afford' : '';
     const price = done ? '✓ Max' : ns.locked ? '🔒' : `${p.n > 1 ? `×${p.n} ` : ''}${vial(ns.colour)}${fmtLn(p.ln)}`;
     const icon = b.key === 'ab' ? classIcon(c) : nodeIcon(b.icon);
+    // the Ability button names what it buys ("Slow 15%", "Frag +2"); once maxed, what you have
+    const name = b.key === 'ab' ? cd.ability.tags[done ? 2 : Math.min(2, owned + Math.max(1, p.n) - 1)] : b.name;
     const what = b.key === 'ab' ? `${cd.ability.name}: ${done ? cd.ability.stages[2] : `next: ${cd.ability.stages[owned]}`}`
       : b.key === 'slots' ? (done ? 'Attachment and Charm slots open' : owned ? 'Next: open the Charm slot' : 'Next: open the Attachment slot')
       : `${nodeEffect(u, id, ns.level)}${done ? '' : ` → ${nodeEffect(u, id, ns.level + 1)}`}`;
     const tip = ns.locked && !done ? `${what} · ${ns.locked}` : what;
     return `<button class="mu ${state}" style="--dna:${M.strainById(ns.colour).color}" title="${esc(tip)}" ${done || ns.locked ? 'disabled' : `data-action="${multi ? 'buy-stages' : 'buy-node'}" data-cls="${c}" data-arg="${multi ? b.key : id}" ${costAttr(ns.colour, p.ln)}`}>
-      <img class="px ic" src="${icon}" alt=""><span>${b.name}</span><span class="lv">${lv}</span><span class="pc">${price}</span></button>`;
+      <img class="px ic" src="${icon}" alt=""><span>${name}</span><span class="lv">${lv}</span><span class="pc">${price}</span></button>`;
   }).join('')}</div>`;
 }
 

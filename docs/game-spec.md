@@ -70,7 +70,7 @@ slowly. You never lose.
   unit costs ×1.8 more and adds a little less than the last (20 units ≈ 9× one).
 - **Everything for a unit is on its Squad card** (there is no separate unit page): a header (portrait, count, level,
   DPS), a 2 × 4 grid of equal buttons in stacked pairs, left to right (**Hire/Damage, Crit/Crit ×, Speed/Range,
-  Gear slots (Attachment → Charm)/Ability (I → II → III)**; tap = buy with the buy amount), and a **gear shelf** (Gun, Attachment, Charm; display only: units always carry their best items).
+  Gear slots (Attachment → Charm)/Ability (I → II → III)**; the Ability button is labelled with what it buys, e.g. "Slow 15%", "Frag +2", "Pierce +3"; tap = buy with the buy amount), and a **gear shelf** (Gun shown as its damage multiplier, e.g. "×3.7 dmg"; Attachment, Charm; display only: units always carry their best items).
   The Squad menu dot lights only for an affordable Ability stage or Gear slot. The tree behind the buttons:
   Damage (endless, ×1.05 per level) → Attack Speed (20 levels), Range (10), Ability I → Crit Chance (15),
   Crit Damage (20), Ability II → Attachment Slot, Charm Slot, Ability III. The top half is paid in the type's first

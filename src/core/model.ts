@@ -133,7 +133,8 @@ export function rollSpecial(rng: () => number): SpecialId | null {
 }
 
 // ---------- Unit types ----------
-export interface AbilityDef { name: string; stages: string[] }
+/** `tags`: the 1-2 word label shown on the Ability button for each stage. */
+export interface AbilityDef { name: string; stages: string[]; tags: string[] }
 export interface ClassDef {
   id: ClassId; name: string; plural: string; gun: string;
   dps: number; range: number; rate: number; targets: number; crit: number;
@@ -144,30 +145,30 @@ export interface ClassDef {
 }
 export const CLASSES: ClassDef[] = [
   { id: 'pistol',  name: 'Pistoleer',  plural: 'Pistoleers',  gun: 'Pistol',           dps: 10, range: 0.40, rate: 2.2, targets: 1, crit: 0.10, horde: 0, hire0: 25, primary: 'shambler', secondary: 'runner',
-    ability: { name: 'Double Tap', stages: ['+15% attack speed: quick follow-up shots', '+30% attack speed', '+50% attack speed'] } },
+    ability: { name: 'Double Tap', tags: ['Rate +15%', 'Rate +30%', 'Rate +50%'], stages: ['+15% attack speed: quick follow-up shots', '+30% attack speed', '+50% attack speed'] } },
   { id: 'bow',     name: 'Hunter',     plural: 'Hunters',     gun: 'Compound Bow',     dps: 12, range: 0.75, rate: 0.9, targets: 2, crit: 0.20, horde: 1, hire0: 600, primary: 'runner', secondary: 'spitter',
-    ability: { name: 'Piercing Arrows', stages: ['Arrows pierce 1 more zombie', 'Arrows pierce 2 more zombies', 'Arrows pierce 3 more zombies'] } },
+    ability: { name: 'Piercing Arrows', tags: ['Pierce +1', 'Pierce +2', 'Pierce +3'], stages: ['Arrows pierce 1 more zombie', 'Arrows pierce 2 more zombies', 'Arrows pierce 3 more zombies'] } },
   { id: 'shotgun', name: 'Shotgunner', plural: 'Shotgunners', gun: 'Shotgun',          dps: 17, range: 0.15, rate: 1.1, targets: 3, crit: 0.05, horde: 2, hire0: 4000, primary: 'shambler', secondary: 'brute',
-    ability: { name: 'Knockback', stages: ['Blasts shove zombies back (+10% time in range)', '+20% time in range', '+30% time in range'] } },
+    ability: { name: 'Knockback', tags: ['Push +10%', 'Push +20%', 'Push +30%'], stages: ['Blasts shove zombies back (+10% time in range)', '+20% time in range', '+30% time in range'] } },
   { id: 'rifle',   name: 'Rifleman',   plural: 'Riflemen',    gun: 'Assault Rifle',    dps: 20, range: 0.60, rate: 5.0, targets: 1, crit: 0.08, horde: 3, hire0: 1.2e4, primary: 'runner', secondary: 'brute',
-    ability: { name: 'Suppressive Fire', stages: ['Hits slow zombies by 15%', 'Hits slow zombies by 25%', 'Hits slow zombies by 35%'] } },
+    ability: { name: 'Suppressive Fire', tags: ['Slow 15%', 'Slow 25%', 'Slow 35%'], stages: ['Hits slow zombies by 15%', 'Hits slow zombies by 25%', 'Hits slow zombies by 35%'] } },
   { id: 'sniper',  name: 'Sniper',     plural: 'Snipers',     gun: 'Sniper Rifle',     dps: 28, range: 1.00, rate: 0.45, targets: 1, crit: 0.30, horde: 4, hire0: 8e4, primary: 'brute', secondary: 'bloater',
-    ability: { name: 'Headshot', stages: ['10% chance to instantly kill (not bosses)', '20% chance to instantly kill', '30% chance to instantly kill'] } },
+    ability: { name: 'Headshot', tags: ['Kill 10%', 'Kill 20%', 'Kill 30%'], stages: ['10% chance to instantly kill (not bosses)', '20% chance to instantly kill', '30% chance to instantly kill'] } },
   { id: 'flamer',  name: 'Pyro',       plural: 'Pyros',       gun: 'Flamethrower',     dps: 38, range: 0.20, rate: 8.0, targets: 4, crit: 0.0,  horde: 5, hire0: 5e5, primary: 'spitter', secondary: 'bloater',
-    ability: { name: 'Napalm', stages: ['Burning ground: +1 zombie hit, +10% damage', '+2 zombies hit, +20% damage', '+3 zombies hit, +30% damage'] } },
+    ability: { name: 'Napalm', tags: ['Burn +1', 'Burn +2', 'Burn +3'], stages: ['Burning ground: +1 zombie hit, +10% damage', '+2 zombies hit, +20% damage', '+3 zombies hit, +30% damage'] } },
   { id: 'grenade', name: 'Grenadier',  plural: 'Grenadiers',  gun: 'Grenade Launcher', dps: 42, range: 0.65, rate: 0.7, targets: 4, crit: 0.05, horde: 6, hire0: 5e6, primary: 'bloater', secondary: 'shambler',
-    ability: { name: 'Cluster Bombs', stages: ['Blasts hit 1 more zombie', 'Blasts hit 2 more zombies', 'Blasts hit 3 more zombies'] } },
+    ability: { name: 'Cluster Bombs', tags: ['Frag +1', 'Frag +2', 'Frag +3'], stages: ['Blasts hit 1 more zombie', 'Blasts hit 2 more zombies', 'Blasts hit 3 more zombies'] } },
   // Elite-horde recruits
   { id: 'mg',      name: 'Machine Gunner', plural: 'Machine Gunners', gun: 'Machine Gun', dps: 55, range: 0.50, rate: 12, targets: 1, crit: 0.05, horde: 8, hire0: 3e7, primary: 'runner', secondary: 'brute',
-    ability: { name: 'Overheat', stages: ['Longer bursts: +20% attack speed', '+40% attack speed', '+70% attack speed'] } },
+    ability: { name: 'Overheat', tags: ['Rate +20%', 'Rate +40%', 'Rate +70%'], stages: ['Longer bursts: +20% attack speed', '+40% attack speed', '+70% attack speed'] } },
   { id: 'drone',   name: 'Drone Operator', plural: 'Drone Operators', gun: 'Attack Drones', dps: 68, range: 0.90, rate: 1.6, targets: 1, crit: 0.15, horde: 9, hire0: 2e8, primary: 'spitter', secondary: 'runner',
-    ability: { name: 'Swarm', stages: ['+1 drone: hits 1 more zombie', '+2 drones', '+3 drones'] } },
+    ability: { name: 'Swarm', tags: ['Drone +1', 'Drone +2', 'Drone +3'], stages: ['+1 drone: hits 1 more zombie', '+2 drones', '+3 drones'] } },
   { id: 'rail',    name: 'Railgunner', plural: 'Railgunners', gun: 'Railgun', dps: 76, range: 0.80, rate: 0.5, targets: 4, crit: 0.25, horde: 10, hire0: 6e8, primary: 'bloater', secondary: 'brute',
-    ability: { name: 'Overcharge', stages: ['Pierces 1 more zombie, +10% damage', 'Pierces 2 more, +20% damage', 'Pierces 3 more, +30% damage'] } },
+    ability: { name: 'Overcharge', tags: ['Pierce +1', 'Pierce +2', 'Pierce +3'], stages: ['Pierces 1 more zombie, +10% damage', 'Pierces 2 more, +20% damage', 'Pierces 3 more, +30% damage'] } },
   { id: 'mortar',  name: 'Mortar Gunner', plural: 'Mortar Team', gun: 'Mortar', dps: 85, range: 0.85, rate: 0.35, targets: 5, crit: 0.05, horde: 11, hire0: 1.5e9, primary: 'brute', secondary: 'bloater',
-    ability: { name: 'Barrage', stages: ['Shells hit 1 more zombie, +10% damage', '+2 zombies, +20% damage', '+3 zombies, +30% damage'] } },
+    ability: { name: 'Barrage', tags: ['Shell +1', 'Shell +2', 'Shell +3'], stages: ['Shells hit 1 more zombie, +10% damage', '+2 zombies, +20% damage', '+3 zombies, +30% damage'] } },
   { id: 'tesla',   name: 'Tesla Trooper', plural: 'Tesla Troopers', gun: 'Arc Gun', dps: 112, range: 0.30, rate: 1.6, targets: 3, crit: 0.10, horde: 13, hire0: 1e10, primary: 'bloater', secondary: 'spitter',
-    ability: { name: 'Chain Lightning', stages: ['Arcs to 1 more zombie', 'Arcs to 2 more zombies', 'Arcs to 3 more zombies'] } },
+    ability: { name: 'Chain Lightning', tags: ['Chain +1', 'Chain +2', 'Chain +3'], stages: ['Arcs to 1 more zombie', 'Arcs to 2 more zombies', 'Arcs to 3 more zombies'] } },
 ];
 export const classById = (id: ClassId) => CLASSES.find((c) => c.id === id)!;
 /** Damage multipliers: guns that are good or bad against a zombie type. */
