@@ -98,8 +98,7 @@ slowly. You never lose.
   Damage (endless, ×1.06 per level, price ×1.13 per level: one zombie tier of HP costs about one tier of income, so
   every tier takes about the same play time), Attack Speed (20 levels), Range (10), Crit Chance (15) and Crit Damage
   (20) (all four ×1.3 per level), Ability I–III and the Attachment → Charm slots. **Everything on a unit's card is
-  paid in one DNA colour** (its first). A **★ best buy** marks the upgrade (or Hire) that adds the most damage per
-  DNA right now.
+  paid in one DNA colour** (its first).
 - **Abilities evolve** through three stages (Ability I, II, III nodes).
 - **Guns keep up with you:** every gun is refitted to your toughest zombie tier whenever you raise it (guns cover
   half of each tier's HP growth by design, so they must never fall behind). Drops and horde rewards then matter for
