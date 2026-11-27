@@ -24,6 +24,40 @@ const KEEP_PREF = 'zombie-idle-show-keepup';
 function showKeep(): boolean { try { return localStorage.getItem(KEEP_PREF) === '1'; } catch { return false; } }
 function setShowKeep(on: boolean) { try { localStorage.setItem(KEEP_PREF, on ? '1' : '0'); } catch { /* storage blocked */ } }
 
+/** Buy amount for every repeatable purchase: 1, 10 or as many as you can afford. Remembered on the device. */
+type BuyAmt = 1 | 10 | 'max';
+let buyAmt: BuyAmt = (() => { try { const v = localStorage.getItem('zombie-idle-buy'); return v === '10' ? 10 : v === 'max' ? 'max' : 1; } catch { return 1; } })();
+const amtN = () => (buyAmt === 'max' ? 1000 : buyAmt);
+/** How many of a repeated purchase you'd get right now (up to the selected amount) and their total ln cost.
+ * `costAt(i)` is the ln cost of the i-th extra one, or null when you can't buy more. */
+function preview(colour: StrainId, costAt: (i: number) => number | null): { n: number; ln: number } {
+  const have = game.dna(colour);
+  let ln = -Infinity, n = 0;
+  for (let i = 0; i < amtN(); i++) {
+    const c = costAt(i);
+    if (c === null) break;
+    const t = M.logAdd(ln, c);
+    if (t > have + 1e-9) break;
+    ln = t; n++;
+  }
+  if (!n) { const c = costAt(0); return { n: 0, ln: c ?? Infinity }; }
+  return { n, ln };
+}
+/** Price tag for a preview: "×12 · 🧪 3.4M" when buying more than one. */
+const amtCost = (col: StrainId, p: { n: number; ln: number }) => `${p.n > 1 ? `<i class="amt">×${p.n}</i>` : ''}${cost(col, p.ln)}`;
+const tierPrev = (z: M.ZombieId) => { const x = game.s.strains[z]; return preview(M.familyOf(z), (i) => (x.tier + i < x.maxTier ? -Infinity : M.lnTierCost(z, x.maxTier + (x.tier + i - x.maxTier)))); };
+const spawnPrev = (z: M.ZombieId) => { const x = game.s.strains[z]; return preview(M.familyOf(z), (i) => (x.spawn + i < C.spawnMax ? M.lnSpawnCost(z, x.spawn + i) : null)); };
+const hirePrev = (c: ClassId) => { const u = game.unit(c); return preview(game.hireColour(c), (i) => (u.count + i < game.unitCap ? M.lnHireCost(c, u.count + i, game.fx) : null)); };
+const nodePrev = (c: ClassId, id: UnitNodeId) => {
+  const ns = game.node(c, id);
+  return preview(ns.colour, (i) => (ns.locked || M.unitNodeMaxed(ns.def, ns.level + i) ? null : M.lnUnitNodeCost(c, ns.def, ns.level + i, game.fx)));
+};
+/** The pinned bar at the top of the Zombies / Squad / unit-tree pages: optional keep-up meter + buy amount. */
+function topBar() {
+  return `<div class="topbar">${keepCardHtml(game.keepUp())}<div class="buyamt"><span class="sub small">Buy</span><div class="seg2">${
+    ([1, 10, 'max'] as BuyAmt[]).map((a) => `<button class="${buyAmt === a ? 'on' : ''}" data-action="buy-amt" data-arg="${a}">${a === 'max' ? 'Max' : `×${a}`}</button>`).join('')}</div></div></div>`;
+}
+
 /** The open menu, or null when the full-screen zombie map is showing. */
 let tab: Tab | null = null;
 const TITLES: Record<Tab, string> = { zombies: 'Zombies', squad: 'Squad', tree: 'Upgrade Trees', hordes: 'Hordes' };
@@ -110,8 +144,9 @@ function act(d: ActionData): boolean {
       render();
       break;
     case 'close': tab = null; render(); break;
-    case 'tier-up': game.raiseTier(sid); break;
-    case 'spawn': game.buySpawn(sid); break;
+    case 'buy-amt': buyAmt = arg === 'max' ? 'max' : (Number(arg) as 1 | 10); try { localStorage.setItem('zombie-idle-buy', String(buyAmt)); } catch { /* ignore */ } render(); break;
+    case 'tier-up': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].tier; i++) { t = game.s.strains[sid].tier; game.raiseTier(sid); } break;
+    case 'spawn': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].spawn; i++) { t = game.s.strains[sid].spawn; game.buySpawn(sid); } break;
     case 'release': game.release(sid); break;
     case 'open-unit': unitView = cls; unitNode = 'dmg'; render(); break;
     case 'units': unitView = null; render(); break;
@@ -120,8 +155,8 @@ function act(d: ActionData): boolean {
     case 'goto-unit': tab = 'squad'; unitView = cls; render(); break;
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
-    case 'buy-node': game.buyNode(cls, arg as UnitNodeId, n || 1); break;
-    case 'hire': game.hire(cls); break;
+    case 'buy-node': game.buyNode(cls, arg as UnitNodeId, n || amtN()); break;
+    case 'hire': for (let i = 0, t = -1; i < amtN() && t !== game.unit(cls).count; i++) { t = game.unit(cls).count; game.hire(cls); } break;
     case 'dismiss': game.dismiss(cls); break;
     case 'item': openItem(Number(arg)); break;
     case 'pick': openPicker(cls, arg as 'gun' | 'attach' | 'charm'); break;
@@ -199,7 +234,7 @@ function refresh() {
     b.classList.toggle('badge', badge);
   }
   for (const el of document.querySelectorAll<HTMLButtonElement>('[data-cost]')) el.disabled = !game.canAfford(el.dataset.col as StrainId, Number(el.dataset.cost));
-  const kc = document.querySelector<HTMLElement>('.keep.sticky');
+  const kc = document.querySelector<HTMLElement>('.keep.slim');
   if (kc) kc.outerHTML = keepCardHtml(k);
 }
 
@@ -224,7 +259,7 @@ function render() {
 function keepCardHtml(k: number) {
   if (!showKeep()) return '';
   const cls = k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad';
-  return `<div class="keep sticky slim ${cls}" title="${fmtNum(game.totalSpawnRate)} zombies/s arriving · the squad can handle ${fmtMult(k)} of that">
+  return `<div class="keep slim ${cls}" title="${fmtNum(game.totalSpawnRate)} zombies/s arriving · the squad can handle ${fmtMult(k)} of that">
     <b>${k >= 1.1 ? 'Keeping up' : k >= 0.9 ? 'Barely' : 'Overrun'}</b>
     <div class="meter"><i style="width:${Math.min(100, (k / 2) * 100)}%"></i><span class="mark"></span></div>
     <span class="keep-x">${fmtMult(k)}</span>
@@ -255,6 +290,7 @@ function zombiesHtml() {
     }
     const kT = game.keepUpIf(st.id, 'tier'), kS = game.keepUpIf(st.id, 'spawn');
     const free = x.tier < x.maxTier;
+    const tp = tierPrev(st.id), sp = spawnPrev(st.id);
     const lnRate = Math.log(M.spawnRate(st.id, x.spawn) * f) + M.lnDnaPerKill(st.id, x.tier, game.fx);
     return `<div class="srow" style="--dna:${st.color}">
       <img class="px face" src="${zombieIcon(st.id)}" alt="">
@@ -262,8 +298,8 @@ function zombiesHtml() {
         <span class="sub">${vial(col)} +${fmtLn(lnRate)}/s · ${fmtLn(M.lnZombieHp(st.id, x.tier, x.spawn))} HP</span>
         <span class="sub small">Tier ${fmtInt(x.tier)}${free ? `/${fmtInt(x.maxTier)}` : ''} · Spawn ${x.spawn}/${C.spawnMax} (${fmtNum(M.spawnRate(st.id, x.spawn))}/s)${varietyText(x.tier)}</span></div>
       <div class="s-btns">
-        <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, game.tierCost(st.id))} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : cost(col, game.tierCost(st.id))}${word(kT)}</button>
-        ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, game.spawnCost(st.id))} title="+12% ${st.plural}, each level +3% HP"><span>Spawn +</span>${cost(col, game.spawnCost(st.id))}${word(kS)}</button>`
+        <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}${word(kT)}</button>
+        ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)} title="+12% ${st.plural}, each level +3% HP"><span>Spawn +</span>${amtCost(col, sp)}${word(kS)}</button>`
           : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
       </div>
     </div>`;
@@ -281,7 +317,7 @@ function zombiesHtml() {
     </div>`;
   }).join('');
   return `
-  ${keepCardHtml(k)}
+  ${topBar()}
   <p class="sub">Zombies come in five DNA colours, five types each. Raise a type's <b>DNA</b> or <b>Spawn</b> to earn more of its colour; it also makes those zombies tougher. Release new types with DNA of their colour.</p>
   ${families}
   <h3>Feral and Alpha zombies</h3>
@@ -303,21 +339,22 @@ function squadHtml() {
     const full = u.count >= game.unitCap;
     const hc = game.hireCost(c.id), hcol = game.hireColour(c.id);
     const dn = game.node(c.id, 'dmg');
+    const hp = hirePrev(c.id), dp = nodePrev(c.id, 'dmg');
     return `<div class="ucard" style="--c1:${M.strainById(c.primary).color};--c2:${M.strainById(c.secondary).color}" title="Upgrades with ${M.strainById(c.primary).dna} and ${M.strainById(c.secondary).dna} DNA" data-action="open-unit" data-cls="${c.id}" role="button" tabindex="0">
       <img class="px portrait" src="${classIcon(c.id)}" alt="">
       <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
         <span class="sub">${u.count ? `Lv ${M.nlv(u, 'dmg')} · ${fmtLn(game.unitDps(u))} DPS` : 'Not hired yet'}</span>
         </div>
       <div class="quick">
-        ${full ? `<button class="btn sbtn ghost" disabled><span>Hire</span><span class="cost">${game.unitCap >= C.maxPerType ? 'full' : 'barracks full'}</span></button>` : `<button class="btn sbtn" data-action="hire" data-cls="${c.id}" ${costAttr(hcol, hc)}><span>Hire +1</span>${cost(hcol, hc)}</button>`}
-        ${u.count ? `<button class="btn sbtn" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${dn.locked ? 'disabled' : costAttr(dn.colour, dn.lnCost)}><span>Damage +</span>${cost(dn.colour, dn.lnCost)}</button>` : ''}
+        ${full ? `<button class="btn sbtn ghost" disabled><span>Hire</span><span class="cost">${game.unitCap >= C.maxPerType ? 'full' : 'barracks full'}</span></button>` : `<button class="btn sbtn" data-action="hire" data-cls="${c.id}" ${costAttr(hcol, hp.ln)}><span>Hire</span>${amtCost(hcol, hp)}</button>`}
+        ${u.count ? `<button class="btn sbtn" data-action="buy-node" data-cls="${c.id}" data-arg="dmg" ${dn.locked ? 'disabled' : costAttr(dn.colour, dp.ln)}><span>Damage +</span>${amtCost(dn.colour, dp)}</button>` : ''}
       </div>
     </div>`;
   }).join('');
   const items = [...s.guns.map((g) => ({ uid: g.uid, icon: gunIcon(g.cls), rarity: g.rarity, label: `T${fmtInt(g.ilvl)}`, power: M.lnGunPower(g) })),
     ...s.gear.map((g) => ({ uid: g.uid, icon: g.kind === 'attach' ? modIcon(g.stat) : charmIcon(g.bane), rarity: g.rarity, label: g.kind === 'attach' ? g.stat.toUpperCase() : 'CHARM', power: g.value * 10 }))]
     .sort((a, b) => M.CONFIG.rarities.findIndex((r) => r.id === b.rarity) - M.CONFIG.rarities.findIndex((r) => r.id === a.rarity) || b.power - a.power);
-  return `${keepCardHtml(game.keepUp())}<p class="sub">Tap a unit type for its gear, ability and upgrades. Every unit's upgrade tree is also on the <b>Tree</b> tab. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
+  return `${topBar()}<p class="sub">Tap a unit type for its gear, ability and upgrades. Every unit's upgrade tree is also on the <b>Tree</b> tab. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
   <div class="grid2">${cards}</div>
   <h3>Items <small>${items.length}/60 · guns, attachments and charms (rare drops and horde rewards)</small></h3>
   ${autoSellHtml()}
@@ -363,8 +400,7 @@ function unitTreeBlock(cls: ClassId) {
     const effect = n.kind === 'unlock' ? esc(next || now) : next ? `${now} → <b class="good">${next}</b>` : `${now}`;
     const right = ns.maxed ? '<span class="pstate good">✓ Max</span>'
       : ns.locked ? `<span class="pstate sub small">🔒 ${esc(ns.locked)}</span>`
-      : `<div class="ubtns"><button class="btn sbtn" data-action="buy-node" data-cls="${cls}" data-arg="${n.id}" ${costAttr(ns.colour, ns.lnCost)}><span>${n.kind === 'unlock' ? 'Unlock' : 'Upgrade'}</span>${cost(ns.colour, ns.lnCost)}</button>${
-        n.kind === 'unlock' ? '' : `<button class="btn ghost sbtn max" data-action="buy-node" data-cls="${cls}" data-arg="${n.id}" data-n="1000" ${costAttr(ns.colour, ns.lnCost)}>Max</button>`}</div>`;
+      : `<div class="ubtns">${(() => { const pv = nodePrev(cls, n.id); return `<button class="btn sbtn" data-action="buy-node" data-cls="${cls}" data-arg="${n.id}" ${costAttr(ns.colour, pv.ln)}><span>${n.kind === 'unlock' ? 'Unlock' : 'Upgrade'}</span>${amtCost(ns.colour, pv)}</button>`; })()}</div>`;
     return `<div class="urow ${ns.maxed ? 'maxed' : ''} ${ns.locked ? 'locked' : ''} ${ns.canAfford ? 'afford' : ''}" style="--dna:${col}">
       <span class="un-icon"><img class="px" src="${icon}" alt=""></span>
       <div class="uinfo"><b>${name}</b> <span class="lv">${lv}</span><span class="sub small">${effect}</span></div>${right}</div>`;
@@ -387,13 +423,13 @@ function unitScreenHtml(cls: ClassId) {
     return `<button class="slot" style="--rar:${it ? RARITY_COLOR[it.rarity] : '#555'}" data-action="pick" data-cls="${cls}" data-arg="${kind}">
       ${icon ? `<img class="px" src="${icon}" alt="">` : '<span class="plus">+</span>'}<span>${label}</span><small>${esc(name)}</small></button>`;
   };
-  return `${keepCardHtml(game.keepUp())}<button class="btn ghost back" data-action="units">‹ All unit types</button>
+  return `${topBar()}<button class="btn ghost back" data-action="units">‹ All unit types</button>
   <div class="unit-head">
     <img class="px portrait big" src="${classIcon(cls)}" alt="">
     <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${cap}</small></span>
       <span class="sub">${u.count ? `${fmtLn(game.unitDps(u))} DPS total · range ${Math.round(st!.range * 100)}% · ${fmtNum(st!.shotsPerSec)} shots/s · crit ${Math.round(st!.crit * 100)}% ×${st!.critDmg.toFixed(1)} · hits ${st!.targets}` : `${c.gun} · not hired yet`}</span></div>
     <div class="hire-btns">
-      ${full ? `<button class="btn ghost" disabled>${cap >= C.maxPerType ? 'Full 20/20' : 'Barracks full'}</button>` : `<button class="btn" data-action="hire" data-cls="${cls}" ${costAttr(hcol, hc)}>Hire +1 · ${cost(hcol, hc)}</button>`}
+      ${full ? `<button class="btn ghost" disabled>${cap >= C.maxPerType ? 'Full 20/20' : 'Barracks full'}</button>` : `<button class="btn" data-action="hire" data-cls="${cls}" ${costAttr(hcol, hirePrev(cls).ln)}>Hire ${hirePrev(cls).n > 1 ? `×${hirePrev(cls).n} ` : ''}· ${cost(hcol, hirePrev(cls).ln)}</button>`}
       ${u.count > 1 ? `<button class="btn ghost sq" data-action="dismiss" data-cls="${cls}" aria-label="Dismiss one">−1</button>` : ''}
     </div>
   </div>
@@ -461,7 +497,7 @@ function treeTabHtml() {
   if (treeView !== 'global' && !game.classUnlocked(treeView)) treeView = 'global';
   if (treeView === 'global') return treeTabsHtml() + (treeMode === 'web' ? treeHtml() : treeListHtml());
   const cls = treeView, c = M.classById(cls), u = game.unit(cls);
-  return `${treeTabsHtml()}
+  return `${treeTabsHtml()}${topBar()}
   <div class="tree-unit-head"><img class="px portrait" src="${classIcon(cls)}" alt=""><div><b>${c.plural} ×${u.count}</b><span class="sub small">${u.count ? `Lv ${M.nlv(u, 'dmg')} · ${fmtLn(game.unitDps(u))} DPS · ${c.ability.name} ${abilityPips(u)}` : 'Not hired yet: hire one on the Squad tab'}</span></div>
     <button class="btn ghost sm" data-action="goto-unit" data-cls="${cls}">Gear ›</button></div>
   ${unitTreeBlock(cls)}`;

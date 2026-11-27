@@ -654,3 +654,11 @@ textarea.code { background: #0a0d12; border: 1px solid var(--line); border-radiu
 .slotrow .sub { display: block; margin: 2px 0 0; }
 .slotrow .row { margin-top: 8px; flex-wrap: wrap; }
 .slotrow .btn.sm { min-height: 38px; }
+/* pinned top bar: optional keep-up meter + buy amount */
+.topbar { position: sticky; top: -16px; z-index: 5; margin: -4px -4px 10px; padding: 6px 4px 8px; background: linear-gradient(180deg, var(--panel) 80%, rgba(15,19,25,0)); }
+.topbar .keep.slim { margin-bottom: 6px; position: static; }
+.buyamt { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.buyamt .sub { margin: 0; }
+.buyamt .seg2 button { min-width: 54px; }
+.sbtn .amt { font-style: normal; font: 400 12px var(--display); color: #fff; background: rgba(0,0,0,.3); border-radius: 999px; padding: 0 6px; margin-right: 3px; }
+.tree-tabs + .topbar { margin-top: 0; }

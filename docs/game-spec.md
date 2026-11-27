@@ -127,6 +127,10 @@ should win; can be switched off on the Hordes tab). Every DNA purchase is yours 
 with the same economy and summarised: zombies, DNA of each colour, items found.
 
 ## 7. Screens and sound
+**Buy amount:** a ×1 / ×10 / Max selector pinned to the top of the Zombies, Squad and unit-tree pages applies to every
+repeatable purchase (DNA +, Spawn +, Hire, Damage + and unit-tree upgrades); buttons show how many you'd get and the
+total price. The choice is remembered on the device.
+
 Soldiers stand at random spots along the wall, mixed together (up to 6 shown per unit type; the rest fire through them).
 Each hired unit type has a dashed **range line** on the road in its own colour, marked with its gun. A slim keep-up bar
 is pinned to the top of the Zombies and Squad menus.
