@@ -438,12 +438,12 @@ function railRender() {
       const st = M.strainById(railPick), x = game.s.strains[railPick], col = st.family, free = x.tier < x.maxTier;
       const tp = tierPrev(st.id), sp = spawnPrev(st.id);
       pop = `<div class="zr-pop" style="--dna:${st.color}">
-        <div class="zr-head"><img class="px" src="${zombieIcon(st.id)}" alt=""><div><b>${esc(st.plural)}</b><span>Tier ${fmtInt(x.tier)}${M.isLastForm(st.id) ? '' : `/${M.TIER_CAP}`} · Spawn ${x.spawn}/${C.spawnMax}</span></div>
+        <div class="zr-head"><img class="px" src="${zombieIcon(st.id)}" alt=""><div><b>${esc(st.plural)}</b></div>
           <span class="zr-rate" title="DNA per second from ${esc(st.plural)}">${vial(col)}+${fmtLn(Math.log(M.spawnRate(st.id, x.spawn) * Math.min(1, game.keepUp())) + M.lnDnaPerKill(st.id, x.tier, game.fx))}<i>/s</i></span></div>
         <div class="s-btns">
-          ${atCap(st.id) ? '<button class="btn sbtn ghost" disabled><span>DNA</span><span class="cost">max</span></button>' : `<button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA +</span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>`}
-          ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)}><span>Spawn +</span>${amtCost(col, sp)}</button>`
-            : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
+          ${atCap(st.id) ? `<button class="btn sbtn ghost" disabled><span>DNA <b class="lvl">${fmtInt(x.tier)}/${M.TIER_CAP}</b></span><span class="cost">max</span></button>` : `<button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, tp.ln)}><span>DNA <b class="lvl">${fmtInt(x.tier)}${M.isLastForm(st.id) ? '' : `/${M.TIER_CAP}`}</b></span>${free ? '<span class="cost">free</span>' : amtCost(col, tp)}</button>`}
+          ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, sp.ln)}><span>Spawn <b class="lvl">${x.spawn}/${C.spawnMax}</b></span>${amtCost(col, sp)}</button>`
+            : `<button class="btn sbtn ghost" disabled><span>Spawn <b class="lvl">${C.spawnMax}/${C.spawnMax}</b></span><span class="cost">max</span></button>`}
         </div>${(() => { const nx = nextForm(st.id); if (!nx) return ''; const ln = game.releaseCost(nx.id);
           return `<button class="btn evolve-big ${game.canAfford(col, ln) ? 'afford' : ''}" data-action="release" data-strain="${nx.id}" ${costAttr(col, ln)}>${biohazard('bio')}<span class="ev-t"><b>Evolve → ${esc(nx.plural)}</b><small>A new, richer form joins the stream</small></span>${cost(col, ln)}</button>`; })()}</div>`;
     }

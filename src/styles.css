@@ -1068,3 +1068,5 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .zr-pop .zr-head > div b { grid-area: nm; }
 .zr-pop .zr-head > div span { grid-area: sb; }
 .zr-pop .zr-head .zr-rate { grid-area: rt; justify-self: end; }
+.zr-pop .sbtn .lvl { font-weight: 700; opacity: .8; font-variant-numeric: tabular-nums; margin-left: 2px; }
+.zr-pop .zr-head { grid-template-areas: "ic nm rt"; }
