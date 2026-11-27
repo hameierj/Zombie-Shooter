@@ -9,7 +9,7 @@
 // Squad power grows from two halves of similar size: Damage ranks (DNA) and Guns (rare drops at your current tier).
 // The big passive tree gives squad-wide perks; hordes are optional challenges that unlock unit types and tree regions.
 
-export type ClassId = 'pistol' | 'bow' | 'shotgun' | 'rifle' | 'sniper' | 'flamer' | 'grenade';
+export type ClassId = 'pistol' | 'bow' | 'shotgun' | 'rifle' | 'sniper' | 'flamer' | 'grenade' | 'mg' | 'drone' | 'mortar' | 'tesla';
 /** A DNA colour. Each colour is named after the first zombie type of its family. */
 export type StrainId = 'shambler' | 'runner' | 'brute' | 'spitter' | 'bloater';
 export type ColourId = StrainId;
@@ -89,6 +89,29 @@ export type DnaMap = Record<ColourId, number | null>; // ln amounts per colour; 
 export interface StrainState { unlocked: boolean; tier: number; maxTier: number; spawn: number }
 export type Strains = Record<ZombieId, StrainState>;
 
+// ---------- Varieties: every zombie type comes in Normal, Feral and Alpha ----------
+export type VarietyId = 0 | 1 | 2;
+export const VARIETIES = [
+  { name: '', hp: 1, dna: 1 },
+  { name: 'Feral', hp: 2.5, dna: 2.5 },
+  { name: 'Alpha', hp: 6, dna: 6 },
+] as const;
+/** Share of Feral and Alpha zombies of a type at a given tier: they creep in as you raise its DNA Count. */
+export function varietyMix(tier: number) {
+  const feral = Math.max(0, Math.min(0.35, (tier - 20) / 200));
+  const alpha = Math.max(0, Math.min(0.15, (tier - 60) / 400));
+  return { feral, alpha };
+}
+/** Average HP and DNA multiplier from the variety mix (both scale together). */
+export function varietyAvg(tier: number) {
+  const m = varietyMix(tier);
+  return 1 + m.feral * (VARIETIES[1].hp - 1) + m.alpha * (VARIETIES[2].hp - 1);
+}
+export function rollVariety(tier: number, rng: () => number): VarietyId {
+  const m = varietyMix(tier), r = rng();
+  return r < m.alpha ? 2 : r < m.alpha + m.feral ? 1 : 0;
+}
+
 // ---------- Special zombies (random in the stream; no dials) ----------
 export type SpecialId = 'golden' | 'armored' | 'screamer' | 'medic' | 'exploder';
 export interface SpecialDef { id: SpecialId; name: string; desc: string; weight: number; hp: number; dna: number; speed: number; loot: number; tint: number }
@@ -134,6 +157,15 @@ export const CLASSES: ClassDef[] = [
     ability: { name: 'Napalm', stages: ['Burning ground: +1 zombie hit, +10% damage', '+2 zombies hit, +20% damage', '+3 zombies hit, +30% damage'] } },
   { id: 'grenade', name: 'Grenadier',  plural: 'Grenadiers',  gun: 'Grenade Launcher', dps: 42, range: 0.75, rate: 0.7, targets: 4, crit: 0.05, horde: 6, hire0: 5e6, primary: 'bloater', secondary: 'shambler',
     ability: { name: 'Cluster Bombs', stages: ['Blasts hit 1 more zombie', 'Blasts hit 2 more zombies', 'Blasts hit 3 more zombies'] } },
+  // Elite-horde recruits
+  { id: 'mg',      name: 'Machine Gunner', plural: 'Machine Gunners', gun: 'Machine Gun', dps: 55, range: 0.60, rate: 12, targets: 1, crit: 0.05, horde: 8, hire0: 3e7, primary: 'runner', secondary: 'brute',
+    ability: { name: 'Overheat', stages: ['Longer bursts: +20% attack speed', '+40% attack speed', '+70% attack speed'] } },
+  { id: 'drone',   name: 'Drone Operator', plural: 'Drone Operators', gun: 'Attack Drones', dps: 68, range: 1.00, rate: 1.6, targets: 1, crit: 0.15, horde: 9, hire0: 2e8, primary: 'spitter', secondary: 'runner',
+    ability: { name: 'Swarm', stages: ['+1 drone: hits 1 more zombie', '+2 drones', '+3 drones'] } },
+  { id: 'mortar',  name: 'Mortar Gunner', plural: 'Mortar Team', gun: 'Mortar', dps: 85, range: 1.00, rate: 0.35, targets: 5, crit: 0.05, horde: 11, hire0: 1.5e9, primary: 'brute', secondary: 'bloater',
+    ability: { name: 'Barrage', stages: ['Shells hit 1 more zombie, +10% damage', '+2 zombies, +20% damage', '+3 zombies, +30% damage'] } },
+  { id: 'tesla',   name: 'Tesla Trooper', plural: 'Tesla Troopers', gun: 'Arc Gun', dps: 105, range: 0.55, rate: 1.6, targets: 3, crit: 0.10, horde: 13, hire0: 1e10, primary: 'bloater', secondary: 'spitter',
+    ability: { name: 'Chain Lightning', stages: ['Arcs to 1 more zombie', 'Arcs to 2 more zombies', 'Arcs to 3 more zombies'] } },
 ];
 export const classById = (id: ClassId) => CLASSES.find((c) => c.id === id)!;
 /** Damage multipliers: guns that are good or bad against a zombie type. */
@@ -145,6 +177,10 @@ export const MATCH: Partial<Record<ClassId, Partial<Record<StrainId, number>>>> 
   sniper:  { brute: 2.0, bloater: 1.3, runner: 0.6 },
   flamer:  { bloater: 1.6, spitter: 0.7, shambler: 1.2 },
   grenade: { bloater: 1.4, brute: 1.2, runner: 0.8 },
+  mg:      { runner: 1.4, shambler: 1.2, brute: 0.8 },
+  drone:   { spitter: 1.4, bloater: 1.2 },
+  mortar:  { bloater: 1.5, brute: 1.3, runner: 0.7 },
+  tesla:   { spitter: 1.3, shambler: 1.3, brute: 0.85 },
 };
 
 // ---------- Unit upgrade trees (same layout for every type; the ability chain differs) ----------
@@ -223,13 +259,13 @@ export interface HordeDef { index: number; name: string; tier: number; unlocks: 
 const HORDE_NAMES = ['The Shamblers', 'Fast Movers', 'Heavy Hitters', 'The Swarm', 'Brute Squad', 'Acid Rain', 'The Bloat'];
 const HORDE_TIERS = [6, 20, 40, 70, 110, 160, 220];
 export function hordeDef(k: number): HordeDef {
+  const cls = CLASSES.find((c) => c.horde === k)?.id;
   if (k <= 7) {
-    const cls = CLASSES.find((c) => c.horde === k)?.id;
     const unlocks = cls ? `${classById(cls).plural} + the ${['', 'Marksman', 'Breacher', 'Suppression', 'Deadeye', 'Inferno', 'Demolition'][k]} tree region` : 'The Command tree region';
     return { index: k, name: HORDE_NAMES[k - 1], tier: HORDE_TIERS[k - 1], unlocks, cls, region: k, elite: false };
   }
   const n = k - 7;
-  return { index: k, name: `Elite Horde ${n}`, tier: HORDE_TIERS[6] + 30 * n, unlocks: 'An epic item', region: -1, elite: true };
+  return { index: k, name: `Elite Horde ${n}`, tier: HORDE_TIERS[6] + 30 * n, unlocks: cls ? `${classById(cls).plural} (new recruits)` : 'An epic item', cls, region: -1, elite: true };
 }
 /** Hordes bring a fixed mix of zombie types for their tier (it doesn't depend on which types you've released). */
 export const hordeMix = (k: number) => STRAINS.filter((s) => s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only
@@ -307,6 +343,10 @@ export function abilityFx(u: Unit) {
     case 'sniper': out.execute = 0.1 * k; out.dmg = 1 / (1 - 0.1 * k); break;
     case 'flamer': out.targets = k; out.dmg = 1 + 0.1 * k; break;
     case 'grenade': out.targets = k; break;
+    case 'mg': out.spd = [0, 0.2, 0.4, 0.7][k]; break;
+    case 'drone': out.targets = k; break;
+    case 'mortar': out.targets = k; out.dmg = 1 + 0.1 * k; break;
+    case 'tesla': out.targets = k; break;
   }
   return out;
 }
@@ -355,7 +395,7 @@ export function keepUp(squad: SquadEntry[], fx: Fx, st: Strains) {
   let load = 0;
   for (const s of activeStrains(st)) {
     const x = st[s];
-    load += spawnRate(s, x.spawn) * Math.exp(Math.min(60, lnZombieHp(s, x.tier, x.spawn) - lnSquadDps(squad, fx, s)));
+    load += spawnRate(s, x.spawn) * varietyAvg(x.tier) * Math.exp(Math.min(60, lnZombieHp(s, x.tier, x.spawn) - lnSquadDps(squad, fx, s)));
   }
   return load > 0 ? 1 / load : Infinity;
 }
@@ -365,7 +405,7 @@ export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains): Record<St
   const out = Object.fromEntries(COLOURS.map((c) => [c, -Infinity])) as Record<ColourId, number>;
   for (const s of activeStrains(st)) {
     const x = st[s];
-    out[familyOf(s)] = logAdd(out[familyOf(s)], Math.log(spawnRate(s, x.spawn) * f) + lnDnaPerKill(s, x.tier, fx));
+    out[familyOf(s)] = logAdd(out[familyOf(s)], Math.log(spawnRate(s, x.spawn) * f * varietyAvg(x.tier)) + lnDnaPerKill(s, x.tier, fx));
   }
   return out;
 }

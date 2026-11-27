@@ -129,7 +129,7 @@ export class Game {
   squad(): M.SquadEntry[] { return this.owned.map((u) => this.entry(u)); }
   get best() { return M.bestTier(this.s.strains); }
   get unitCap() { return M.unitCap(this.best); }
-  classUnlocked(c: ClassId) { return M.classById(c).horde <= Math.min(this.s.hordes, 7); }
+  classUnlocked(c: ClassId) { return M.classById(c).horde <= this.s.hordes; }
   stats(u: Unit) { return M.unitStats(this.entry(u), this.fx); }
   /** Total DPS of a unit type, averaged over the zombie types currently in the stream (ln). */
   unitDps(u: Unit) {

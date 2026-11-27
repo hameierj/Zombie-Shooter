@@ -7,14 +7,14 @@
 // if the boss reaches the shredder, or 10 horde zombies break through, the horde is lost.
 import Phaser from 'phaser';
 import * as M from '../core/model.ts';
-import type { ClassId, Gun, SpecialId, ZombieId } from '../core/model.ts';
+import type { ClassId, Gun, SpecialId, VarietyId, ZombieId } from '../core/model.ts';
 import { game } from '../core/state.ts';
 import { fmtLn } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
-import { buildArt, drawGround, GUN_H, GUN_W, HERO_GRIP, HERO_H, HERO_W, RARITY_TRIM, ZOMBIE_FRAMES } from './art.ts';
+import { buildArt, drawGround, GUN_H, GUN_W, HERO_GRIP, HERO_H, HERO_W, RARITY_TRIM, RES, ZOMBIE_FRAMES } from './art.ts';
 
 const C = M.CONFIG;
-const FONT = 'Silkscreen, monospace';
+const FONT = '"Lilita One", system-ui, sans-serif';
 const ART_SHORT_SIDE = 360;  // art pixels across the field's short side (bigger = more zoomed out)
 const MAX_AMBIENT = 70;      // cap on stream zombies alive at once
 const MAX_TEXTS = 24;
@@ -22,7 +22,7 @@ const INTRO_SEC = 1.4;
 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
-  strain: ZombieId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
+  strain: ZombieId; variety: VarietyId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
 }
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
@@ -33,10 +33,13 @@ const hex = (css: string) => Number.parseInt(css.slice(1), 16);
 /** Range-line colour per unit type. */
 const RANGE_COLOR: Record<ClassId, number> = {
   pistol: 0xf2f2f2, bow: 0x7ddc5a, shotgun: 0xff9a3c, rifle: 0x4aa3ff, sniper: 0x7fe8ff, flamer: 0xff5a5a, grenade: 0xd8c46a,
+  mg: 0xc0c8d0, drone: 0x4ad6c8, mortar: 0xb08850, tesla: 0x9a8aff,
 };
 
 export class BattleScene extends Phaser.Scene {
   private W = 100; private H = 100; private px = 3;
+  /** Scale for RES× sprites so 1 art unit = px device pixels. */
+  private get S() { return this.px / RES; }
   private AW = 40; private AH = 30;
   private lay = { bunkerRight: 10, shredX: 11, stopX: 30, spawnX: 60, laneTop: 10, laneBot: 25, roadTop: 5, roadBot: 28 };
   private ground?: Phaser.GameObjects.Image;
@@ -68,14 +71,14 @@ export class BattleScene extends Phaser.Scene {
 
   create() {
     for (const [key, canvas] of Object.entries(buildArt().canvases)) if (!this.textures.exists(key)) this.textures.addCanvas(key, canvas);
-    this.housing = this.add.tileSprite(0, 0, 16, 16, 'shred-housing').setOrigin(0, 0).setDepth(2);
-    this.teeth = this.add.tileSprite(0, 0, 10, 16, 'shred-teeth').setOrigin(0, 0).setDepth(2);
+    this.housing = this.add.tileSprite(0, 0, 16 * RES, 16 * RES, 'shred-housing').setOrigin(0, 0).setDepth(2);
+    this.teeth = this.add.tileSprite(0, 0, 10 * RES, 16 * RES, 'shred-teeth').setOrigin(0, 0).setDepth(2);
     this.capTop = this.add.image(0, 0, 'shred-cap').setOrigin(0, 0).setDepth(3);
     this.capBot = this.add.image(0, 0, 'shred-cap').setOrigin(0, 1).setDepth(3);
     this.fx = this.add.graphics().setDepth(9000);
     this.gibs = this.add.particles(0, 0, 'pix', {
       emitting: false, lifespan: { min: 300, max: 700 }, speed: { min: 50, max: 220 }, angle: { min: 200, max: 340 },
-      gravityY: 800, alpha: { start: 1, end: 0.6 },
+      gravityY: 800, alpha: { start: 1, end: 0 }, scale: { start: 1, end: 0.4 },
     }).setDepth(8000);
     const tx = { fontFamily: FONT, color: '#ffffff', stroke: '#140c1c' };
     this.banner = this.add.text(0, 0, '', tx).setOrigin(0.5).setDepth(9500).setAlpha(0);
@@ -98,29 +101,30 @@ export class BattleScene extends Phaser.Scene {
 
   // ---------- layout ----------
   private relayout() {
-    this.px = Math.max(1, Math.min(8, Math.round(Math.min(this.W, Math.max(this.H, this.W * 0.55)) / ART_SHORT_SIDE)));
+    this.px = Math.max(1, Math.min(8, Math.min(this.W, Math.max(this.H, this.W * 0.55)) / ART_SHORT_SIDE));
     const px = this.px;
     this.AW = Math.ceil(this.W / px);
     this.AH = Math.ceil(this.H / px);
     const bunkerRight = Math.max(44, Math.round(this.AW * 0.16));
     const roadTop = Math.round(this.AH * 0.1), roadBot = Math.round(this.AH * 0.96);
     this.lay = { bunkerRight, shredX: bunkerRight + 1, stopX: bunkerRight + 36, spawnX: this.AW + 16, laneTop: roadTop + 26, laneBot: roadBot - 2, roadTop, roadBot };
-    const key = `ground-${this.AW}x${this.AH}`;
+    const key = `ground-${this.AW}x${this.AH}@${px.toFixed(3)}`;
     if (key !== this.groundKey) {
-      if (!this.textures.exists(key)) this.textures.addCanvas(key, drawGround({ w: this.AW, h: this.AH, roadTop, roadBot, bunkerRight: bunkerRight - 1 }));
+      if (!this.textures.exists(key)) this.textures.addCanvas(key, drawGround({ w: this.AW, h: this.AH, roadTop, roadBot, bunkerRight: bunkerRight - 1 }, px));
       const old = this.groundKey;
       if (this.ground) this.ground.setTexture(key); else this.ground = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(0);
       this.groundKey = key;
       if (old && old !== key && this.textures.exists(old)) this.textures.remove(old);
     }
-    this.ground!.setScale(px);
+    this.ground!.setScale(1);
     const sx = this.lay.shredX * px;
-    this.housing.setPosition(sx, 0).setSize(16, this.AH).setScale(px);
-    this.teeth.setPosition(sx + 16 * px, 0).setSize(10, this.AH).setScale(px);
-    this.capTop.setPosition(sx - 2 * px, 0).setScale(px, px * 2);
-    this.capBot.setPosition(sx - 2 * px, this.H).setScale(px, px * 2);
-    for (const s of this.shooters.values()) { s.body.setScale(px); s.gun.setScale(px); s.flash.setScale(px); }
-    this.gibs.setParticleScale(px);
+    const S = this.S;
+    this.housing.setPosition(sx, 0).setSize(16 * RES, this.AH * RES).setScale(S);
+    this.teeth.setPosition(sx + 16 * px, 0).setSize(10 * RES, this.AH * RES).setScale(S);
+    this.capTop.setPosition(sx - 2 * px, 0).setScale(S, S * 2);
+    this.capBot.setPosition(sx - 2 * px, this.H).setScale(S, S * 2);
+    for (const s of this.shooters.values()) { s.body.setScale(S); s.gun.setScale(S); s.flash.setScale(S); }
+    this.gibs.setParticleScale(S * 1.4);
     this.banner.setFontSize(px * 12).setStroke('#140c1c', px * 2);
     this.sub.setFontSize(px * 7).setStroke('#140c1c', px * 1.5);
   }
@@ -135,10 +139,10 @@ export class BattleScene extends Phaser.Scene {
     for (const z of this.zombies) if (!onlyHorde || z.horde) z.sprite?.destroy();
     this.zombies = onlyHorde ? this.zombies.filter((z) => !z.horde) : [];
   }
-  private makeZombie(strain: ZombieId, tier: number, spawnLv: number, horde: boolean, boss = false, special: SpecialId | null = null): Zombie {
+  private makeZombie(strain: ZombieId, tier: number, spawnLv: number, horde: boolean, boss = false, special: SpecialId | null = null, variety: VarietyId = 0): Zombie {
     const sp = special ? M.specialById(special) : null;
     return {
-      strain, special, announced: false, tier, horde, boss, atWall: false, lnHp: M.lnZombieHp(strain, tier, spawnLv) + (boss ? Math.log(C.bossHpMult) : 0) + (sp ? Math.log(sp.hp) : 0), hp: 1, slow: 0, burn: 0,
+      strain, variety, special, announced: false, tier, horde, boss, atWall: false, lnHp: M.lnZombieHp(strain, tier, spawnLv) + (boss ? Math.log(C.bossHpMult) : 0) + (sp ? Math.log(sp.hp) : 0) + Math.log(M.VARIETIES[variety].hp), hp: 1, slow: 0, burn: 0,
       p: -0.02 - Math.random() * 0.05, l: boss ? 0 : Math.random() * 2 - 1,
       speed: (M.strainById(strain).speed * (sp?.speed ?? 1) * (boss ? C.bossSpeed : (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1))) / C.walkSec,
       flash: -1, phase: Math.random() * 4, alive: true,
@@ -169,7 +173,7 @@ export class BattleScene extends Phaser.Scene {
   update(_t: number, deltaMs: number) {
     const dt = Math.min(0.1, deltaMs / 1000);
     this.phaseT += dt;
-    this.teeth.tilePositionY -= dt * 30;
+    this.teeth.tilePositionY -= dt * 30 * RES;
     this.autoT += dt;
     // War Drums: start the next horde automatically when the squad should win (never spends DNA)
     if (this.autoT >= 3) { this.autoT = 0; if (this.phase === 'stream' && game.autoHorde && game.hordeOdds() >= game.autoHordeNeeds) game.startHorde(); }
@@ -182,7 +186,7 @@ export class BattleScene extends Phaser.Scene {
         let t = (this.spawnTimers.get(sid) ?? Math.random() * 2) - dt;
         while (t <= 0) {
           t += 1 / M.spawnRate(sid, x.spawn);
-          if (ambient < MAX_AMBIENT) this.zombies.push(this.makeZombie(sid, x.tier, x.spawn, false, false, M.rollSpecial(Math.random)));
+          if (ambient < MAX_AMBIENT) this.zombies.push(this.makeZombie(sid, x.tier, x.spawn, false, false, M.rollSpecial(Math.random), M.rollVariety(x.tier, Math.random)));
         }
         this.spawnTimers.set(sid, t);
       }
@@ -279,9 +283,9 @@ export class BattleScene extends Phaser.Scene {
       const cls = key.split('-')[0] as ClassId;
       this.spots.set(key, Math.random());
       this.shooters.set(key, {
-        body: this.add.sprite(0, 0, `hero-${cls}-0`).setOrigin(0.5, 1).setScale(this.px),
-        gun: this.add.image(0, 0, `gun-${cls}`).setOrigin(3 / GUN_W, 6 / GUN_H).setScale(this.px),
-        flash: this.add.image(0, 0, 'muzzle').setVisible(false).setScale(this.px),
+        body: this.add.sprite(0, 0, `hero-${cls}-0`).setOrigin(0.5, 1).setScale(this.S),
+        gun: this.add.image(0, 0, `gun-${cls}`).setOrigin(3 / GUN_W, 6 / GUN_H).setScale(this.S),
+        flash: this.add.image(0, 0, 'muzzle').setVisible(false).setScale(this.S).setBlendMode(Phaser.BlendModes.ADD),
         cls, cd: Math.random() * 0.5, recoil: 0, flashT: 0, aim: 0,
       });
     }
@@ -409,25 +413,26 @@ export class BattleScene extends Phaser.Scene {
       this.floatText(`×${sp.dna} DNA`, x, y - 16 * this.px, true);
       if (z.special === 'exploder') {
         // the blast hurts every zombie close by
-        const b = this.take('boom').setPosition(x, y).setScale(this.px * 1.5).setDepth(8700).setAlpha(1);
-        this.tweens.add({ targets: b, scale: this.px * 4, alpha: 0, duration: 350, onComplete: () => this.give(b) });
+        const b = this.take('boom').setPosition(x, y).setScale(this.S * 1.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(8700).setAlpha(1);
+        this.tweens.add({ targets: b, scale: this.S * 4, alpha: 0, duration: 350, onComplete: () => this.give(b) });
         sfx.boom();
         for (const n of this.zombies) if (n.alive && n !== z && this.dist(n, z) < 0.13) this.damage(n, 0.6, '', false);
       }
     }
-    const loot = game.zombieKilled(z.strain, z.tier, sp ? { mult: sp.dna, lootMult: sp.loot } : {});
+    const vm = M.VARIETIES[z.variety].dna;
+    const loot = game.zombieKilled(z.strain, z.tier, { mult: (sp?.dna ?? 1) * vm, lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
     if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 
   private dropCrate(rarity: M.RarityId, x: number, y: number) {
-    const img = this.take(`crate-${rarity}`).setPosition(x, y).setScale(this.px * 2).setDepth(8800).setAlpha(1);
+    const img = this.take(`crate-${rarity}`).setPosition(x, y).setScale(this.S * 2).setDepth(8800).setAlpha(1);
     const crate: Crate = { img, t: 0, color: hex(RARITY_TRIM[rarity]) };
     this.crates.push(crate);
     this.tweens.add({
       targets: img, y: y + 6 * this.px, duration: 500, ease: 'Bounce.easeOut',
       onComplete: () => {
         const [hx, hy] = this.shooterFeet(0, 1);
-        this.tweens.add({ targets: img, x: hx, y: hy - 10 * this.px, scale: this.px, duration: 600, delay: 900, ease: 'Quad.easeIn',
+        this.tweens.add({ targets: img, x: hx, y: hy - 10 * this.px, scale: this.S, duration: 600, delay: 900, ease: 'Quad.easeIn',
           onComplete: () => { this.give(img); this.crates = this.crates.filter((c) => c !== crate); } });
       },
     });
@@ -443,7 +448,7 @@ export class BattleScene extends Phaser.Scene {
     const px = this.px;
     sfx.shot(cls);
     const fly = (key: string, x2: number, y2: number, ms: number, after?: () => void) => {
-      const b = this.take(key).setPosition(mx, my).setRotation(Math.atan2(y2 - my, x2 - mx)).setScale(px).setDepth(8600).setAlpha(1);
+      const b = this.take(key).setPosition(mx, my).setRotation(Math.atan2(y2 - my, x2 - mx)).setScale(this.S).setBlendMode(key === 'arrow' ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.ADD).setDepth(8600).setAlpha(1);
       this.tweens.add({ targets: b, x: x2, y: y2, duration: ms, onComplete: () => { this.give(b); after?.(); } });
     };
     switch (cls) {
@@ -454,18 +459,55 @@ export class BattleScene extends Phaser.Scene {
       case 'sniper': s.flashT = 0.08; fly('tracer', tx, ty, 50, () => { this.spark(tx, ty); this.burst(tx, ty, 0xffffff, 6); }); break;
       case 'flamer':
         for (let n = 0; n < 2; n++) {
-          const f = this.take(`flame-${n}`).setPosition(mx, my).setScale(px).setDepth(8600).setAlpha(1);
-          this.tweens.add({ targets: f, x: tx + (Math.random() - 0.5) * 10 * px, y: ty + (Math.random() - 0.5) * 8 * px, scale: px * 2.5, alpha: 0.15, duration: 200, onComplete: () => this.give(f) });
+          const f = this.take(`flame-${n}`).setPosition(mx, my).setScale(this.S).setBlendMode(Phaser.BlendModes.ADD).setDepth(8600).setAlpha(1);
+          this.tweens.add({ targets: f, x: tx + (Math.random() - 0.5) * 10 * px, y: ty + (Math.random() - 0.5) * 8 * px, scale: this.S * 2.5, alpha: 0, duration: 220, onComplete: () => this.give(f) });
         }
         break;
+      case 'mg': s.flashT = 0.05; fly('bullet', tx + (Math.random() - 0.5) * 4 * px, ty + (Math.random() - 0.5) * 4 * px, 45); break;
+      case 'drone': {
+        const d = this.take('drone-bot').setPosition(mx, my).setScale(this.S).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
+        this.tweens.add({ targets: d, x: tx, duration: 420, onUpdate: (tw) => { d.y = my + (ty - my) * tw.progress - Math.sin(tw.progress * Math.PI) * 24 * px; },
+          onComplete: () => { this.give(d); this.spark(tx, ty); this.burst(tx, ty, 0xff5a5a, 5); } });
+        break;
+      }
+      case 'mortar': {
+        const sh = this.take('shell').setPosition(mx, my).setScale(this.S).setDepth(8650).setAlpha(1).setBlendMode(Phaser.BlendModes.NORMAL);
+        this.tweens.add({ targets: sh, x: tx, duration: 700, onUpdate: (tw) => { sh.y = my + (ty - my) * tw.progress - Math.sin(tw.progress * Math.PI) * 70 * px; sh.setRotation(-0.9 + 1.8 * tw.progress); },
+          onComplete: () => {
+            this.give(sh);
+            const b = this.take('boom').setPosition(tx, ty).setScale(this.S * 1.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(8700).setAlpha(1);
+            this.tweens.add({ targets: b, scale: this.S * 3.6, alpha: 0, duration: 380, onComplete: () => this.give(b) });
+            this.burst(tx, ty, 0xff9a3c, 14);
+            this.cameras.main.shake(140, 0.004);
+            sfx.boom();
+          } });
+        break;
+      }
+      case 'tesla': {
+        // a jagged arc from the gun through every zombie it chains to
+        const pts: [number, number][] = [[mx, my], ...hits.map((z) => this.zombieCenter(z))];
+        const bolt = this.add.graphics().setDepth(8700).setBlendMode(Phaser.BlendModes.ADD);
+        for (const [w, col, a] of [[3, 0x6a5aff, 0.5], [1.2, 0xe8e4ff, 1]] as const) {
+          bolt.lineStyle(w * px, col, a).beginPath().moveTo(pts[0][0], pts[0][1]);
+          for (let i = 1; i < pts.length; i++) {
+            const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+            for (let k = 1; k <= 4; k++) bolt.lineTo(x0 + ((x1 - x0) * k) / 4 + (k < 4 ? (Math.random() - 0.5) * 8 * px : 0), y0 + ((y1 - y0) * k) / 4 + (k < 4 ? (Math.random() - 0.5) * 8 * px : 0));
+          }
+          bolt.strokePath();
+        }
+        this.tweens.add({ targets: bolt, alpha: 0, duration: 140, onComplete: () => bolt.destroy() });
+        for (const [x, y] of pts.slice(1)) this.spark(x, y);
+        break;
+      }
       case 'grenade': {
-        const g = this.take('grenade').setPosition(mx, my).setScale(px).setDepth(8600).setAlpha(1);
+        const g = this.take('grenade').setPosition(mx, my).setScale(this.S).setDepth(8600).setAlpha(1);
         this.tweens.add({ targets: g, x: tx, duration: 380, onUpdate: (tw) => { g.y = my + (ty - my) * tw.progress - Math.sin(tw.progress * Math.PI) * 30 * px; },
           onComplete: () => {
             this.give(g);
-            const b = this.take('boom').setPosition(tx, ty).setScale(px).setDepth(8700).setAlpha(1);
-            this.tweens.add({ targets: b, scale: px * 2.2, alpha: 0, duration: 300, onComplete: () => this.give(b) });
+            const b = this.take('boom').setPosition(tx, ty).setScale(this.S).setBlendMode(Phaser.BlendModes.ADD).setDepth(8700).setAlpha(1);
+            this.tweens.add({ targets: b, scale: this.S * 2.6, alpha: 0, duration: 320, onComplete: () => this.give(b) });
             this.burst(tx, ty, 0xff7a2a, 10);
+            this.cameras.main.shake(110, 0.003);
             sfx.boom();
           } });
         break;
@@ -474,7 +516,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private spark(x: number, y: number) {
-    const s = this.take('spark').setPosition(x, y).setScale(this.px).setDepth(8700).setAlpha(1);
+    const s = this.take('spark').setPosition(x, y).setScale(this.S).setBlendMode(Phaser.BlendModes.ADD).setDepth(8700).setAlpha(1);
     this.tweens.add({ targets: s, alpha: 0, duration: 90, onComplete: () => this.give(s) });
   }
   private burst(x: number, y: number, color: number, n: number) { this.gibs.setParticleTint(color); this.gibs.explode(n, x, y); }
@@ -521,10 +563,12 @@ export class BattleScene extends Phaser.Scene {
       const [x, y] = this.toScreen(z.p, z.l);
       if (!z.sprite) z.sprite = this.add.sprite(x, y, `z-${z.strain}-0`).setOrigin(0.5, 1);
       const frame = z.p >= 1 ? (Math.floor(z.phase) % 2) * 2 : Math.floor(z.phase) % ZOMBIE_FRAMES;
-      z.sprite.setTexture(`z-${z.strain}-${frame}`).setPosition(x, y).setScale(z.boss ? px * 2 : px).setDepth(y);
+      z.sprite.setTexture(`z-${z.strain}-${frame}`).setPosition(x, y).setScale((z.boss ? 2 : 1 + 0.12 * z.variety) * this.S).setDepth(y);
       if (z.flash > 0) z.sprite.setTintFill(0xffffff);
       else if (z.boss) z.sprite.setTint(0xff9a9a);
       else if (z.special) z.sprite.setTint(M.specialById(z.special).tint);
+      else if (z.variety === 1) z.sprite.setTint(0xffb4a4);
+      else if (z.variety === 2) z.sprite.setTint(0xc8b8ff);
       else if (z.horde) z.sprite.setTint(0xffc0c0);
       else z.sprite.clearTint();
     }
@@ -548,12 +592,13 @@ export class BattleScene extends Phaser.Scene {
       for (let y = top + off * px; y < bot; y += 6 * px) g.fillRect(Math.round(rx), y, px, 3 * px);
       // marker: alternate top/bottom; nudge if another marker on the same end is too close
       const atTop = i % 2 === 0;
-      let ix = rx;
-      while (placed.some((p) => Math.abs(p - (atTop ? ix : -ix)) < 26 * px)) ix += atTop ? 26 * px : -26 * px;
+      // keep badges on screen; when they crowd, step back toward the wall
+      let ix = Math.min(rx, this.W - 14 * px);
+      for (let guard = 0; guard < 20 && placed.some((p) => Math.abs(p - (atTop ? ix : -ix)) < 26 * px); guard++) ix -= 26 * px;
       placed.push(atTop ? ix : -ix);
       let icon = this.rangeIcons.get(u.cls);
       if (!icon) { icon = this.add.image(0, 0, `gun-${u.cls}`).setDepth(9001); this.rangeIcons.set(u.cls, icon); }
-      icon.setScale(px * 0.9).setPosition(Math.round(ix), Math.round(atTop ? top + 7 * px : bot - 7 * px)).setVisible(true).setAlpha(0.9);
+      icon.setScale(this.S * 0.9).setPosition(Math.round(ix), Math.round(atTop ? top + 7 * px : bot - 7 * px)).setVisible(true).setAlpha(0.9);
       g.fillStyle(0x0d1117, 0.55).fillRoundedRect(ix - 12 * px, (atTop ? top + 7 * px : bot - 7 * px) - 6 * px, 24 * px, 12 * px, 3 * px);
       g.lineStyle(px * 0.6, col, 0.8).strokeRoundedRect(ix - 12 * px, (atTop ? top + 7 * px : bot - 7 * px) - 6 * px, 24 * px, 12 * px, 3 * px);
       seen.add(u.cls);
@@ -569,6 +614,11 @@ export class BattleScene extends Phaser.Scene {
     // special zombies: a pulsing ring at their feet in their colour
     const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 160);
     for (const z of this.zombies) {
+      if (!z.alive || z.variety !== 2 || z.special) continue;
+      const [x, y] = this.toScreen(z.p, z.l);
+      g.fillStyle(0x6a2aff, 0.22).fillEllipse(x, y - px, 18 * px, 6 * px);
+    }
+    for (const z of this.zombies) {
       if (!z.alive || !z.special) continue;
       const [x, y] = this.toScreen(z.p, z.l);
       const col = M.specialById(z.special).tint;
@@ -578,7 +628,8 @@ export class BattleScene extends Phaser.Scene {
     for (const z of this.zombies) {
       if (!z.alive || z.hp >= 1 || !z.sprite) continue;
       const [x, y] = this.toScreen(z.p, z.l);
-      const bw = (z.boss ? 30 : 14) * px, top = y - (z.boss ? 58 : 30) * px;
+      const sc = z.boss ? 2 : 1 + 0.12 * z.variety;
+      const bw = (z.boss ? 30 : 14) * px, top = y - 29 * sc * px;
       g.fillStyle(0x140c1c, 1).fillRect(x - bw / 2 - px, top - px, bw + 2 * px, 3 * px);
       g.fillStyle(z.horde ? 0xff4a4a : 0xe04848, 1).fillRect(x - bw / 2, top, Math.ceil((bw * Math.max(0, z.hp)) / px) * px, z.boss ? 2 * px : px);
     }

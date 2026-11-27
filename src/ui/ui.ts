@@ -204,6 +204,11 @@ function keepCardHtml(k: number) {
     <span class="keep-x">${fmtMult(k)}</span>
   </div>`;
 }
+/** "· 12% Feral · 3% Alpha" once tougher varieties show up for a type. */
+function varietyText(tier: number) {
+  const m = M.varietyMix(tier);
+  return `${m.feral > 0 ? ` · <span class="feral">${Math.round(m.feral * 100)}% Feral</span>` : ''}${m.alpha > 0 ? ` · <span class="alpha">${Math.round(m.alpha * 100)}% Alpha</span>` : ''}`;
+}
 function zombiesHtml() {
   const k = game.keepUp();
   const rates = game.lnDnaPerSec();
@@ -229,7 +234,7 @@ function zombiesHtml() {
       <img class="px face" src="${zombieIcon(st.id)}" alt="">
       <div class="s-info"><b>${st.plural}</b>
         <span class="sub">${vial(col)} +${fmtLn(lnRate)}/s · ${fmtLn(M.lnZombieHp(st.id, x.tier, x.spawn))} HP</span>
-        <span class="sub small">Tier ${fmtInt(x.tier)}${free ? `/${fmtInt(x.maxTier)}` : ''} · Spawn ${x.spawn}/${C.spawnMax} (${fmtNum(M.spawnRate(st.id, x.spawn))}/s)</span></div>
+        <span class="sub small">Tier ${fmtInt(x.tier)}${free ? `/${fmtInt(x.maxTier)}` : ''} · Spawn ${x.spawn}/${C.spawnMax} (${fmtNum(M.spawnRate(st.id, x.spawn))}/s)${varietyText(x.tier)}</span></div>
       <div class="s-btns">
         <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, game.tierCost(st.id))} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : cost(col, game.tierCost(st.id))}${word(kT)}</button>
         ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, game.spawnCost(st.id))} title="+12% ${st.plural}, each level +3% HP"><span>Spawn +</span>${cost(col, game.spawnCost(st.id))}${word(kS)}</button>`
@@ -253,6 +258,8 @@ function zombiesHtml() {
   ${keepCardHtml(k)}
   <p class="sub">Zombies come in five DNA colours, five types each. Raise a type's <b>DNA</b> or <b>Spawn</b> to earn more of its colour; it also makes those zombies tougher. Release new types with DNA of their colour.</p>
   ${families}
+  <h3>Feral and Alpha zombies</h3>
+  <p class="sub small">As you raise a type's DNA Count, tougher versions join its stream: <span class="feral">Feral</span> (from tier 20, ×${M.VARIETIES[1].hp} HP and DNA, up to ${Math.round(0.35 * 100)}%) and <span class="alpha">Alpha</span> (from tier 60, ×${M.VARIETIES[2].hp} HP and DNA, up to 15%).</p>
   <h3>Special zombies</h3>
   <p class="sub small">About ${Math.round(M.SPECIAL_CHANCE * 100)}% of zombies in the stream are special. They glow in their colour.</p>
   <div class="specials">${M.SPECIALS.map((sp) => `<div class="sp"><i style="--c:#${sp.tint.toString(16).padStart(6, '0')}"></i><b>${sp.name}</b><span class="sub small">${sp.desc}</span></div>`).join('')}</div>

@@ -1,6 +1,6 @@
 # Zombie Idle
 
-An idle zombie shooter with 16-bit pixel art and endless levels. Call hordes, shred zombies for their DNA, grow an endless upgrade
+An idle zombie shooter with smooth HD cartoon art and endless levels. Call hordes, shred zombies for their DNA, grow an endless upgrade
 tree, build a squad of up to 4 that counters each strain, and Retreat for Veterancy.
 
 Runs in the browser on laptops, iPhones (portrait and landscape), and iPhone Duo folded or unfolded. The layout

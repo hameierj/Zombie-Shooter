@@ -1,6 +1,6 @@
 # Zombie Idle: Game Spec (v0.8)
 
-An idle zombie shooter with 16-bit pixel art. Zombies walk at your shredder forever; your squad shoots them for DNA in five colours. You decide how hard the stream is, grow your squad and passive tree, and take on optional hordes to
+An idle zombie shooter with smooth HD cartoon art (drawn in code as vector shapes). Zombies walk at your shredder forever; your squad shoots them for DNA in five colours. You decide how hard the stream is, grow your squad and passive tree, and take on optional hordes to
 unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 
 ## 1. The loop
@@ -27,6 +27,10 @@ another with the family's own colour (costs are tied to tiers ~30 to ~400, so ne
 
 Later types in a family have more HP and drop proportionally more DNA. Hordes use the five family leaders.
 
+**Varieties:** every zombie type also comes as **Feral** (×2.5 HP and DNA, reddish, a bit bigger) and **Alpha**
+(×6 HP and DNA, bigger, dark aura). They join a type's stream as you raise its DNA Count: Ferals from tier 20
+(up to 35% of that type), Alphas from tier 60 (up to 15%). The keep-up meter and DNA rates include them.
+
 **Special zombies** (about 3% of the stream, no dials, glowing ring in their colour): Golden (fast, ×15 DNA, big
 item chance), Armoured (×5 HP, ×5 DNA), Screamer (speeds up nearby zombies, ×4 DNA), Medic (heals nearby zombies,
 ×4 DNA), Exploder (blows up nearby zombies when killed, ×3 DNA).
@@ -51,6 +55,10 @@ slowly. You never lose.
 | Sniper | Sniper Rifle | Headshot: executes weakened zombies | Red + Purple | Horde 4 |
 | Pyro | Flamethrower | Napalm: burning damage | Teal + Purple | Horde 5 |
 | Grenadier | Grenade Launcher | Cluster Bombs: extra splash | Purple + Green | Horde 6 |
+| Machine Gunner | Machine Gun | Overheat: +20/40/70% attack speed | Yellow + Red | Elite Horde 1 (8) |
+| Drone Operator | Attack Drones (whole road) | Swarm: +1/2/3 drones (targets) | Teal + Yellow | Elite Horde 2 (9) |
+| Mortar Team | Mortar (whole road, big splash) | Barrage: more targets, +10/20/30% damage | Red + Purple | Elite Horde 4 (11) |
+| Tesla Trooper | Arc Gun (chains) | Chain Lightning: arcs to +1/2/3 zombies | Purple + Teal | Elite Horde 6 (13) |
 
 - **Up to 20 of each type.** Barracks space grows with your best tier (2 each at first, +1 every 10 tiers). Each extra
   unit costs ×1.8 more and adds a little less than the last (20 units ≈ 9× one).

@@ -91,7 +91,7 @@ function hiss(dur: number, opts: { freq?: number; q?: number; type?: BiquadFilte
 
 // ---------- game sounds ----------
 export function shot(cls: ClassId) {
-  if (!gate(`shot-${cls}`, cls === 'flamer' ? 0.12 : cls === 'rifle' ? 0.07 : 0.05)) return;
+  if (!gate(`shot-${cls}`, cls === 'flamer' ? 0.12 : cls === 'rifle' || cls === 'mg' ? 0.07 : 0.05)) return;
   switch (cls) {
     case 'pistol': hiss(0.06, { freq: 3500, gain: 0.18 }); tone(900, 0.05, { to: 300, gain: 0.05 }); break;
     case 'bow': hiss(0.08, { type: 'highpass', freq: 2500, gain: 0.12 }); tone(520, 0.12, { type: 'triangle', to: 160, gain: 0.1 }); break;
@@ -100,6 +100,10 @@ export function shot(cls: ClassId) {
     case 'sniper': hiss(0.35, { freq: 5000, sweepTo: 300, gain: 0.35 }); tone(220, 0.3, { type: 'sawtooth', to: 40, gain: 0.1 }); break;
     case 'flamer': hiss(0.18, { type: 'bandpass', freq: 600, q: 0.8, gain: 0.16 }); break;
     case 'grenade': tone(180, 0.1, { type: 'square', to: 90, gain: 0.12 }); hiss(0.05, { freq: 800, gain: 0.1 }); break;
+    case 'mg': hiss(0.04, { freq: 4000, gain: 0.13 }); tone(160, 0.04, { type: 'square', to: 90, gain: 0.04 }); break;
+    case 'drone': tone(420, 0.18, { type: 'sawtooth', to: 620, gain: 0.05 }); break;
+    case 'mortar': tone(120, 0.18, { type: 'sine', to: 60, gain: 0.25 }); hiss(0.1, { freq: 500, gain: 0.14 }); break;
+    case 'tesla': tone(1400, 0.12, { type: 'square', to: 300, gain: 0.06 }); hiss(0.1, { type: 'highpass', freq: 3000, gain: 0.1 }); break;
   }
 }
 export function boom() {

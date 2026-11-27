@@ -27,7 +27,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   const owned = () => Object.values(units).filter((u) => u.count > 0);
   const squad = () => owned().map((u) => ({ u, gun: s.guns.find((g) => g.uid === u.gun), attach: s.gear.find((g) => g.uid === u.attach), charm: s.gear.find((g) => g.uid === u.charm) }));
   const keep = (st = strains) => M.keepUp(squad(), fx(), st);
-  const unlocked = (c) => M.classById(c).horde <= Math.min(s.hordes, 7);
+  const unlocked = (c) => M.classById(c).horde <= s.hordes;
   const pay = (col, ln) => { if (s.dna[col] + 1e-9 < ln) return false; s.dna[col] = M.logSub(s.dna[col], ln); return true; };
   const best = () => M.bestTier(strains);
   function equip() {
