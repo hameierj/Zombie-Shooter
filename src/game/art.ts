@@ -418,56 +418,132 @@ function drawZombie(id: StrainId, frame: number): HTMLCanvasElement {
 export const HERO_W = 20;
 export const HERO_H = 26;
 export const CLASS_ORDER: ClassId[] = ['pistol', 'bow', 'shotgun', 'rifle', 'sniper', 'flamer', 'grenade', 'mg', 'drone', 'mortar', 'tesla', 'rail'];
-const HERO_COLORS = [
-  { vest: '#6a7a40', helmet: '#56662f', scarf: '#e04848', pants: '#3e4130' },
-  { vest: '#4f7a36', helmet: '#3f6229', scarf: '#d8b04c', pants: '#4a3e2c' },
-  { vest: '#8a3e2c', helmet: '#3f434c', scarf: '#f2f2f2', pants: '#36363c' },
-  { vest: '#3c6490', helmet: '#2f4e72', scarf: '#ffd23f', pants: '#2c3344' },
-  { vest: '#77763e', helmet: '#62612e', scarf: '#2a2a2a', pants: '#3f3e2a' },
-  { vest: '#5e6066', helmet: '#3f434c', scarf: '#ff7a2a', pants: '#2e3036' },
-  { vest: '#5e7240', helmet: '#3f5030', scarf: '#ffb84a', pants: '#3a3a2c' },
-  { vest: '#4a4f58', helmet: '#33373e', scarf: '#c0c8d0', pants: '#2a2c32' },   // machine gunner
-  { vest: '#2f6a68', helmet: '#24504e', scarf: '#4ad6c8', pants: '#2a3434' },   // drone operator
-  { vest: '#7a6440', helmet: '#5e4e30', scarf: '#e0c070', pants: '#3e3426' },   // mortar team
-  { vest: '#3e3a6a', helmet: '#2c2a50', scarf: '#9a8aff', pants: '#26243a' },   // tesla trooper
-  { vest: '#2e3e5e', helmet: '#e8eef6', scarf: '#5a8cff', pants: '#232a3a' },   // railgunner
+/** Each unit type has its own outfit, headgear, skin tone and props, so they read apart at a glance. */
+interface HeroLook {
+  skin: string; top: string; sleeves: string | null;   // null sleeves = bare arms
+  pants: string; boots: string;
+  camo?: string[]; pantsCamo?: string[]; plaid?: string; ripped?: boolean; stripes?: string;
+  hair?: string; hat?: 'helmet' | 'cap' | 'trucker' | 'boonie' | 'beret' | 'bandana' | 'hood' | 'none' | 'armor' | 'ghillie';
+  hatCol?: string; hatCol2?: string;
+  face?: 'goggles' | 'shades' | 'gasmask' | 'visor' | 'brass' | 'paint' | 'none'; beard?: string;
+  over?: 'orange-vest' | 'plate' | 'bandolier' | 'ammo-belt' | 'coils' | 'none';
+  back?: 'tank' | 'antenna' | 'radio' | 'none'; ears?: boolean;
+}
+const HERO_LOOKS: HeroLook[] = [
+  // Pistoleer: white tank top, ripped jeans, messy hair
+  { skin: '#e3ad84', top: '#f2f2ee', sleeves: null, pants: '#4a6ea8', boots: '#3a2a20', ripped: true, hair: '#5a3a22', hat: 'none', face: 'none' },
+  // Hunter: camo jacket, blaze-orange vest and cap
+  { skin: '#dba27a', top: '#6b6a3e', sleeves: '#6b6a3e', camo: ['#4f5a2e', '#8a7a4a', '#3a3a26'], pants: '#5d5a38', pantsCamo: ['#454a28', '#7a6c42'], boots: '#4a3424', hat: 'cap', hatCol: '#ff7a1a', face: 'none', over: 'orange-vest' },
+  // Shotgunner: red flannel, trucker cap, beard
+  { skin: '#e8b48c', top: '#b8302a', sleeves: '#b8302a', plaid: '#2a1a1a', pants: '#2e3a52', boots: '#3a2a20', hat: 'trucker', hatCol: '#f2f2ee', hatCol2: '#c8302a', face: 'none', beard: '#6a4a2a' },
+  // Rifleman (M4): army camo, tan plate carrier, helmet
+  { skin: '#b07850', top: '#6a7048', sleeves: '#6a7048', camo: ['#535a36', '#8a8456', '#3f4428'], pants: '#5e6440', pantsCamo: ['#4a5030', '#7e7a4e'], boots: '#2e2a22', hat: 'helmet', hatCol: '#6a6c44', face: 'goggles', over: 'plate' },
+  // Sniper: ghillie suit, face paint
+  { skin: '#c89070', top: '#4a5a2a', sleeves: '#4a5a2a', pants: '#4a5230', boots: '#2e2a22', hat: 'ghillie', hatCol: '#56662e', face: 'paint' },
+  // Pyro: firefighter coat with reflective stripes, gas mask, fuel tank
+  { skin: '#d8a07a', top: '#3a3a40', sleeves: '#3a3a40', stripes: '#e8e040', pants: '#3a3a40', boots: '#1e1e22', hat: 'helmet', hatCol: '#2a2a2e', face: 'gasmask', back: 'tank' },
+  // Grenadier: grenade bandolier, black beret
+  { skin: '#8a5a3a', top: '#5a6a3a', sleeves: '#5a6a3a', pants: '#4a5232', boots: '#2a2420', hat: 'beret', hatCol: '#1e1e22', face: 'none', over: 'bandolier', beard: '#2a1e14' },
+  // Machine Gunner: sleeveless, big arms, red bandana, ammo belt, shades
+  { skin: '#c88a5e', top: '#2a2e34', sleeves: null, pants: '#4a5034', pantsCamo: ['#3a4028', '#6a6a44'], boots: '#2a2420', hat: 'bandana', hatCol: '#d8302a', face: 'shades', over: 'ammo-belt' },
+  // Drone Operator: teal hoodie, glowing VR visor, antenna pack
+  { skin: '#f0c49c', top: '#2f8a84', sleeves: '#2f8a84', pants: '#2a3036', boots: '#e8e8e8', hat: 'hood', hatCol: '#2a7a74', face: 'visor', back: 'antenna' },
+  // Mortar Team: desert tan, boonie hat, ear defenders
+  { skin: '#9a6a46', top: '#c8a874', sleeves: '#c8a874', camo: ['#b0905c', '#dcc08a', '#9a7a4e'], pants: '#b89a68', boots: '#6a4a2a', hat: 'boonie', hatCol: '#bfa06c', face: 'none', ears: true, back: 'radio' },
+  // Tesla Trooper: rubber suit, glowing copper coils, brass goggles, wild hair
+  { skin: '#f0c8a8', top: '#3a2f5a', sleeves: '#3a2f5a', pants: '#2e2648', boots: '#1e1a2a', hair: '#f2f2f2', hat: 'none', face: 'brass', over: 'coils' },
+  // Railgunner: white power armour, glowing blue visor
+  { skin: '#e0ac82', top: '#e4eaf2', sleeves: '#cdd6e2', pants: '#2c3446', boots: '#1e2430', hat: 'armor', hatCol: '#eef2f8', face: 'visor', stripes: '#5a8cff' },
 ];
 /** Where the gun's grip sits on the soldier canvas (art units). */
 export const HERO_GRIP = { x: 13, y: 13 };
 
+/** Fill the current path's area with blotches (camo) or a check (plaid); clip to (x,y,w,h) rounded box. */
+function pattern(ctx: Ctx, x: number, y: number, w: number, h: number, r: number, paint: (ctx: Ctx) => void) {
+  ctx.save(); rr(ctx, x, y, w, h, r); ctx.clip(); paint(ctx); ctx.restore();
+}
+function blotches(ctx: Ctx, x: number, y: number, w: number, h: number, cols: string[], seed: number) {
+  const rnd = rng(seed);
+  for (let i = 0; i < 9; i++) { ell(ctx, x + rnd() * w, y + rnd() * h, 0.9 + rnd() * 1.4, 0.6 + rnd() * 0.9); ctx.fillStyle = rgba(cols[i % cols.length], 0.85); ctx.fill(); }
+}
+
 function drawHero(i: number, frame: number): HTMLCanvasElement {
-  const col = HERO_COLORS[i % HERO_COLORS.length];
+  const L = HERO_LOOKS[i % HERO_LOOKS.length];
   const base = HERO_H - 1.5;
   const b = frame ? -0.5 : 0;
+  const arm = L.sleeves ?? L.skin;
+  const big = L.over === 'ammo-belt' ? 0.5 : 0;   // the machine gunner is bulkier
   return sprite(HERO_W, HERO_H, (ctx) => {
+    // back-mounted kit first (behind the body)
+    if (L.back === 'tank') { rr(ctx, 2.6, 8.6 + b, 3.4, 8.4, 1.6); shade(ctx, '#c8302a', 2.6, 8.6 + b, 3.4, 8.4); edge(ctx); ctx.fillStyle = '#e8e8e8'; ctx.fillRect(2.9, 11 + b, 2.8, 0.6); }
+    if (L.back === 'antenna') { rr(ctx, 3, 10 + b, 3, 5.4, 0.8); shade(ctx, '#2a2e36', 3, 10 + b, 3, 5.4); edge(ctx, 0.35); ctx.strokeStyle = INK; ctx.lineWidth = 0.4; ctx.beginPath(); ctx.moveTo(3.8, 10 + b); ctx.lineTo(2.6, 3 + b); ctx.stroke(); glow(ctx, 2.6, 3 + b, 0.7, '#5ef0ff', 0.9); }
+    if (L.back === 'radio') { rr(ctx, 2.8, 10.4 + b, 3.2, 5, 0.6); shade(ctx, '#6a6040', 2.8, 10.4 + b, 3.2, 5); edge(ctx, 0.35); ctx.strokeStyle = INK; ctx.lineWidth = 0.35; ctx.beginPath(); ctx.moveTo(3.4, 10.4 + b); ctx.lineTo(3, 5.6 + b); ctx.stroke(); }
     // kneeling legs: back knee on the ground, front foot planted
-    limb(ctx, 8, 17.5, 5.4, base - 1, 2.6, darken(col.pants, 0.25));
-    limb(ctx, 5.4, base - 1, 2.2, base - 0.9, 2.2, darken(col.pants, 0.25));
-    limb(ctx, 9.6, 17.5, 13.2, 19.4, 2.8, col.pants);
-    limb(ctx, 13.2, 19.4, 13.2, base - 1.2, 2.5, col.pants);
-    rr(ctx, 12, base - 1.8, 3.8, 1.8, 0.8); shade(ctx, '#2f241c', 12, base - 1.8, 3.8, 1.8); edge(ctx, 0.3);
-    rr(ctx, 0.6, base - 1.8, 2.8, 1.7, 0.7); shade(ctx, '#2f241c', 0.6, base - 1.8, 2.8, 1.7); edge(ctx, 0.3);
+    const pantsD = darken(L.pants, 0.25);
+    limb(ctx, 8, 17.5, 5.4, base - 1, 2.6, pantsD);
+    limb(ctx, 5.4, base - 1, 2.2, base - 0.9, 2.2, pantsD);
+    limb(ctx, 9.6, 17.5, 13.2, 19.4, 2.8, L.pants);
+    limb(ctx, 13.2, 19.4, 13.2, base - 1.2, 2.5, L.pants);
+    if (L.pantsCamo) { for (const [x, y] of [[11, 18.6], [13.1, 21], [6.6, 20.6]]) { ell(ctx, x, y, 0.8, 0.5); ctx.fillStyle = L.pantsCamo[Math.round(x) % 2]; ctx.fill(); } }
+    if (L.ripped) { for (const [x, y] of [[13.2, 20.2], [6.4, 21.4]]) { ell(ctx, x, y, 0.9, 0.55); ctx.fillStyle = L.skin; ctx.fill(); ctx.strokeStyle = '#e8eef6'; ctx.lineWidth = 0.25; ctx.stroke(); } }
+    rr(ctx, 12, base - 1.8, 3.8, 1.8, 0.8); shade(ctx, L.boots, 12, base - 1.8, 3.8, 1.8); edge(ctx, 0.3);
+    rr(ctx, 0.6, base - 1.8, 2.8, 1.7, 0.7); shade(ctx, L.boots, 0.6, base - 1.8, 2.8, 1.7); edge(ctx, 0.3);
     // back arm reaching to the gun's fore-grip
-    limb(ctx, 8.4, 11.8 + b, 14.6, 13.4 + b, 2, darken(col.vest, 0.25));
-    // torso: vest, belt, pouch, scarf
-    rr(ctx, 4.8, 9.2 + b, 8.4, 9, 2.4); shade(ctx, col.vest, 4.8, 9.2 + b, 8.4, 9); edge(ctx);
-    rr(ctx, 5.6, 11.4 + b, 2.6, 2.6, 0.6); shade(ctx, darken(col.vest, 0.15), 5.6, 11.4 + b, 2.6, 2.6); edge(ctx, 0.3);
-    ctx.fillStyle = '#2b2419'; ctx.fillRect(4.9, 16 + b, 8.2, 1.2);
+    limb(ctx, 8.4, 11.8 + b, 14.6, 13.4 + b, 2 + big, darken(arm, 0.2));
+    // torso
+    const tx = 4.8 - big / 2, tw = 8.4 + big;
+    rr(ctx, tx, 9.2 + b, tw, 9, 2.4); shade(ctx, L.top, tx, 9.2 + b, tw, 9); edge(ctx);
+    if (L.camo) pattern(ctx, tx, 9.2 + b, tw, 9, 2.4, (c) => blotches(c, tx, 9.2 + b, tw, 9, L.camo!, 7 + i));
+    if (L.plaid) pattern(ctx, tx, 9.2 + b, tw, 9, 2.4, (c) => { c.fillStyle = rgba(L.plaid!, 0.45); for (let y = 10; y < 18; y += 2.2) c.fillRect(tx, y + b, tw, 0.7); for (let x = tx + 1; x < tx + tw; x += 2.2) c.fillRect(x, 9.2 + b, 0.7, 9); });
+    if (L.stripes) { ctx.fillStyle = L.stripes; ctx.fillRect(tx + 0.3, 14.2 + b, tw - 0.6, 0.8); ctx.fillRect(tx + 0.3, 16.4 + b, tw - 0.6, 0.6); }
+    if (L.hat === 'ghillie') pattern(ctx, tx - 1, 8 + b, tw + 2, 11, 2.4, (c) => { const rnd = rng(31); for (let k = 0; k < 26; k++) { c.strokeStyle = ['#3f5a24', '#6a7a36', '#2e4020', '#8a8a4a'][k % 4]; c.lineWidth = 0.55; const x = tx + rnd() * tw, y = 9 + b + rnd() * 9; c.beginPath(); c.moveTo(x, y); c.lineTo(x + (rnd() - 0.5) * 1.6, y + 1.6 + rnd()); c.stroke(); } });
+    if (!L.sleeves && L.over !== 'ammo-belt') { // tank top straps
+      ctx.fillStyle = L.skin; ctx.fillRect(tx + 1.2, 9.2 + b, 1.6, 1.2); ctx.fillRect(tx + tw - 2.6, 9.2 + b, 1.6, 1.2);
+    }
+    // gear over the torso
+    if (L.over === 'orange-vest') { rr(ctx, tx + 0.6, 9.6 + b, tw - 1.2, 6.6, 1.6); shade(ctx, '#ff7a1a', tx + 0.6, 9.6 + b, tw - 1.2, 6.6); edge(ctx, 0.35); ctx.fillStyle = '#ffd0a0'; ctx.fillRect(tx + 0.6, 13.2 + b, tw - 1.2, 0.5); }
+    if (L.over === 'plate') { rr(ctx, tx + 0.8, 10 + b, tw - 1.6, 6.4, 1); shade(ctx, '#b89a68', tx + 0.8, 10 + b, tw - 1.6, 6.4); edge(ctx, 0.35); for (const x of [tx + 1.4, tx + 3.6, tx + 5.8]) { rr(ctx, x, 13.6 + b, 1.8, 2.2, 0.4); shade(ctx, '#9a7e50', x, 13.6 + b, 1.8, 2.2); edge(ctx, 0.25); } }
+    if (L.over === 'bandolier') { ctx.strokeStyle = '#4a3a22'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(tx + 1, 9.6 + b); ctx.lineTo(tx + tw - 1, 17 + b); ctx.stroke(); for (let k = 0; k < 4; k++) { const x = tx + 2 + k * 1.6, y = 10.8 + b + k * 1.5; ell(ctx, x, y, 0.75, 0.85); shade(ctx, '#4f6a2a', x - 0.8, y - 0.9, 1.6, 1.8); edge(ctx, 0.25); } }
+    if (L.over === 'ammo-belt') { ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(tx + 0.8, 9.6 + b); ctx.lineTo(tx + tw - 0.6, 17.4 + b); ctx.stroke(); for (let k = 0; k < 6; k++) { ctx.fillStyle = '#e8c048'; ctx.fillRect(tx + 1.3 + k * 1.25, 10.1 + b + k * 1.25, 0.5, 1.1); } }
+    if (L.over === 'coils') { for (const x of [tx + 1.4, tx + tw - 2.4]) { for (let k = 0; k < 3; k++) { ell(ctx, x + 0.5, 10 + b + k * 0.9, 1.1, 0.4); ctx.strokeStyle = '#d0843a'; ctx.lineWidth = 0.5; ctx.stroke(); } glow(ctx, x + 0.5, 9.6 + b, 0.9, '#b49aff', 0.8); } }
+    ctx.fillStyle = '#2b2419'; ctx.fillRect(tx + 0.1, 16 + b, tw - 0.2, 1.2);   // belt
     rr(ctx, 8.6, 15.9 + b, 1.4, 1.4, 0.3); ctx.fillStyle = '#e2bf5a'; ctx.fill();
-    rr(ctx, 5, 8.6 + b, 7.6, 1.9, 0.9); shade(ctx, col.scarf, 5, 8.6 + b, 7.6, 1.9); edge(ctx, 0.3);
-    // head: face, helmet, goggles
-    ell(ctx, 9.8, 6.4 + b, 3.1, 3.2); shade(ctx, '#e0ac82', 6.7, 3.2 + b, 6.2, 6.4); edge(ctx);
-    ell(ctx, 12.2, 7.6 + b, 0.5, 0.35); ctx.fillStyle = 'rgba(160,80,60,.6)'; ctx.fill(); // cheek
-    ctx.beginPath(); ctx.ellipse(9.4, 5.2 + b, 4.1, 3.6, 0, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath();
-    shade(ctx, col.helmet, 5.3, 1.6 + b, 8.2, 3.6); edge(ctx);
-    rr(ctx, 4.8, 4.6 + b, 9.4, 1.1, 0.5); shade(ctx, darken(col.helmet, 0.25), 4.8, 4.6 + b, 9.4, 1.1); edge(ctx, 0.3);
-    rr(ctx, 10, 5.8 + b, 3.4, 1.8, 0.8);
-    const g = ctx.createLinearGradient(10, 5.8 + b, 13.4, 7.6 + b); g.addColorStop(0, '#9ff2ff'); g.addColorStop(1, '#1f5a7a');
-    ctx.fillStyle = g; ctx.fill(); edge(ctx, 0.35);
-    ell(ctx, 11, 6.3 + b, 0.45, 0.3); ctx.fillStyle = '#fff'; ctx.fill();
+    // head
+    const fx = 9.8, fy = 6.4 + b;
+    ell(ctx, fx, fy, 3.1, 3.2); shade(ctx, L.skin, 6.7, 3.2 + b, 6.2, 6.4); edge(ctx);
+    if (L.beard) { ctx.beginPath(); ctx.ellipse(fx + 0.6, fy + 1.6, 2.6, 1.8, 0, 0, Math.PI); ctx.closePath(); shade(ctx, L.beard, fx - 2, fy + 1, 5.2, 2.6); edge(ctx, 0.3); }
+    if (L.face === 'paint') { ctx.fillStyle = 'rgba(40,60,20,.75)'; ctx.fillRect(fx - 1, fy - 0.4, 4, 0.9); ctx.fillStyle = 'rgba(20,20,10,.7)'; ctx.fillRect(fx - 0.6, fy + 1.2, 3.4, 0.6); }
+    ell(ctx, 12.2, 7.6 + b, 0.5, 0.35); ctx.fillStyle = 'rgba(160,80,60,.5)'; ctx.fill();
+    // hair / headgear
+    if (L.hair && (L.hat === 'none' || !L.hat)) {
+      ctx.beginPath(); ctx.ellipse(fx - 0.4, fy - 1.6, 3.5, 2.4, 0, Math.PI * 0.95, Math.PI * 2.05); ctx.closePath(); shade(ctx, L.hair, fx - 4, fy - 4.2, 7.2, 3.4); edge(ctx);
+      for (const [x, y] of L.hair === '#f2f2f2' ? [[6.6, 3], [8.4, 2], [10.6, 2.2], [12.4, 3.2]] : [[7.4, 3.2], [9.6, 2.8], [11.6, 3.4]]) { ctx.beginPath(); ctx.moveTo(x, y + 1.6 + b); ctx.lineTo(x - 0.6, y + b - (L.hair === '#f2f2f2' ? 1.4 : 0.4)); ctx.lineTo(x + 0.8, y + 1.4 + b); ctx.closePath(); ctx.fillStyle = L.hair; ctx.fill(); }
+    }
+    const H = L.hatCol ?? '#555';
+    if (L.hat === 'helmet') { ctx.beginPath(); ctx.ellipse(9.4, 5.2 + b, 4.1, 3.6, 0, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath(); shade(ctx, H, 5.3, 1.6 + b, 8.2, 3.6); edge(ctx); rr(ctx, 4.8, 4.6 + b, 9.4, 1.1, 0.5); shade(ctx, darken(H, 0.25), 4.8, 4.6 + b, 9.4, 1.1); edge(ctx, 0.3); }
+    if (L.hat === 'cap' || L.hat === 'trucker') {
+      ctx.beginPath(); ctx.ellipse(9.6, 4.8 + b, 3.5, 2.6, 0, Math.PI, Math.PI * 2); ctx.closePath(); shade(ctx, H, 6, 2.2 + b, 7.2, 2.8); edge(ctx);
+      if (L.hat === 'trucker') { ctx.save(); ctx.beginPath(); ctx.ellipse(9.6, 4.8 + b, 3.5, 2.6, 0, Math.PI, Math.PI * 2); ctx.clip(); ctx.fillStyle = L.hatCol2 ?? '#c8302a'; ctx.fillRect(6, 2 + b, 3, 3); ctx.restore(); }
+      rr(ctx, 11.6, 4.2 + b, 3.6, 0.9, 0.4); shade(ctx, darken(H, 0.15), 11.6, 4.2 + b, 3.6, 0.9); edge(ctx, 0.3);
+    }
+    if (L.hat === 'boonie') { ell(ctx, 9.6, 4.6 + b, 5.2, 1.1); shade(ctx, darken(H, 0.1), 4.4, 3.5 + b, 10.4, 2.2); edge(ctx, 0.35); ctx.beginPath(); ctx.ellipse(9.6, 4.4 + b, 3.2, 2.4, 0, Math.PI, Math.PI * 2); ctx.closePath(); shade(ctx, H, 6.4, 2 + b, 6.4, 2.4); edge(ctx, 0.35); }
+    if (L.hat === 'beret') { ctx.beginPath(); ctx.ellipse(8.8, 3.9 + b, 4, 1.9, -0.2, 0, Math.PI * 2); shade(ctx, H, 4.8, 2 + b, 8, 3.8); edge(ctx); ell(ctx, 11.4, 3.6 + b, 0.6, 0.6); ctx.fillStyle = '#e2bf5a'; ctx.fill(); }
+    if (L.hat === 'bandana') { rr(ctx, 6.6, 3.6 + b, 6.6, 1.6, 0.6); shade(ctx, H, 6.6, 3.6 + b, 6.6, 1.6); edge(ctx, 0.3); ctx.fillStyle = H; ctx.beginPath(); ctx.moveTo(6.8, 4 + b); ctx.lineTo(4.8, 5.6 + b); ctx.lineTo(6, 3.6 + b); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.ellipse(9.6, 3.6 + b, 3, 1.4, 0, Math.PI, Math.PI * 2); ctx.closePath(); shade(ctx, '#2a1e14', 6.6, 2.2 + b, 6, 1.4); }
+    if (L.hat === 'hood') { ctx.beginPath(); ctx.moveTo(6, 9 + b); ctx.quadraticCurveTo(5.4, 2.2 + b, 9.8, 2.4 + b); ctx.quadraticCurveTo(13.4, 2.6 + b, 13.2, 6 + b); ctx.lineTo(11.6, 5 + b); ctx.quadraticCurveTo(9, 3.8 + b, 7.6, 6 + b); ctx.lineTo(7.4, 9 + b); ctx.closePath(); shade(ctx, H, 5.4, 2.2 + b, 8, 7); edge(ctx); }
+    if (L.hat === 'armor') { ell(ctx, 9.8, 5.8 + b, 3.9, 3.9); shade(ctx, H, 5.9, 1.9 + b, 7.8, 7.8); edge(ctx); }
+    if (L.hat === 'ghillie') { const rnd = rng(77); for (let k = 0; k < 16; k++) { ctx.strokeStyle = ['#3f5a24', '#6a7a36', '#2e4020', '#8a8a4a'][k % 4]; ctx.lineWidth = 0.6; const x = 6 + rnd() * 8, y = 1.8 + b + rnd() * 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (rnd() - 0.5) * 2, y + 1.5 + rnd() * 1.6); ctx.stroke(); } }
+    if (L.ears) { ell(ctx, 8.6, 6.6 + b, 1.2, 1.4); shade(ctx, '#3a3a3a', 7.4, 5.2 + b, 2.4, 2.8); edge(ctx, 0.3); }
+    // eyes / eyewear
+    if (L.face === 'goggles') { rr(ctx, 10, 5.8 + b, 3.4, 1.8, 0.8); const g = ctx.createLinearGradient(10, 5.8 + b, 13.4, 7.6 + b); g.addColorStop(0, '#9ff2ff'); g.addColorStop(1, '#1f5a7a'); ctx.fillStyle = g; ctx.fill(); edge(ctx, 0.35); ell(ctx, 11, 6.3 + b, 0.45, 0.3); ctx.fillStyle = '#fff'; ctx.fill(); }
+    else if (L.face === 'shades') { rr(ctx, 10.2, 5.9 + b, 3.2, 1.2, 0.5); ctx.fillStyle = '#111'; ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fillRect(10.8, 6.1 + b, 0.9, 0.3); }
+    else if (L.face === 'gasmask') { ell(ctx, 11.4, 7.4 + b, 2.2, 2); shade(ctx, '#2a2a2e', 9.2, 5.4 + b, 4.4, 4); edge(ctx); for (const [x, y] of [[11, 5.8], [12.8, 6.6]]) { ell(ctx, x, y + b, 0.85, 0.85); ctx.fillStyle = '#ffb84a'; ctx.fill(); edge(ctx, 0.25); } ell(ctx, 13.4, 8.6 + b, 1, 1); shade(ctx, '#5a5a62', 12.4, 7.6 + b, 2, 2); edge(ctx, 0.3); }
+    else if (L.face === 'visor') { rr(ctx, 9.6, 5.4 + b, 4.2, 2, 0.9); ctx.fillStyle = '#5ef0ff'; ctx.fill(); edge(ctx, 0.35); glow(ctx, 12, 6.4 + b, 1.6, '#5ef0ff', 0.6); }
+    else if (L.face === 'brass') { for (const x of [10.6, 12.6]) { ell(ctx, x, 6.3 + b, 0.95, 0.95); ctx.fillStyle = '#d0a040'; ctx.fill(); edge(ctx, 0.3); ell(ctx, x, 6.3 + b, 0.55, 0.55); ctx.fillStyle = '#b49aff'; ctx.fill(); } }
+    else { ell(ctx, 11.7, 6.3 + b, 0.45, 0.55); ctx.fillStyle = '#1e1a18'; ctx.fill(); ctx.strokeStyle = 'rgba(60,40,30,.8)'; ctx.lineWidth = 0.35; ctx.beginPath(); ctx.moveTo(11, 5.2 + b); ctx.lineTo(12.6, 5.3 + b); ctx.stroke(); }
     // front arm + hand at the grip
-    limb(ctx, 8, 11.4 + b, HERO_GRIP.x, HERO_GRIP.y + b, 2.1, col.vest);
-    ell(ctx, HERO_GRIP.x + 0.2, HERO_GRIP.y + b, 1.05, 1.05); shade(ctx, '#e0ac82', 12, 12, 2.2, 2.2); edge(ctx, 0.3);
+    limb(ctx, 8, 11.4 + b, HERO_GRIP.x, HERO_GRIP.y + b, 2.1 + big, arm);
+    if (L.sleeves && L.sleeves !== L.skin) { ell(ctx, HERO_GRIP.x - 1.2, HERO_GRIP.y + b - 0.3, 0.9, 0.9); ctx.fillStyle = L.skin; ctx.fill(); }
+    ell(ctx, HERO_GRIP.x + 0.2, HERO_GRIP.y + b, 1.05, 1.05); shade(ctx, L.hat === 'armor' || L.face === 'gasmask' ? '#3a3a40' : L.skin, 12, 12, 2.2, 2.2); edge(ctx, 0.3);
   }, { outline: 0.6, shadow: [8, base, 7.5, 1.4] });
 }
 
