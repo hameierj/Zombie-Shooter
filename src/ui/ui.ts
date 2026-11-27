@@ -550,6 +550,7 @@ function railRender() {
   el.innerHTML = `<div class="zr-top">${collapse}${seg}</div><div class="zr-list" data-mode="${railMode}">${icons || '<span class="zr-empty">None yet</span>'}</div>${pop}`;
   const nl = el.querySelector<HTMLElement>('.zr-list')!;
   nl.scrollTop = scroll;
+  nl.dataset.st = String(nl.scrollTop);
   // line the popover up with the tapped icon (kept inside the rail)
   const p = el.querySelector<HTMLElement>('.zr-pop'), on = el.querySelector<HTMLElement>('.zr-z.on');
   if (p && on) {
@@ -558,7 +559,18 @@ function railRender() {
   }
 }
 nlScrollHook();
-function nlScrollHook() { document.addEventListener('scroll', (e) => { if ((e.target as Element)?.classList?.contains('zr-list')) { if (railPick) { railPick = null; railRender(); } if (urailPick) { urailPick = null; urailRender(); } } }, true); }
+// Scrolling the rail closes an open pop-over, but only a real scroll by the player: re-rendering the rail restores its
+// scroll position, which fires a scroll event of its own (that used to close the pop-over the moment it opened).
+function nlScrollHook() {
+  document.addEventListener('scroll', (e) => {
+    const el = e.target as HTMLElement;
+    if (!el?.classList?.contains('zr-list')) return;
+    if (Math.abs(el.scrollTop - Number(el.dataset.st ?? 0)) < 8) return;
+    el.dataset.st = String(el.scrollTop);
+    if (railPick) { railPick = null; railRender(); }
+    if (urailPick) { urailPick = null; urailRender(); }
+  }, true);
+}
 
 // ---------- Zombies tab: one card per zombie type ----------
 /** The keep-up meter, pinned to the top of the Zombies menu while you scroll (refresh() keeps it live). */
