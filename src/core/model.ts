@@ -123,6 +123,8 @@ export const CONFIG = {
   /** Each horde ends with a boss: the toughest zombie type in the horde with this many times the HP, walking slowly.
    * If the boss reaches the shredder, or too many horde zombies break through, the horde is lost. */
   bossHpMult: 10, bossSpeed: 0.45, breachLimit: 10,
+  /** Odds at which a horde card says "should win" and War Drums starts it by itself. */
+  hordeWinOdds: 1.1,
   /** Combo: every live kill adds 1; DNA earned is multiplied by up to ×1.5 at 300. It drops to 0 after 3 s
    * without a kill, and halves whenever a zombie reaches the shredder. Offline time earns no combo. */
   combo: { max: 300, bonus: 0.5, timeoutSec: 3 },

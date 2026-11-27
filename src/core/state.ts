@@ -394,12 +394,17 @@ export class Game {
     if (k !== this.nextHorde) return;
     const h = M.hordeDef(k);
     this.s.hordes = k;
+    this.hordeFailOdds = 0;
     // reward: a rare+ gun for the newly unlocked type, or an epic+ item for elite hordes
     const loot = h.cls ? this.rollLoot(2, h.cls, 2, false) : this.rollLoot(3, undefined, 0, false);
     this.emit('horde-won', { k, loot });
     this.emit('change');
   }
-  hordeLost(k: number) { this.emit('horde-lost', k); }
+  hordeLost(k: number) { this.hordeFailOdds = this.hordeOdds(k); this.emit('horde-lost', k); }
+  /** Odds when the last attempt at the next horde was lost (0 if none). War Drums waits for clearly better odds. */
+  hordeFailOdds = 0;
+  /** Odds War Drums waits for before starting the next horde. */
+  get autoHordeNeeds() { return Math.max(M.CONFIG.hordeWinOdds, this.hordeFailOdds * 1.15); }
 
   // ---------- passive tree ----------
   treeCost() { return M.lnTreeCost(this.s.alloc.length); }

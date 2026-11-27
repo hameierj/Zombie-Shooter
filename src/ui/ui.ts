@@ -507,12 +507,20 @@ function treeHtml() {
 }
 
 // ---------- Hordes tab ----------
+function warDrumsHtml() {
+  if (!game.fx.autoHorde) return `<p class="sub small">Tip: the <b>War Drums</b> passive (Basic Training, Passive Tree) starts hordes for you when your squad should win.</p>`;
+  const odds = game.hordeOdds(), need = game.autoHordeNeeds;
+  const status = !game.s.autoHordeOn ? 'Off.'
+    : odds >= need ? `<span class="good">Starting Horde ${game.nextHorde} within a few seconds…</span>`
+    : `Waiting: Horde ${game.nextHorde} starts by itself at ${fmtMult(need)} odds (now ${fmtMult(odds)})${game.hordeFailOdds ? ', a bit higher than when it was last lost' : ''}.`;
+  return `<div class="card drums"><label class="switch"><input type="checkbox" data-action="toggle" ${game.s.autoHordeOn ? 'checked' : ''}> <b>War Drums</b>: start the next horde automatically when your squad should win</label><p class="sub small">${status}</p></div>`;
+}
 function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()];
   return `<p class="sub">Hordes are optional fights: ${C.hordeZombies} zombies and a <b>boss</b> in ${C.hordeTimerSec} seconds. The stream pauses while you fight. You lose if time runs out, the boss reaches the shredder, or ${C.breachLimit} horde zombies break through. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
-  ${game.fx.autoHorde ? `<label class="switch"><input type="checkbox" data-action="toggle" ${game.s.autoHordeOn ? 'checked' : ''}> War Drums: start the next horde automatically when your squad should win</label>` : ''}
+  ${warDrumsHtml()}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);
     const beaten = k < next, isNext = k === next;
@@ -525,7 +533,7 @@ function hordesHtml() {
       <p class="sub">Reward: <b>${esc(h.unlocks)}</b>${h.cls ? ` · a rare+ ${M.classById(h.cls).gun}` : ''}</p>
       ${beaten ? '<p class="good">✓ Beaten</p>' : isNext ? `
         <div class="meter small"><i style="width:${Math.min(100, (odds / 2) * 100)}%"></i><span class="mark"></span></div>
-        <p class="sub small">${odds >= 1.1 ? '<span class="good">Your squad should win.</span>' : odds >= 0.9 ? '<span class="warn">It will be close.</span>' : `<span class="bad">Too strong: you need ${fmtMult(1 / Math.max(odds, 1e-9))} more firepower.</span>`}</p>
+        <p class="sub small">${odds >= C.hordeWinOdds ? '<span class="good">Your squad should win.</span>' : odds >= 0.9 ? '<span class="warn">It will be close.</span>' : `<span class="bad">Too strong: you need ${fmtMult(1 / Math.max(odds, 1e-9))} more firepower.</span>`}</p>
         <button class="btn wide call" data-action="horde">Start Horde ${k}</button>` : '<p class="sub small">🔒 Beat the previous horde first.</p>'}
     </div>`;
   }).join('')}</div>`;

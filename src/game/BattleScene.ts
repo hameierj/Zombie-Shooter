@@ -167,7 +167,7 @@ export class BattleScene extends Phaser.Scene {
     this.teeth.tilePositionY -= dt * 30;
     this.autoT += dt;
     // War Drums: start the next horde automatically when the squad should win (never spends DNA)
-    if (this.autoT >= 3) { this.autoT = 0; if (this.phase === 'stream' && game.autoHorde && game.hordeOdds() >= 1.15) game.startHorde(); }
+    if (this.autoT >= 3) { this.autoT = 0; if (this.phase === 'stream' && game.autoHorde && game.hordeOdds() >= game.autoHordeNeeds) game.startHorde(); }
 
     if (this.phase === 'stream' || this.phase === 'end') {
       // the endless stream: every released zombie type spawns at its own rate, tier and spawn level
