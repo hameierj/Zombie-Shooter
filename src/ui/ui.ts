@@ -5,7 +5,8 @@ import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
 import { game, type AutoSell, type Loot, type OfflineReport } from '../core/state.ts';
 import { REGIONS, TREE, treeNode } from '../core/tree.ts';
-import { charmIcon, classIcon, crateIcon, gunIcon, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
+import { charmIcon, classIcon, crateIcon, gunIcon, iconUrl, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
+const shredIcon = () => iconUrl('shred-teeth', 3);
 import { fmtInt, fmtLn, fmtMult, fmtNum, gearDesc, gearName, gunName, RARITY_COLOR } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
 
@@ -135,14 +136,7 @@ function act(d: ActionData): boolean {
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
     case 'sound-sfx': sfx.setSfx(!sfx.soundPrefs().sfx); openSettings(); break;
     case 'sound-music': sfx.setMusic(!sfx.soundPrefs().music); openSettings(); break;
-    case 'rollback': {
-      closeModal();
-      const lost = game.rollBack();
-      if (lost.length) toast(`<b>Zombies rolled back</b><span>${lost.map((l) => `${esc(M.strainById(l.id).plural)}${l.tiers ? ` −${l.tiers} tier${l.tiers > 1 ? 's' : ''}` : ''}${l.spawn ? ` −${l.spawn} spawn` : ''}`).join(', ')}</span>`, '#ff9a3c');
-      rollBackSnooze = performance.now() + 30000;
-      break;
-    }
-    case 'rollback-no': closeModal(); rollBackSnooze = performance.now() + 120000; break;
+    case 'shredder': game.buyShredder(); break;
     case 'keep-pref': setShowKeep(!showKeep()); openSettings(); render(); break;
   }
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
@@ -151,7 +145,7 @@ function act(d: ActionData): boolean {
   if (a === 'tier-up') sfx.tierUp();
   else if (a === 'allocate') { if (paid) sfx.allocate(); }
   else if (a === 'sell' || a === 'sell-matching') sfx.buy();
-  else if (['buy-node', 'hire', 'spawn', 'release'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
+  else if (['buy-node', 'hire', 'spawn', 'release', 'shredder'].includes(a)) { if (paid) sfx.buy(); else sfx.denied(); }
   else if (a.startsWith('equip')) sfx.equip();
   else if (a !== 'horde') sfx.click();
   // the tap is finished, so a re-render the action asked for can happen right now (no waiting)
@@ -271,8 +265,17 @@ function zombiesHtml() {
       ${hidden > 0 ? `<p class="sub small more">+${hidden} more ${head.dna.toLowerCase()} zombie type${hidden > 1 ? 's' : ''} to discover</p>` : ''}
     </div>`;
   }).join('');
+  const lv = game.shredLevel;
+  const shred = `<div class="srow shredder" style="--dna:#c0c8d2">
+      <img class="px face" src="${shredIcon()}" alt="">
+      <div class="s-info"><b>Shredder</b>
+        <span class="sub">Lv ${lv} · grinds ${fmtLn(game.lnShredDps())} damage/s</span>
+        <span class="sub small">Kills zombies that reach the wall; every zombie there dies eventually</span></div>
+      <div class="s-btns"><button class="btn sbtn" data-action="shredder" ${costAttr('shambler', game.shredCost())}><span>Upgrade</span>${cost('shambler', game.shredCost())}<i class="good">×${C.shredder.perLevel}</i></button></div>
+    </div>`;
   return `
   ${keepCardHtml(k)}
+  <div class="srows">${shred}</div>
   <p class="sub">Zombies come in five DNA colours, five types each. Raise a type's <b>DNA</b> or <b>Spawn</b> to earn more of its colour; it also makes those zombies tougher. Release new types with DNA of their colour.</p>
   ${families}
   <h3>Feral and Alpha zombies</h3>
@@ -280,7 +283,7 @@ function zombiesHtml() {
   <h3>Special zombies</h3>
   <p class="sub small">About ${Math.round(M.SPECIAL_CHANCE * 100)}% of zombies in the stream are special. They glow in their colour.</p>
   <div class="specials">${M.SPECIALS.map((sp) => `<div class="sp"><i style="--c:#${sp.tint.toString(16).padStart(6, '0')}"></i><b>${sp.name}</b><span class="sub small">${sp.desc}</span></div>`).join('')}</div>
-  <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. ${showKeep() ? 'The word under each price is how your squad would cope after buying.' : 'Watch the shredder: when it flashes red, zombies are getting through.'}</p>`;
+  <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. ${showKeep() ? 'The word under each price is how your squad would cope after buying.' : 'Watch the shredder: when it flashes red, zombies are getting through. Upgrade it to grind them faster.'}</p>`;
 }
 
 // ---------- Squad tab: overview of unit types, plus the item stash ----------
@@ -569,15 +572,12 @@ function bindTree() {
 
 function openModal(html: string) { const m = $('#modal'); m.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true">${html}</div>`; m.hidden = false; }
 function closeModal() { $('#modal').hidden = true; }
-let rollBackSnooze = 0;
-/** Pop-up when the squad has been swamped for a while: roll zombies back (losing the DNA spent) or keep fighting. */
+let overrunHintAt = 0;
+/** The squad has been swamped for a while: point the player at the Shredder (no pop-up, nothing is taken away). */
 function offerRollBack() {
-  if (performance.now() < rollBackSnooze || !$('#modal').hidden) return;
-  sfx.hordeLost();
-  openModal(`<h3>Overrun!</h3>
-    <p>Zombies have been piling up at the shredder and your squad can't keep up.</p>
-    <p class="sub">Roll the zombies back to a level your squad can handle? The tiers and Spawn levels removed are lost, along with the DNA spent on them.</p>
-    <div class="row"><button class="btn ghost grow" data-action="rollback-no">Keep fighting</button><button class="btn danger grow" data-action="rollback">Roll back</button></div>`);
+  if (performance.now() < overrunHintAt) return;
+  overrunHintAt = performance.now() + 120000;
+  toast('<b>Overrun!</b><span>Zombies are piling up at the shredder. Upgrade the Shredder (Zombies tab) or your squad.</span>', '#ff6767');
 }
 function openSettings() {
   const snd = sfx.soundPrefs();

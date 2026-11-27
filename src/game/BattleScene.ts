@@ -15,8 +15,8 @@ import { buildArt, drawGround, GUN_H, GUN_W, HERO_GRIP, HERO_H, HERO_W, RARITY_T
 
 const C = M.CONFIG;
 const FONT = '"Lilita One", system-ui, sans-serif';
-const ART_SHORT_SIDE = 360;  // art pixels across the field's short side (bigger = more zoomed out)
-const MAX_AMBIENT = 70;      // cap on stream zombies alive at once
+const ART_SHORT_SIDE = 400;  // art pixels across the field's short side (bigger = more zoomed out)
+const MAX_AMBIENT = 110;     // cap on stream zombies alive at once
 const MAX_TEXTS = 24;
 const INTRO_SEC = 1.4;
 const STUCK_SEC = 20;          // seconds of a swamped shredder before offering a roll-back
@@ -24,6 +24,7 @@ const STUCK_SEC = 20;          // seconds of a swamped shredder before offering 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
   strain: ZombieId; variety: VarietyId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
+  grindEff?: number;  // DNA share when the shredder kills it (only its real damage counts, not the minimum grind)
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
 }
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
@@ -49,6 +50,7 @@ export class BattleScene extends Phaser.Scene {
   private teeth!: Phaser.GameObjects.TileSprite;
   private overrun = 0;
   private stuckT = 0;
+  private atWallCount = 0;
   private capTop!: Phaser.GameObjects.Image;
   private capBot!: Phaser.GameObjects.Image;
   private fx!: Phaser.GameObjects.Graphics;
@@ -178,7 +180,8 @@ export class BattleScene extends Phaser.Scene {
     this.phaseT += dt;
     this.teeth.tilePositionY -= dt * 30 * RES;
     // overrun cue: the shredder glows red while zombies are grinding at it
-    const atWall = this.zombies.filter((z) => z.alive && z.p >= 1).length;
+    const atWall = this.zombies.filter((z) => z.alive && z.p >= 1 && !z.horde).length;
+    this.atWallCount = atWall;
     // stuck detection: the shredder swamped for a long time outside a horde → ask the player to roll back
     if (this.phase === 'stream' && atWall >= 3) this.stuckT += dt; else this.stuckT = Math.max(0, this.stuckT - dt * 3);
     if (this.stuckT >= STUCK_SEC) { this.stuckT = 0; game.emit('stuck'); }
@@ -275,9 +278,12 @@ export class BattleScene extends Phaser.Scene {
       }
       else {
         if (!z.atWall) { z.atWall = true; game.comboBreak(); }
-        // in the blades: the shredder grinds it slowly while it claws at the machine
+        // in the blades: the shredder's damage is shared by every zombie on it, and always takes at least
+        // a small share of their HP, so even an overwhelming pile-up dies eventually
         z.phase += dt * 3;
-        z.hp -= 0.08 * dt;
+        const share = Math.exp(Math.min(30, game.lnShredDps() - z.lnHp)) / Math.max(1, this.atWallCount);
+        z.hp -= Math.max(C.shredder.floor, share) * dt;
+        z.grindEff = Math.min(1, share / C.shredder.floor);
         sfx.grind();
         if (Math.random() < dt * 6) { const [x, y] = this.toScreen(1, z.l); this.burst(x - 6 * this.px, y - 10 * this.px, 0x8a1c1c, 2); }
         if (z.hp <= 0) this.kill(z);
@@ -435,7 +441,7 @@ export class BattleScene extends Phaser.Scene {
       }
     }
     const vm = M.VARIETIES[z.variety].dna;
-    const loot = game.zombieKilled(z.strain, z.tier, { mult: (sp?.dna ?? 1) * vm, lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
+    const loot = game.zombieKilled(z.strain, z.tier, { mult: (sp?.dna ?? 1) * vm * (z.grindEff ?? 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
     if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 

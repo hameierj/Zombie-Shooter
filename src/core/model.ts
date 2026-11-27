@@ -143,28 +143,28 @@ export interface ClassDef {
   ability: AbilityDef;
 }
 export const CLASSES: ClassDef[] = [
-  { id: 'pistol',  name: 'Pistoleer',  plural: 'Pistoleers',  gun: 'Pistol',           dps: 10, range: 0.45, rate: 2.2, targets: 1, crit: 0.10, horde: 0, hire0: 25, primary: 'shambler', secondary: 'runner',
+  { id: 'pistol',  name: 'Pistoleer',  plural: 'Pistoleers',  gun: 'Pistol',           dps: 10, range: 0.40, rate: 2.2, targets: 1, crit: 0.10, horde: 0, hire0: 25, primary: 'shambler', secondary: 'runner',
     ability: { name: 'Double Tap', stages: ['+15% attack speed: quick follow-up shots', '+30% attack speed', '+50% attack speed'] } },
-  { id: 'bow',     name: 'Hunter',     plural: 'Hunters',     gun: 'Compound Bow',     dps: 12, range: 0.85, rate: 0.9, targets: 2, crit: 0.20, horde: 1, hire0: 600, primary: 'runner', secondary: 'spitter',
+  { id: 'bow',     name: 'Hunter',     plural: 'Hunters',     gun: 'Compound Bow',     dps: 12, range: 0.75, rate: 0.9, targets: 2, crit: 0.20, horde: 1, hire0: 600, primary: 'runner', secondary: 'spitter',
     ability: { name: 'Piercing Arrows', stages: ['Arrows pierce 1 more zombie', 'Arrows pierce 2 more zombies', 'Arrows pierce 3 more zombies'] } },
-  { id: 'shotgun', name: 'Shotgunner', plural: 'Shotgunners', gun: 'Shotgun',          dps: 15, range: 0.35, rate: 1.1, targets: 3, crit: 0.05, horde: 2, hire0: 4000, primary: 'shambler', secondary: 'brute',
+  { id: 'shotgun', name: 'Shotgunner', plural: 'Shotgunners', gun: 'Shotgun',          dps: 17, range: 0.15, rate: 1.1, targets: 3, crit: 0.05, horde: 2, hire0: 4000, primary: 'shambler', secondary: 'brute',
     ability: { name: 'Knockback', stages: ['Blasts shove zombies back (+10% time in range)', '+20% time in range', '+30% time in range'] } },
-  { id: 'rifle',   name: 'Rifleman',   plural: 'Riflemen',    gun: 'Assault Rifle',    dps: 20, range: 0.70, rate: 5.0, targets: 1, crit: 0.08, horde: 3, hire0: 1.2e4, primary: 'runner', secondary: 'brute',
+  { id: 'rifle',   name: 'Rifleman',   plural: 'Riflemen',    gun: 'Assault Rifle',    dps: 20, range: 0.60, rate: 5.0, targets: 1, crit: 0.08, horde: 3, hire0: 1.2e4, primary: 'runner', secondary: 'brute',
     ability: { name: 'Suppressive Fire', stages: ['Hits slow zombies by 15%', 'Hits slow zombies by 25%', 'Hits slow zombies by 35%'] } },
   { id: 'sniper',  name: 'Sniper',     plural: 'Snipers',     gun: 'Sniper Rifle',     dps: 28, range: 1.00, rate: 0.45, targets: 1, crit: 0.30, horde: 4, hire0: 8e4, primary: 'brute', secondary: 'bloater',
     ability: { name: 'Headshot', stages: ['10% chance to instantly kill (not bosses)', '20% chance to instantly kill', '30% chance to instantly kill'] } },
-  { id: 'flamer',  name: 'Pyro',       plural: 'Pyros',       gun: 'Flamethrower',     dps: 34, range: 0.30, rate: 8.0, targets: 4, crit: 0.0,  horde: 5, hire0: 5e5, primary: 'spitter', secondary: 'bloater',
+  { id: 'flamer',  name: 'Pyro',       plural: 'Pyros',       gun: 'Flamethrower',     dps: 38, range: 0.20, rate: 8.0, targets: 4, crit: 0.0,  horde: 5, hire0: 5e5, primary: 'spitter', secondary: 'bloater',
     ability: { name: 'Napalm', stages: ['Burning ground: +1 zombie hit, +10% damage', '+2 zombies hit, +20% damage', '+3 zombies hit, +30% damage'] } },
-  { id: 'grenade', name: 'Grenadier',  plural: 'Grenadiers',  gun: 'Grenade Launcher', dps: 42, range: 0.75, rate: 0.7, targets: 4, crit: 0.05, horde: 6, hire0: 5e6, primary: 'bloater', secondary: 'shambler',
+  { id: 'grenade', name: 'Grenadier',  plural: 'Grenadiers',  gun: 'Grenade Launcher', dps: 42, range: 0.65, rate: 0.7, targets: 4, crit: 0.05, horde: 6, hire0: 5e6, primary: 'bloater', secondary: 'shambler',
     ability: { name: 'Cluster Bombs', stages: ['Blasts hit 1 more zombie', 'Blasts hit 2 more zombies', 'Blasts hit 3 more zombies'] } },
   // Elite-horde recruits
-  { id: 'mg',      name: 'Machine Gunner', plural: 'Machine Gunners', gun: 'Machine Gun', dps: 55, range: 0.60, rate: 12, targets: 1, crit: 0.05, horde: 8, hire0: 3e7, primary: 'runner', secondary: 'brute',
+  { id: 'mg',      name: 'Machine Gunner', plural: 'Machine Gunners', gun: 'Machine Gun', dps: 55, range: 0.50, rate: 12, targets: 1, crit: 0.05, horde: 8, hire0: 3e7, primary: 'runner', secondary: 'brute',
     ability: { name: 'Overheat', stages: ['Longer bursts: +20% attack speed', '+40% attack speed', '+70% attack speed'] } },
-  { id: 'drone',   name: 'Drone Operator', plural: 'Drone Operators', gun: 'Attack Drones', dps: 68, range: 1.00, rate: 1.6, targets: 1, crit: 0.15, horde: 9, hire0: 2e8, primary: 'spitter', secondary: 'runner',
+  { id: 'drone',   name: 'Drone Operator', plural: 'Drone Operators', gun: 'Attack Drones', dps: 68, range: 0.90, rate: 1.6, targets: 1, crit: 0.15, horde: 9, hire0: 2e8, primary: 'spitter', secondary: 'runner',
     ability: { name: 'Swarm', stages: ['+1 drone: hits 1 more zombie', '+2 drones', '+3 drones'] } },
-  { id: 'mortar',  name: 'Mortar Gunner', plural: 'Mortar Team', gun: 'Mortar', dps: 85, range: 1.00, rate: 0.35, targets: 5, crit: 0.05, horde: 11, hire0: 1.5e9, primary: 'brute', secondary: 'bloater',
+  { id: 'mortar',  name: 'Mortar Gunner', plural: 'Mortar Team', gun: 'Mortar', dps: 85, range: 0.85, rate: 0.35, targets: 5, crit: 0.05, horde: 11, hire0: 1.5e9, primary: 'brute', secondary: 'bloater',
     ability: { name: 'Barrage', stages: ['Shells hit 1 more zombie, +10% damage', '+2 zombies, +20% damage', '+3 zombies, +30% damage'] } },
-  { id: 'tesla',   name: 'Tesla Trooper', plural: 'Tesla Troopers', gun: 'Arc Gun', dps: 105, range: 0.55, rate: 1.6, targets: 3, crit: 0.10, horde: 13, hire0: 1e10, primary: 'bloater', secondary: 'spitter',
+  { id: 'tesla',   name: 'Tesla Trooper', plural: 'Tesla Troopers', gun: 'Arc Gun', dps: 112, range: 0.30, rate: 1.6, targets: 3, crit: 0.10, horde: 13, hire0: 1e10, primary: 'bloater', secondary: 'spitter',
     ability: { name: 'Chain Lightning', stages: ['Arcs to 1 more zombie', 'Arcs to 2 more zombies', 'Arcs to 3 more zombies'] } },
 ];
 export const classById = (id: ClassId) => CLASSES.find((c) => c.id === id)!;
@@ -225,13 +225,17 @@ export const CONFIG = {
   dropRateExp: 0.75,         // stay minutes apart: ~1 per 8 min early, ~1 per 3 min with every type at full spawn rate
   treeCost0: 15,
   treeCostGrowth: 1.9,
-  walkSec: 10,
+  walkSec: 16,
   hordeZombies: 60,
-  hordeTimerSec: 60,
+  hordeTimerSec: 66,
   hordeSpawnPerSec: 3,
   /** Each horde ends with a boss: the toughest zombie type in the horde with this many times the HP, walking slowly.
    * If the boss reaches the shredder, or too many horde zombies break through, the horde is lost. */
   bossHpMult: 10, bossSpeed: 0.45, breachLimit: 10,
+  /** The shredder grinds zombies that reach it: endless upgrade paid in Green DNA. Its damage is shared by the
+   * zombies on its blades, and it always takes at least `floor` of a zombie's HP per second, so every zombie
+   * eventually dies there (you can't get permanently stuck). It doesn't stop horde zombies breaking through. */
+  shredder: { dps0: 6, perLevel: 1.1, cost0: 40, costGrowth: 1.16, floor: 0.02 },
   /** Odds at which a horde card says "should win" and War Drums starts it by itself. */
   hordeWinOdds: 1.1,
   /** Combo: every live kill adds 1; DNA earned is multiplied by up to ×1.5 at 300. It drops to 0 after 3 s
@@ -357,7 +361,8 @@ export function unitStats(e: SquadEntry, fx: Fx) {
   const c = classById(u.cls);
   const ab = abilityFx(u);
   const a = (stat: AttachStat) => (attach?.stat === stat ? attach.value : 0);
-  const range = Math.min(1, c.range * (1 + fx.range + 0.05 * nlv(u, 'range') + a('range')));
+  // only Snipers cover the whole road; everyone else tops out just short of it
+  const range = Math.min(u.cls === 'sniper' ? 1 : 0.95, c.range * (1 + fx.range + 0.05 * nlv(u, 'range') + a('range')));
   const spdMult = 1 + fx.spd + (fx.classSpd[u.cls] ?? 0) + 0.04 * nlv(u, 'spd') + a('spd') + ab.spd;
   const shotsPerSec = c.rate * spdMult;
   const crit = Math.min(0.9, c.crit + fx.crit + 0.02 * nlv(u, 'crit') + a('crit'));
@@ -391,17 +396,20 @@ export function lnSquadDps(squad: SquadEntry[], fx: Fx, s: ZombieId) {
  * Keep-up ratio: how much of the incoming stream the squad can kill. Each type brings rate·HP of work per second;
  * the squad clears DPS against it. 1 means exactly keeping up; below 1 zombies pile up at the shredder.
  */
-export function keepUp(squad: SquadEntry[], fx: Fx, st: Strains) {
+export const lnShredDps = (lv: number) => Math.log(C.shredder.dps0) + lv * Math.log(C.shredder.perLevel);
+export const lnShredCost = (lv: number) => Math.log(C.shredder.cost0) + lv * Math.log(C.shredder.costGrowth);
+export function keepUp(squad: SquadEntry[], fx: Fx, st: Strains, shred = 0) {
   let load = 0;
+  const lnShred = lnShredDps(shred);
   for (const s of activeStrains(st)) {
     const x = st[s];
-    load += spawnRate(s, x.spawn) * varietyAvg(x.tier) * Math.exp(Math.min(60, lnZombieHp(s, x.tier, x.spawn) - lnSquadDps(squad, fx, s)));
+    load += spawnRate(s, x.spawn) * varietyAvg(x.tier) * Math.exp(Math.min(60, lnZombieHp(s, x.tier, x.spawn) - logAdd(lnSquadDps(squad, fx, s), lnShred)));
   }
   return load > 0 ? 1 / load : Infinity;
 }
 /** DNA per second of each colour at the current settings. */
-export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains): Record<StrainId, number> {
-  const f = Math.min(1, keepUp(squad, fx, st));
+export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains, shred = 0): Record<StrainId, number> {
+  const f = Math.min(1, keepUp(squad, fx, st, shred));
   const out = Object.fromEntries(COLOURS.map((c) => [c, -Infinity])) as Record<ColourId, number>;
   for (const s of activeStrains(st)) {
     const x = st[s];

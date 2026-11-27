@@ -21,6 +21,8 @@ export interface SaveData {
   autoHordeOn: boolean;
   /** Drops at or below this rarity are sold on pickup (never an upgrade, never a horde reward). null = off. */
   autoSell: AutoSell;
+  /** Shredder upgrade level. */
+  shredder: number;
   nextUid: number;
   kills: number;
   newItems: number[];
@@ -44,7 +46,7 @@ function freshSave(): SaveData {
   return {
     version: 6, dna: emptyDna(), strains: emptyStrains(), units,
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
-    alloc: [], hordes: 0, autoHordeOn: true, autoSell: null, nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
+    alloc: [], hordes: 0, autoHordeOn: true, autoSell: null, shredder: 0, nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(),
   };
 }
 
@@ -138,13 +140,18 @@ export class Game {
   }
 
   // ---------- zombie dials ----------
-  keepUp(st: Strains = this.s.strains) { return M.keepUp(this.squad(), this.fx, st); }
+  keepUp(st: Strains = this.s.strains) { return M.keepUp(this.squad(), this.fx, st, this.s.shredder ?? 0); }
   /** Keep-up ratio if one zombie type's tier or spawn level changed by +1. */
   keepUpIf(s: ZombieId, what: 'tier' | 'spawn') {
     const x = this.s.strains[s];
     return this.keepUp({ ...this.s.strains, [s]: { ...x, [what]: x[what] + 1 } });
   }
-  lnDnaPerSec() { return M.lnDnaPerSec(this.squad(), this.fx, this.s.strains); }
+  lnDnaPerSec() { return M.lnDnaPerSec(this.squad(), this.fx, this.s.strains, this.s.shredder ?? 0); }
+  // ---------- shredder ----------
+  get shredLevel() { return this.s.shredder ?? 0; }
+  shredCost() { return M.lnShredCost(this.shredLevel); }
+  lnShredDps() { return M.lnShredDps(this.shredLevel); }
+  buyShredder() { if (this.pay('shambler', this.shredCost())) { this.s.shredder = this.shredLevel + 1; this.emit('change'); } }
   get totalSpawnRate() { return M.totalSpawnRate(this.s.strains); }
   tierCost(s: ZombieId) { return M.lnTierCost(s, this.s.strains[s].maxTier); }
   raiseTier(s: ZombieId) {

@@ -22,11 +22,11 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   const rng = mulberry32(seed);
   const strains = Object.fromEntries(M.ZOMBIE_IDS.map((s) => [s, { unlocked: s === 'shambler', tier: 1, maxTier: 1, spawn: 0 }]));
   const units = Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: c.id === 'pistol' ? 1 : 0, nodes: {}, gun: c.id === 'pistol' ? 1 : null, attach: null, charm: null }]));
-  const s = { t: 0, dna: Object.fromEntries(M.STRAIN_IDS.map((x) => [x, -Infinity])), hordes: 0, nextUid: 2, guns: [{ uid: 1, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [], alloc: [], drops: 0 };
+  const s = { t: 0, dna: Object.fromEntries(M.STRAIN_IDS.map((x) => [x, -Infinity])), hordes: 0, nextUid: 2, guns: [{ uid: 1, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [], alloc: [], drops: 0, shred: 0 };
   const fx = () => treeFx(s.alloc);
   const owned = () => Object.values(units).filter((u) => u.count > 0);
   const squad = () => owned().map((u) => ({ u, gun: s.guns.find((g) => g.uid === u.gun), attach: s.gear.find((g) => g.uid === u.attach), charm: s.gear.find((g) => g.uid === u.charm) }));
-  const keep = (st = strains) => M.keepUp(squad(), fx(), st);
+  const keep = (st = strains) => M.keepUp(squad(), fx(), st, s.shred);
   const unlocked = (c) => M.classById(c).horde <= s.hordes;
   const pay = (col, ln) => { if (s.dna[col] + 1e-9 < ln) return false; s.dna[col] = M.logSub(s.dna[col], ln); return true; };
   const best = () => M.bestTier(strains);
@@ -60,6 +60,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
         const sp = { ...strains, [x.id]: { ...st, spawn: st.spawn + 1 } };
         if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ col: x.family, ln: M.lnSpawnCost(x.id, st.spawn), go: () => { st.spawn++; } });
       }
+      opts.push({ col: 'shambler', ln: M.lnShredCost(s.shred), go: () => { s.shred++; } });
       for (const u of Object.values(units)) {
         const c = M.classById(u.cls);
         if (unlocked(u.cls) && u.count < M.unitCap(best())) opts.push({ col: c.primary, ln: M.lnHireCost(u.cls, u.count, f), go: () => { if (!u.count && !u.gun) drop(0, u.cls); u.count++; } });
@@ -87,13 +88,13 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   let ci = 0;
   while (s.t < hours * 3600) {
     if (ci < CHECKS.length && s.t >= CHECKS[ci] * 3600) {
-      out.push({ h: CHECKS[ci], tiers: M.STRAIN_IDS.map((x) => strains[x].unlocked ? strains[x].tier : '-').join('/') + ` (${M.activeStrains(strains).length} types)`, hordes: s.hordes, nodes: s.alloc.length, drops: s.drops,
+      out.push({ h: CHECKS[ci], tiers: M.STRAIN_IDS.map((x) => strains[x].unlocked ? strains[x].tier : '-').join('/') + ` (${M.activeStrains(strains).length} types)`, hordes: s.hordes, nodes: s.alloc.length, drops: s.drops, shred: s.shred,
         squad: owned().map((u) => `${u.cls[0]}${u.count}:${M.nlv(u, 'dmg')}${M.abilityStage(u) ? '*' + M.abilityStage(u) : ''}`).join(' '), keep: keep() });
       ci++;
     }
     const sq = squad(), f = fx();
-    const k = Math.min(1, M.keepUp(sq, f, strains));
-    const rate = M.lnDnaPerSec(sq, f, strains);
+    const k = Math.min(1, M.keepUp(sq, f, strains, s.shred));
+    const rate = M.lnDnaPerSec(sq, f, strains, s.shred);
     let kills = 0;
     for (const c of M.COLOURS) s.dna[c] = M.logAdd(s.dna[c], rate[c] + Math.log(DT));
     for (const x of M.activeStrains(strains)) kills += M.spawnRate(x, strains[x].spawn) * k * DT;
@@ -112,6 +113,6 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   for (const p of Object.values(PROFILES)) {
     console.log(`\n=== ${p.label} ===`);
-    for (const r of simulate(p)) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(34)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);
+    for (const r of simulate(p)) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(34)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  shred ${String(r.shred).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);
   }
 }

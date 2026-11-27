@@ -42,9 +42,11 @@ Every released type has **its own two dials**, paid in its own colour:
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
 
 The **keep-up meter** is an option in Settings, **off by default**: players read the battlefield instead, and the
-shredder glows and pulses red while zombies are reaching it. If the shredder stays swamped for 20 seconds (outside a
-horde), an **Overrun!** pop-up offers to roll the zombies back to a level the squad handles: the tiers and Spawn levels
-removed are lost along with the DNA spent on them. "Keep fighting" dismisses it for 2 minutes. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
+shredder glows and pulses red while zombies are reaching it. The **Shredder** is upgradeable (endless,
+Green DNA, ×1.1 damage per level): its damage is shared by the zombies grinding on it and counts towards keeping up.
+It always takes at least 2% of a zombie's HP per second, so every zombie at the wall dies eventually and you can't get
+permanently stuck (zombies killed only by that minimum pay DNA in proportion to the Shredder's real damage, so it can't
+be farmed). When the shredder stays swamped for 20 s, a message suggests upgrading it or the squad. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
 whether the squad would still keep up. If the squad falls behind, zombies pile up at the shredder, which grinds them
 slowly. You never lose.
 
@@ -98,7 +100,7 @@ Command Post; each has small nodes, two notables and a keystone, and neighbourin
 Allocate a node next to one you own. Each region is paid in its own DNA colour (Basic Training Green, Marksman and Suppression Yellow, Breacher and Deadeye Red, Inferno Teal, Demolition and Command Purple); each allocation costs ×1.9 more than the last. Tap a node to see what it does.
 
 ## 5. Hordes (Hordes tab)
-Optional fights: **60 zombies plus a boss in 60 seconds** at a fixed tier. The stream pauses while you fight. The boss
+Optional fights: **60 zombies plus a boss in 66 seconds** at a fixed tier. The stream pauses while you fight. The boss
 is a giant version of the toughest zombie type in the horde (×10 HP, slow) and joins two-thirds of the way in.
 **You lose** if time runs out, the boss reaches the shredder, or 10 horde zombies break through (a status line on the
 field shows time, zombies left, the boss and breaches). Each card shows your odds before you start. Hordes 1–7 are at
@@ -142,3 +144,10 @@ Saves upgrade automatically (v4 → v5 → v6) under the same storage key, with 
 Upgrading to v0.8: all old DNA becomes Green DNA, the old tier and spawn level go to Shamblers, zombie types that were
 already in the stream are released (at tier 1, free to raise back to the old best), unit training levels become
 Damage levels in each unit's tree, and tiers are lowered if needed so the squad starts out keeping up.
+
+## 10. Ranges and the road
+Range is how far up the road a unit shoots, measured from the shredder. Base ranges: Shotgunners 15%, Pyros 20%,
+Tesla Troopers 30%, Pistoleers 40%, Machine Gunners 50%, Riflemen 60%, Grenadiers 65%, Hunters 75%, Mortar Team 85%,
+Drone Operators 90%, Snipers 100%. Range upgrades add up to +50%, but only Snipers can cover the whole road (others cap
+at 95%). Zombies take about 16 s to walk the road, and the view is zoomed out (~400 art units across the short side).
+See `unit-ranges.png`.
