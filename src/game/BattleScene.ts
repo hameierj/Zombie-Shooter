@@ -43,7 +43,9 @@ interface Zombie {
   air?: number;        // Leaper: >0 while in the air (can't be hit); hop timer and lift
   hopT?: number; spawnT?: number; stepT?: number;
 }
-interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
+interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number;
+  /** A new hire: waits `wait` s, then runs in from the left edge (`run` 0→1) before taking position and firing. */
+  wait?: number; run?: number; hop?: number }
 interface FloatText { obj: Phaser.GameObjects.Text; t: number; vy: number }
 interface Crate { img: Phaser.GameObjects.Image; t: number; color: number }
 /** A pooled effect particle (positions and speeds in device px). */
@@ -413,10 +415,13 @@ export class BattleScene extends Phaser.Scene {
   private crowd = 1;
   private spots = new Map<string, number>();   // soldier key → random sort key (where along the wall it stands)
 
+  private squadSynced = false;
+  private arrivals = 0;
   private syncShooters() {
     const want = new Set<string>();
     for (const u of game.owned) for (let k = 0; k < Math.min(u.count, BattleScene.VISIBLE_PER_TYPE); k++) want.add(`${u.cls}-${k}`);
     for (const [key, s] of this.shooters) if (!want.has(key)) { s.body.destroy(); s.gun.destroy(); s.flash.destroy(); this.shooters.delete(key); this.spots.delete(key); }
+    if (this.squadSynced && ![...this.shooters.values()].some((s) => s.wait !== undefined)) this.arrivals = 0;
     for (const key of want) {
       if (this.shooters.has(key)) continue;
       const cls = key.split('-')[0] as ClassId;
@@ -426,6 +431,8 @@ export class BattleScene extends Phaser.Scene {
         gun: this.add.image(0, 0, `gun-${cls}`).setOrigin(3 / GUN_W, 6 / GUN_H).setScale(this.S),
         flash: this.add.image(0, 0, 'muzzle').setVisible(false).setScale(this.S).setBlendMode(Phaser.BlendModes.ADD),
         cls, cd: Math.random() * 0.5, recoil: 0, flashT: 0, aim: 0,
+        // soldiers there when the game loads are already in place; new hires arrive after a beat, staggered if several
+        ...(this.squadSynced ? { wait: 0.35 + this.arrivals++ * 0.18, run: 0 } : {}),
       });
     }
   }
@@ -444,6 +451,7 @@ export class BattleScene extends Phaser.Scene {
 
   private tickShooters(dt: number) {
     this.syncShooters();
+    this.squadSynced = true;
     const px = this.px;
     const order = [...this.spots.entries()].sort((a, b) => a[1] - b[1]).map(([key]) => key);
     const n = order.length;
@@ -458,8 +466,23 @@ export class BattleScene extends Phaser.Scene {
         const key = `${u.cls}-${k}`;
         const s = this.shooters.get(key)!;
         const i = order.indexOf(key);
-        const [fx, fy] = this.wallFeet(i, n, key);
-        const bob = Math.floor(this.time.now / 450 + i) % 2;
+        let [fx, fy] = this.wallFeet(i, n, key);
+        let bob = Math.floor(this.time.now / 450 + i) % 2;
+        let arriving = false;
+        if (s.wait !== undefined) {
+          // a new hire: a short beat, then a sprint in from the left edge with dust, a little hop on arrival
+          arriving = true;
+          if (s.wait > 0) { s.wait -= dt; s.body.setVisible(false); s.gun.setVisible(false); s.flash.setVisible(false); continue; }
+          s.body.setVisible(true);
+          s.run = Math.min(1, (s.run ?? 0) + dt / 0.85);
+          const e = 1 - (1 - s.run) ** 3, startX = -14 * px;
+          fx = startX + (fx - startX) * e;
+          bob = Math.floor(this.time.now / 90) % 2;
+          fy -= s.run < 1 ? Math.abs(Math.sin(s.run * 18)) * 1.6 * px : 0;
+          if (Math.random() < dt * 22) this.part('smoke', fx - 3 * px, fy, { vx: -20 * px, vy: -6 * px, life: 0.45, s0: (2 * px) / 56, s1: (6 * px) / 56, a: 0.5, v: 1 });
+          if (s.run >= 1) { s.wait = undefined; s.run = undefined; s.hop = 0.24; this.light(fx, fy - 10 * px, 18, 0xfff0c0, 0.4, 0.2); }
+        }
+        if (s.hop !== undefined) { fy -= Math.sin((1 - s.hop / 0.24) * Math.PI) * 4 * px; s.hop -= dt; if (s.hop <= 0) s.hop = undefined; }
         s.body.setTexture(`hero-${u.cls}-${bob}`).setPosition(fx, fy).setDepth(fy).setScale(sc);
         s.recoil = Math.max(0, s.recoil - dt * 30);
         const gx = fx + ((HERO_GRIP.x - HERO_W / 2) * px - Math.cos(s.aim) * s.recoil * px) * cs;
@@ -469,7 +492,7 @@ export class BattleScene extends Phaser.Scene {
         s.flashT -= dt;
         s.flash.setVisible(s.flashT > 0);
         if (s.flashT > 0) { const [mx, my] = this.muzzle(s); s.flash.setPosition(mx, my).setDepth(fy + 2); }
-        if (gun && this.phase !== 'intro') this.fire(u, gun, s, visible, dt);
+        if (gun && this.phase !== 'intro' && !arriving) this.fire(u, gun, s, visible, dt);
       }
     }
   }
