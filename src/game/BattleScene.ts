@@ -398,7 +398,7 @@ export class BattleScene extends Phaser.Scene {
         if (!z.alive) continue;
         const ln = lnShot + Math.log(M.matchMult(e, z.strain, game.fx)) - (ab.execute ? Math.log(ab.dmg) : 0);
         // abilities: knockback, slow, napalm, headshot execute
-        if (ab.knockback) z.p = Math.max(0, z.p - ab.knockback);
+        if (ab.knockback && !z.boss) z.p = Math.max(0, z.p - ab.knockback);   // bosses can't be pushed back
         if (ab.slow) z.slow = Math.max(z.slow, ab.slow);
         if (r.cls === 'flamer' && M.abilityStage(r)) z.burn = 1.5;
         if (ab.execute && !z.horde && Math.random() < ab.execute && z.alive) {

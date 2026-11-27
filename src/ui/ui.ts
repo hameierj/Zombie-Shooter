@@ -58,6 +58,10 @@ function topBar() {
     ([1, 10, 'max'] as BuyAmt[]).map((a) => `<button class="${buyAmt === a ? 'on' : ''}" data-action="buy-amt" data-arg="${a}">${a === 'max' ? 'Max' : `×${a}`}</button>`).join('')}</div></div></div>`;
 }
 
+/** The battle's phase ('stream', 'intro', 'horde', 'end'), so the Hordes tab knows when a horde is running. */
+let battlePhase = 'stream';
+const hordeRunning = () => battlePhase === 'intro' || battlePhase === 'horde';
+
 /** The open menu, or null when the full-screen zombie map is showing. */
 let tab: Tab | null = null;
 const TITLES: Record<Tab, string> = { zombies: 'Zombies', squad: 'Squad', tree: 'Upgrade Trees', hordes: 'Hordes' };
@@ -87,7 +91,9 @@ export function initUI() {
     if (evt === 'stuck') offerRollBack();
     if (evt === 'horde-lost') toast('<b>The horde was too strong</b><span>Upgrade your units and try again.</span>', '#ff6b6b');
     if (evt === 'release') { const st = M.strainById(data as StrainId); toast(`<b>${st.plural} released!</b><span>They drop ${st.dna} DNA.</span>`, st.color, zombieIcon(st.id)); }
-    if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase'].includes(evt)) soft();
+    if (evt === 'phase') battlePhase = data as string;
+    if (evt === 'horde-start') battlePhase = 'intro';
+    if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase', 'horde-start'].includes(evt)) soft();
   });
   render();
   refresh();
@@ -591,7 +597,7 @@ function treeHtml() {
 function warDrumsHtml() {
   if (!game.fx.autoHorde) return `<p class="sub small">Tip: the <b>War Drums</b> passive (Basic Training, Passive Tree) starts hordes for you when your squad should win.</p>`;
   const odds = game.hordeOdds(), need = game.autoHordeNeeds;
-  const status = !game.s.autoHordeOn ? 'Off.'
+  const status = hordeRunning() ? `<span class="good">Fighting Horde ${game.nextHorde} now…</span>` : !game.s.autoHordeOn ? 'Off.'
     : odds >= need ? `<span class="good">Starting Horde ${game.nextHorde} within a few seconds…</span>`
     : `Waiting: Horde ${game.nextHorde} starts by itself at ${fmtMult(need)} odds (now ${fmtMult(odds)})${game.hordeFailOdds ? ', a bit higher than when it was last lost' : ''}.`;
   return `<div class="card drums"><label class="switch"><input type="checkbox" data-action="toggle" ${game.s.autoHordeOn ? 'checked' : ''}> <b>War Drums</b>: start the next horde automatically when your squad should win</label><p class="sub small">${status}</p></div>`;
@@ -615,7 +621,7 @@ function hordesHtml() {
       ${beaten ? '<p class="good">✓ Beaten</p>' : isNext ? `
         <div class="meter small"><i style="width:${Math.min(100, (odds / 2) * 100)}%"></i><span class="mark"></span></div>
         <p class="sub small">${odds >= C.hordeWinOdds ? '<span class="good">Your squad should win.</span>' : odds >= 0.9 ? '<span class="warn">It will be close.</span>' : `<span class="bad">Too strong: you need ${fmtMult(1 / Math.max(odds, 1e-9))} more firepower.</span>`}</p>
-        <button class="btn wide call" data-action="horde">Start Horde ${k}</button>` : '<p class="sub small">🔒 Beat the previous horde first.</p>'}
+        ${hordeRunning() ? `<p class="good">⚔ Horde ${k} in progress… watch the map</p><button class="btn wide call" disabled>In progress</button>` : `<button class="btn wide call" data-action="horde">Start Horde ${k}</button>`}` : '<p class="sub small">🔒 Beat the previous horde first.</p>'}
     </div>`;
   }).join('')}</div>`;
 }
