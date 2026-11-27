@@ -197,6 +197,12 @@ export class Game {
     return n;
   }
   nodesAffordable(c: ClassId) { return M.UNIT_NODES.filter((n) => this.node(c, n.id).canAfford).length; }
+  /** Affordable tree items for a unit type, not counting the endless Damage ranks (used for the menu dots). */
+  treeItemsAffordable(c: ClassId) { return M.UNIT_NODES.filter((n) => n.id !== 'dmg' && this.node(c, n.id).canAfford).length; }
+  /** Any zombie type you can release right now. */
+  get canReleaseAny() { return M.ZOMBIE_IDS.some((z) => this.canRelease(z)); }
+  /** Any soldier you can hire right now (including the first of a newly unlocked unit type). */
+  get canHireAny() { return M.CLASSES.some((c) => this.canHire(c.id)); }
 
   // ---------- hiring ----------
   hireColour(c: ClassId) { return M.classById(c).primary; }

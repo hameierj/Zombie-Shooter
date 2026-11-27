@@ -227,8 +227,9 @@ function refresh() {
   pill.textContent = k >= 1.1 ? 'keeping up' : k >= 0.9 ? 'barely' : 'overrun';
   for (const b of document.querySelectorAll<HTMLElement>('#tabs [data-action="tab"]')) {
     b.classList.toggle('active', b.dataset.arg === tab);
-    const badge = b.dataset.arg === 'tree' ? game.allocatableCount() > 0 || game.owned.some((u) => game.nodesAffordable(u.cls) > 0)
-      : b.dataset.arg === 'squad' ? game.s.newItems.length > 0
+    const badge = b.dataset.arg === 'tree' ? game.allocatableCount() > 0 || game.owned.some((u) => game.treeItemsAffordable(u.cls) > 0)
+      : b.dataset.arg === 'squad' ? game.canHireAny || game.s.newItems.length > 0
+      : b.dataset.arg === 'zombies' ? game.canReleaseAny
       : b.dataset.arg === 'hordes' ? game.hordeOdds() >= 1 : false;
     b.classList.toggle('badge', badge);
   }
@@ -489,7 +490,7 @@ function treeTabsHtml() {
   const chip = (id: string, label: string, icon: string, dot: boolean) =>
     `<button class="tchip ${treeView === id ? 'on' : ''}" data-action="treeview" data-arg="${id}">${icon}<span>${label}</span>${dot ? '<i></i>' : ''}</button>`;
   return `<div class="tree-tabs">${chip('global', 'Global', '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="18" r="2.4"/><circle cx="19" cy="18" r="2.4"/><circle cx="12" cy="13" r="2"/><path d="M12 7.4v3.6M10.4 14.4l-3.6 2.2M13.6 14.4l3.6 2.2"/></svg>', game.allocatableCount() > 0)}${
-    units.map((c) => chip(c.id, c.plural, `<img class="px" src="${classIcon(c.id)}" alt="">`, game.nodesAffordable(c.id) > 0)).join('')}</div>`;
+    units.map((c) => chip(c.id, c.plural, `<img class="px" src="${classIcon(c.id)}" alt="">`, game.treeItemsAffordable(c.id) > 0)).join('')}</div>`;
 }
 function treeTabHtml() {
   if (treeView !== 'global' && !game.classUnlocked(treeView)) treeView = 'global';
