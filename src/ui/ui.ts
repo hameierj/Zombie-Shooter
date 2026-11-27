@@ -189,6 +189,7 @@ export function initUI() {
   setInterval(tickCombo, 100);
   setInterval(() => maybeCommanderScene(!!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !$('#modal').hidden), 1000);
   setInterval(() => void syncBoard(), 60_000);
+  window.setTimeout(() => void syncBoard(true), 4000);
   setInterval(() => { if (!titleUp() && !overlayUp() && !coachUp() && !document.hidden && game.autoBuyTick()) { soft(); } autoChip(); }, 1000);
   fpsMeter();
 }
@@ -307,6 +308,7 @@ function act(d: ActionData): boolean {
     case 'tab':
       // tapping the open tab collapses the menu to the map; tapping another opens it
       tab = tab === arg ? null : (arg as Tab);
+      if (tab === 'hordes') void syncBoard().then(() => { if (tab === 'hordes') soft(); });
       if (tab === 'squad') game.markSeen();
       render();
       break;

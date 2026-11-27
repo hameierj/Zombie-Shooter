@@ -8,16 +8,21 @@ import { classIcon } from '../game/art.ts';
 import { fmtInt } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
 
-export interface Player { id: string; name: string }
+export interface Player { id: string; name: string; secret?: string }
 const KEY = 'zombie-idle-player';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
+const rnd = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, '0')).join('');
 export function getPlayer(): Player | null {
-  try { const p = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (p?.name) return p; } catch { /* storage blocked */ }
-  return game.s.player?.name ? game.s.player : null;
+  let p: Player | null = null;
+  try { const q = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (q?.name) p = q; } catch { /* storage blocked */ }
+  if (!p && game.s.player?.name) p = game.s.player;
+  if (p && !p.secret) { p.secret = rnd(16); try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* storage blocked */ } game.s.player = p; }
+  return p;
 }
 export function setPlayer(name: string): Player {
-  const p: Player = { id: getPlayer()?.id ?? (crypto.randomUUID?.() ?? `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`), name };
+  const old = getPlayer();
+  const p: Player = { id: old?.id ?? crypto.randomUUID(), name, secret: old?.secret ?? rnd(16) };
   try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* storage blocked */ }
   game.s.player = p; game.save();
   return p;
@@ -33,8 +38,23 @@ export function myEntry(): Entry | null {
   const s = game.s;
   return { id: p.id, name: p.name, tier: M.bestTier(s.strains), hordes: s.hordes + (s.prestige?.earned ?? 0), kills: s.kills, bosses: s.bossKills ?? 0, runs: s.prestige?.runs ?? 0, at: Date.now() };
 }
-/** The online board. `null` until a backend is connected: then only your own row is shown. */
-export const BOARD: { submit(e: Entry): Promise<void>; top(n: number): Promise<Entry[]> } | null = null;
+/** The online board: a Supabase project set up with docs/leaderboard.sql. The anon key is public by design (the database
+ * only allows reading the board and submitting your own row through submit_score). Empty = local-only board. */
+const SUPA_URL = '';
+const SUPA_KEY = '';
+const supa = (path: string, init: RequestInit = {}) => fetch(`${SUPA_URL}/rest/v1/${path}`, { ...init, headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
+export const BOARD: { submit(e: Entry): Promise<void>; top(n: number): Promise<Entry[]> } | null = SUPA_URL && SUPA_KEY ? {
+  async submit(e) {
+    const p = getPlayer(); if (!p?.secret) return;
+    const r = await supa('rpc/submit_score', { method: 'POST', body: JSON.stringify({ p_id: e.id, p_secret: p.secret, p_name: e.name, p_hordes: e.hordes, p_tier: e.tier, p_kills: e.kills, p_bosses: e.bosses, p_runs: e.runs }) });
+    if (!r.ok) throw new Error(`submit ${r.status}`);
+  },
+  async top(n) {
+    const r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs&order=hordes.desc,tier.desc,kills.desc&limit=${n}`);
+    if (!r.ok) throw new Error(`top ${r.status}`);
+    return (await r.json() as Omit<Entry, 'at'>[]).map((x) => ({ ...x, kills: Number(x.kills), at: 0 }));
+  },
+} : null;
 let cache: Entry[] = [];
 let lastSubmit = 0;
 /** Push your stats (at most once a minute) and refresh the cached top list. */

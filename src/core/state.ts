@@ -24,7 +24,7 @@ export interface SaveData {
   kills: number;
   bossKills?: number;
   /** The commander's name for the leaderboard (chosen in the cutscene after Horde 1). */
-  player?: { id: string; name: string };
+  player?: { id: string; name: string; secret?: string };
   /** Auto-buy (free after Horde 10): each category is switched on or off on its own, from the map. */
   auto?: { on?: boolean; zombies: boolean; units: boolean; globals: boolean };                 // bosses killed (kept through prestige, like kills)
   newItems: number[];
