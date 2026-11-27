@@ -224,6 +224,13 @@ whenever a zombie reaches the shredder. The badge over the battlefield shows the
 The Hordes tab shows lifetime counters: zombies killed, bosses killed, hordes beaten and best combo (kills and bosses are
 kept through prestige).
 
+### Auto-buy
+Beating **Horde 10** unlocks auto-buy for free (an unlock card explains it). An **AUTO** switch sits in the top-left of
+the map; Settings → Auto-buy chooses what it may buy: **Zombies** (tiers, spawn, evolutions, zombie ultimates, only while
+the squad would still keep up ×1.3), **Recruits** (hires and every upgrade; unit ultimate forms stay the player's choice)
+and **Global upgrades** (the five colour upgrades and Scavenger). Once a second it buys the cheapest allowed thing in each
+colour it can afford, repeatedly. Its evolutions and ultimates show a small notice instead of a pausing card.
+
 ## 6. Automation and time away
 **Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are
 free actions: **gear is always auto-equipped** (every unit type carries its best gun, attachment and charm; it

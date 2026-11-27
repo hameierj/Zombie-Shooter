@@ -22,7 +22,9 @@ export interface SaveData {
   autoSell: AutoSell;
   nextUid: number;
   kills: number;
-  bossKills?: number;                 // bosses killed (kept through prestige, like kills)
+  bossKills?: number;
+  /** Auto-buy (free after Horde 10): master switch on the map, plus what it may buy. */
+  auto?: { on: boolean; zombies: boolean; units: boolean; globals: boolean };                 // bosses killed (kept through prestige, like kills)
   newItems: number[];
   lastSeen: number;
   /** Total time actually played (seconds, only while the app is open and visible). */
@@ -246,6 +248,57 @@ export class Game {
     this.s.globals = { ...(this.s.globals ?? {}), all: l + 1 };
     this.emit('change');
     return true;
+  }
+  // ---------- auto-buy (unlocked by beating Horde 10) ----------
+  static readonly AUTO_HORDE = 10;
+  /** Keep-up the auto-buyer keeps when raising zombies, so it never overruns the squad. */
+  static readonly AUTO_KEEP = 1.3;
+  get autoUnlocked() { return this.s.hordes >= Game.AUTO_HORDE; }
+  get autoCfg() { return (this.s.auto ??= { on: false, zombies: true, units: true, globals: true }); }
+  /** One pass: in every colour, buy the cheapest allowed thing it can afford, repeatedly, up to a few dozen buys. Raising a
+   * zombie tier or spawn level only happens if the squad would still keep up ×1.3. Ultimate forms for units are left to
+   * the player (a choice of tracks); zombie ultimates, evolutions, hires, unit upgrades and global upgrades are bought. */
+  /** True while the auto-buyer is shopping, so the UI shows a small notice instead of pausing on a reveal card. */
+  autoBuying = false;
+  autoBuyTick() {
+    const a = this.autoCfg;
+    if (!this.autoUnlocked || !a.on) return 0;
+    this.autoBuying = true;
+    try { return this.autoBuyPass(a); } finally { this.autoBuying = false; }
+  }
+  private autoBuyPass(a: { zombies: boolean; units: boolean; globals: boolean }) {
+    let bought = 0;
+    for (let guard = 0; guard < 25; guard++) {
+      const opts: { col: M.ColourId; ln: number; go: () => void }[] = [];
+      if (a.zombies) {
+        for (const z of M.activeStrains(this.s.strains)) {
+          const x = this.s.strains[z], col = M.familyOf(z);
+          if (x.tier === x.maxTier && x.maxTier < M.tierCapOf(z) && this.canAfford(col, this.tierCost(z)) && this.keepUpIf(z, 'tier') >= Game.AUTO_KEEP) opts.push({ col, ln: this.tierCost(z), go: () => this.raiseTier(z) });
+          if (x.spawn < C.spawnMax && this.canAfford(col, this.spawnCost(z)) && this.keepUpIf(z, 'spawn') >= Game.AUTO_KEEP) opts.push({ col, ln: this.spawnCost(z), go: () => this.buySpawn(z) });
+          if (M.zombieUltReady(x)) opts.push({ col, ln: this.zombieUltCost(z), go: () => this.zombieUlt(z) });
+        }
+        for (const z of M.ZOMBIE_IDS) { const u = M.strainById(z).unlock; if (u && this.canRelease(z)) opts.push({ col: M.familyOf(u.from), ln: this.releaseCost(z), go: () => this.release(z) }); }
+      }
+      if (a.units) {
+        for (const c of M.CLASSES) {
+          const id = c.id, u = this.s.units[id];
+          if (this.classUnlocked(id) && u.count < this.unitCap) opts.push({ col: c.primary, ln: this.hireCost(id), go: () => this.hire(id) });
+          if (!u.count) continue;
+          for (const n of M.UNIT_NODES) { const ns = this.node(id, n.id); if (!ns.maxed && !ns.locked) opts.push({ col: ns.colour, ln: ns.lnCost, go: () => this.buyNode(id, n.id, 1) }); }
+        }
+      }
+      if (a.globals) {
+        for (const c of M.COLOURS) if (M.globalOpen(this.s.strains, c) && !this.globalMaxed(c)) opts.push({ col: c, ln: this.globalCost(c), go: () => this.buyGlobal(c, 1) });
+        if (this.canBuyScavenger()) { const l = this.scavengerLevel(); opts.push({ col: 'shambler', ln: M.lnScavengerCost('shambler', l), go: () => this.buyScavenger() }); }
+      }
+      let any = false;
+      for (const col of M.COLOURS) {
+        const o = opts.filter((x) => x.col === col).sort((p, q) => p.ln - q.ln)[0];
+        if (o && this.canAfford(col, o.ln)) { const before = this.dna(col); o.go(); if (this.dna(col) < before || o.ln === -Infinity) { any = true; bought++; } }
+      }
+      if (!any) break;
+    }
+    return bought;
   }
   bossKilled() { this.s.bossKills = (this.s.bossKills ?? 0) + 1; }
 

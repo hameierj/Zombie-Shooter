@@ -174,8 +174,8 @@ export function initUI() {
     }
     if (evt === 'stuck') offerRollBack();
     if (evt === 'horde-lost') toast('<b>The horde was too strong</b><span>Upgrade your units and try again.</span>', '#ff6b6b');
-    if (evt === 'release' && !M.COLOUR_HORDE[data as M.ZombieId]) showCards([evolveCard(data as M.ZombieId)]);   // new colours get their card with the horde's
-    if (evt === 'zombie-ult') showCards([zombieUltCard(data as M.ZombieId)]);
+    if (evt === 'release' && !M.COLOUR_HORDE[data as M.ZombieId]) { if (game.autoBuying) toast(`<b>Auto-buy: ${esc(M.strainById(data as M.ZombieId).plural)} evolved</b><span>A new form joins the stream.</span>`, M.strainById(data as M.ZombieId).color); else showCards([evolveCard(data as M.ZombieId)]); }   // new colours get their card with the horde's
+    if (evt === 'zombie-ult') { if (game.autoBuying) toast(`<b>Auto-buy: Ultimate ${esc(M.strainById(data as M.ZombieId).name)}</b><span>×${C.zUltDna} DNA and ×${C.zUltHp} HP.</span>`, M.strainById(data as M.ZombieId).color); else showCards([zombieUltCard(data as M.ZombieId)]); }
     if (evt === 'unit-evolve') showCards([ultCard(data as ClassId, game.unit(data as ClassId).evo ?? 0)]);
     if (evt === 'phase') battlePhase = data as string;
     if (evt === 'horde-start') battlePhase = 'intro';
@@ -186,6 +186,7 @@ export function initUI() {
   setInterval(refresh, 300);
   setInterval(tickNudge, 500);
   setInterval(tickCombo, 100);
+  setInterval(() => { if (!titleUp() && !overlayUp() && !coachUp() && !document.hidden && game.autoBuyTick()) { soft(); } autoChip(); }, 1000);
   fpsMeter();
 }
 
@@ -318,6 +319,9 @@ function act(d: ActionData): boolean {
     case 'zombie-ult': game.zombieUlt(sid); break;
     case 'global': game.buyGlobal(arg as M.ColourId, 1); break;
     case 'scavenger': game.buyScavenger(); break;
+    case 'autobuy': game.autoCfg.on = !game.autoCfg.on; game.save(); autoChip(); if (arg === 'settings') openSettings();
+      toast(`<b>Auto-buy ${game.autoCfg.on ? 'on' : 'off'}</b><span>${game.autoCfg.on ? 'Buys the cheapest upgrades in each colour, keeping your squad ahead of the zombies.' : 'Upgrades are back in your hands.'}</span>`, game.autoCfg.on ? '#5ee38c' : '#9aa3b0'); break;
+    case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals'; game.autoCfg[k] = !game.autoCfg[k]; game.save(); openSettings(); break; }
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
@@ -442,6 +446,7 @@ function refresh() {
 }
 
 function render() {
+  autoChip();
   const panel = $('#panel');
   document.getElementById('app')!.classList.toggle('menu-open', !!tab);
   panel.hidden = !tab;
@@ -858,6 +863,18 @@ function openPrestige() {
       <button class="btn danger sm" data-action="prestige-go" ${gain ? '' : 'disabled'}>Prestige</button></div></div>`);
 }
 /** Lifetime kill counters (kept through prestige). */
+/** The auto-buy switch on the map (shown once Horde 10 is beaten). */
+function autoChip() {
+  const el = document.getElementById('autobuy');
+  if (!el) return;
+  const show = game.autoUnlocked && !tab;
+  el.hidden = !show;
+  if (!show) return;
+  const on = game.autoCfg.on;
+  el.classList.toggle('on', on);
+  el.setAttribute('aria-pressed', String(on));
+  const t = el.querySelector('b'); if (t) t.textContent = on ? 'AUTO ON' : 'AUTO OFF';
+}
 function killsHtml() {
   return `<div class="kills"><div><b>${fmtInt(game.s.kills)}</b><span>zombies killed</span></div><div><b>${fmtInt(game.s.bossKills ?? 0)}</b><span>bosses killed</span></div><div><b>${fmtInt(game.s.hordes)}</b><span>hordes beaten</span></div><div><b>${fmtInt(game.comboBest)}</b><span>best combo</span></div></div>`;
 }
@@ -908,6 +925,11 @@ function openSettings() {
       ${sw('ranges-pref', 'Range lines', 'How far each unit type can shoot', showRanges())}
       ${sw('keep-pref', 'Difficulty meters', 'Keep-up meter, upgrade hints and horde odds', showKeep())}
       ${sw('fps-pref', 'FPS counter', 'Frames per second and the slowest frame, over the battlefield', showFps())}
+    </section>
+    <section class="set-sec"><h4>Auto-buy</h4>${game.autoUnlocked ? `
+      ${sw('autobuy', 'Auto-buy', 'Also on the map: the AUTO switch in the top-left corner', game.autoCfg.on).replace('data-action="autobuy"', 'data-action="autobuy" data-arg="settings"')}
+      ${(['zombies', 'units', 'globals'] as const).map((k) => sw('auto-pref', { zombies: 'Zombies', units: 'Recruits', globals: 'Global upgrades' }[k], { zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms, only while your squad keeps up ×1.3', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`
+      : `<p class="sub small">🔒 Beat Horde ${Game.AUTO_HORDE} to unlock auto-buy for free.</p>`}
     </section>
     <section class="set-sec"><h4>Saves</h4>
       <div class="save-cur"><div><b>Current game</b><span>${saveLine(m)}</span></div><span class="ok">✓ Saved ${ago(game.s.lastSeen)}</span></div>
