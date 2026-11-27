@@ -3,7 +3,7 @@
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
-import { Game, game, type AutoSell, type Loot, type OfflineReport } from '../core/state.ts';
+import { Game, game, type AutoSell, type Loot } from '../core/state.ts';
 import { REGIONS, TREE, treeNode } from '../core/tree.ts';
 import { charmIcon, classIcon, crateIcon, gunIcon, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import { fmtInt, fmtLn, fmtMult, fmtNum, gearDesc, gearName, gunName, RARITY_COLOR } from '../core/format.ts';
@@ -751,18 +751,6 @@ function importSave() {
         <p class="sub small">Loading moves your current game to the Backup slot first.</p>`;
     } catch { $('#do-import').textContent = 'Invalid code'; }
   };
-}
-export function showOfflineReport(r: OfflineReport) {
-  const h = Math.floor(r.seconds / 3600), m = Math.floor((r.seconds % 3600) / 60);
-  const dna = M.STRAIN_IDS.filter((c) => r.dna[c] > -Infinity && Number.isFinite(r.dna[c])).map((c) => `<div><span>${vial(c)} ${M.strainById(c).dna}</span><b>+${fmtLn(r.dna[c])}</b></div>`).join('');
-  openModal(`<h3>While you were away</h3><p class="sub">${h ? `${h}h ` : ''}${m}m of shredding</p>
-    <div class="offline">
-      <div><span>Zombies</span><b>${fmtInt(r.kills)}</b></div>
-      <div><span>Items kept</span><b>${r.items}</b></div>
-      ${r.sold ? `<div><span>Items auto-sold</span><b>${r.sold}</b></div>` : ''}
-      ${dna}
-    </div>
-    <button class="btn wide" data-action="modal-close">Collect</button>`);
 }
 function toast(html: string, color: string, icon?: string) {
   const box = $('#toasts');

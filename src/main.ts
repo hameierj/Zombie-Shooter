@@ -4,7 +4,7 @@ import './styles.css';
 import { BattleScene } from './game/BattleScene.ts';
 import { game } from './core/state.ts';
 import { TREE } from './core/tree.ts';
-import { initUI, showOfflineReport } from './ui/ui.ts';
+import { initUI } from './ui/ui.ts';
 import { pauseAudio, unlockAudio } from './audio/sfx.ts';
 
 const app = document.getElementById('app')!;
@@ -25,8 +25,8 @@ function applyLayout() {
 }
 applyLayout();
 
-// ---------- save / offline ----------
-const report = game.load();
+// ---------- save ----------
+game.load();   // no offline earnings: only active play counts
 
 // ---------- Phaser ----------
 // The display font must be loaded before Phaser renders any text with it.
@@ -63,22 +63,12 @@ phaser.events.once(Phaser.Core.Events.READY, () => setTimeout(fitCanvas, 0));
 
 // ---------- UI ----------
 initUI();
-if (report) showOfflineReport(report);
 
 // ---------- persistence & app lifecycle ----------
 // iOS can kill a backgrounded web app without warning, so save on every hide, not just on unload.
 setInterval(() => game.save(), AUTOSAVE_MS);
-let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    hiddenAt = Date.now();
-    game.save();
-  } else if (hiddenAt) {
-    const r = game.resumeAfter((Date.now() - hiddenAt) / 1000);
-    hiddenAt = 0;
-    if (r) showOfflineReport(r);
-  }
-});
+// When the app is hidden the game simply pauses (no offline earnings); save so nothing is lost.
+document.addEventListener('visibilitychange', () => { if (document.hidden) game.save(); });
 window.addEventListener('pagehide', () => game.save());
 
 // Block pinch/double-tap zoom on iOS (Safari ignores user-scalable=no).

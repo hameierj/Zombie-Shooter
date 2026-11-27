@@ -121,11 +121,11 @@ Every kill while you're playing adds 1 to the **combo**, shown over the battlefi
 up to **×1.5** at a 300 combo. The combo resets after 3 seconds without a kill and **halves whenever a zombie reaches
 the shredder**, so pushing the dials past what the squad can handle costs you the bonus. Offline time earns no combo.
 
-## 6. Idle and offline
+## 6. Automation and time away
 **Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are
 free actions: **Quartermaster** (auto-equips the best guns) and **War Drums** (starts the next horde when your squad
-should win; can be switched off on the Hordes tab). Every DNA purchase is yours to make. Time away (up to 12 h) is simulated
-with the same economy and summarised: zombies, DNA of each colour, items found.
+should win; can be switched off on the Hordes tab). **There are no offline earnings:** only active play counts. When
+the app is closed or in the background the game simply pauses and saves.
 
 ## 7. Screens and sound
 **Buy amount:** a ×1 / ×10 / Max selector pinned to the top of the Zombies, Squad and unit-tree pages applies to every

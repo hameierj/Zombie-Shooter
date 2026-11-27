@@ -7,7 +7,6 @@ import { REGIONS, TREE, treeFx, treeNode, type Fx } from './tree.ts';
 const C = M.CONFIG;
 const SAVE_KEY = 'zombie-idle-save-v4';   // unchanged so existing saves are always found and upgraded
 const STASH_CAP = 60;
-const OFFLINE_CAP_SEC = 12 * 3600;
 
 export interface SaveData {
   version: 6;
@@ -31,7 +30,6 @@ export type Loot = ({ type: 'gun'; gun: Gun } | { type: 'gear'; gear: Gear }) & 
 export interface Sale { colour: StrainId; ln: number }
 /** Auto-sell rule: sell drops of a rarity and lower, or 'best' = keep equipped items plus the best of each kind. */
 export type AutoSell = M.RarityId | 'best' | null;
-export interface OfflineReport { seconds: number; kills: number; sold: number; /** ln of DNA gained per colour */ dna: Record<StrainId, number>; items: number; }
 type Listener = (evt: string, data?: unknown) => void;
 
 const emptyDna = (): DnaMap => Object.fromEntries(M.STRAIN_IDS.map((s) => [s, null])) as unknown as DnaMap;
@@ -433,26 +431,7 @@ export class Game {
   }
   allocatableCount() { return TREE.filter((n) => this.canAffordNode(n.id)).length; }
 
-  // ---------- offline ----------
-  simulateOffline(seconds: number): OfflineReport | null {
-    seconds = Math.min(seconds, OFFLINE_CAP_SEC);
-    if (seconds < 60) return null;
-    const before = Object.fromEntries(M.STRAIN_IDS.map((s) => [s, this.dna(s)])) as Record<StrainId, number>;
-    const kills0 = this.s.kills, items0 = this.s.guns.length + this.s.gear.length, sold0 = this.soldCount;
-    const DT = 10;
-    for (let t = 0; t < seconds; t += DT) {
-      const rates = this.lnDnaPerSec();
-      const k = Math.min(1, this.keepUp());
-      let kills = 0;
-      for (const c of this.colours) this.setDna(c, M.logAdd(this.dna(c), rates[c] + Math.log(DT)));
-      for (const z of M.activeStrains(this.s.strains)) kills += M.spawnRate(z, this.s.strains[z].spawn) * k * DT;
-      this.s.kills += Math.round(kills);
-      if (Math.random() < kills * M.dropChance(this.s.strains, this.fx)) this.rollLoot();
-    }
-    this.emit('change');
-    const dna = Object.fromEntries(M.STRAIN_IDS.map((s) => [s, M.logSub(this.dna(s), before[s])])) as Record<StrainId, number>;
-    return { seconds, kills: this.s.kills - kills0, dna, items: Math.max(0, this.s.guns.length + this.s.gear.length - items0), sold: this.soldCount - sold0 };
-  }
+
 
   // ---------- persistence ----------
   save() {
@@ -463,19 +442,19 @@ export class Game {
    * Loads the save. Game updates must never lose progress: older formats are converted, and if a save can't be read
    * it is copied to a backup key before anything is written. A copy of the last good save is kept every launch.
    */
-  load(): OfflineReport | null {
+  load(): void {
     let raw: string | null = null;
     try {
       raw = localStorage.getItem(SAVE_KEY);
-      if (!raw) return null;
+      if (!raw) return;
       const old = (JSON.parse(raw) as { version: number }).version;
       this.s = migrate(JSON.parse(raw));
       if (old < 6) this.settleTiers();
       try { localStorage.setItem(`${SAVE_KEY}-last-good`, raw); } catch { /* storage full */ }
-      return this.simulateOffline((Date.now() - this.s.lastSeen) / 1000);
+      this.s.lastSeen = Date.now();
     } catch {
       if (raw) try { localStorage.setItem(`${SAVE_KEY}-backup-${Date.now()}`, raw); } catch { /* storage full */ }
-      return null;
+      return;
     }
   }
   /** After an upgrade from an older save: lower tiers until the squad keeps up, so nobody starts out overrun.
@@ -512,7 +491,6 @@ export class Game {
     if (lost.size) { this.save(); this.emit('change'); }
     return [...lost.entries()].map(([id, v]) => ({ id, ...v }));
   }
-  resumeAfter(seconds: number) { return this.simulateOffline(seconds); }
   hardReset() { this.s = freshSave(); this.save(); this.emit('reset'); this.emit('change'); }
   exportSave() { return btoa(unescape(encodeURIComponent(JSON.stringify(this.s)))); }
   /** Read a save code without loading it (throws on an invalid code). */
