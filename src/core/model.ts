@@ -250,10 +250,10 @@ export const CONFIG = {
   releaseTier: 50,          // a colour's next form opens when the current one reaches the tier cap (TIER_CAP)
   spawnCost0: 0.5,          // a spawn level costs half the type's next tier…
   spawnCostGrowth: 1.2,     // …×1.2 per level
-  hireGrowth: 1.8,
-  unitCostMult: 10,         // every unit upgrade and hire price ×this (units were far too cheap next to zombie tiers)
-  dmgCostGrowth: 1.13,      // Damage: price ×this per level
-  cappedCostGrowth: 1.4,    // Speed / Range / Crit / Crit ×: price ×this per level
+  hireGrowth: 2.1,
+  unitCostMult: 2,         // unit prices ×this; cheap to start, but each level/hire costs more than the last,
+  dmgCostGrowth: 1.165,      // Damage: price ×this per level (faster than a zombie tier's ×1.15, so the squad can't run away)
+  cappedCostGrowth: 1.5,    // Speed / Range / Crit / Crit ×: price ×this per level
   maxPerType: 20,
   unitsBase: 2,             // barracks: 2 of each type at first, +1 every 10 tiers of your best zombie type (20 at 180)
   unitExponent: 0.75,       // 20 units ≈ 9× one unit

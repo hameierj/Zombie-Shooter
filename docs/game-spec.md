@@ -288,10 +288,10 @@ while the app is in the background).
 
 ## 12b. Squad vs zombies balance
 Zombie HP grows ×1.2 per tier while their DNA grows ×1.15 (`hpR` vs `R`): higher tiers get relatively tougher, so the
-squad's one-off boosts (speed, crit, crit damage, hires, passives, abilities) get used up over time and units need
-real investment. Every unit price (upgrades, abilities, gear slots, hiring) is ×10 (`unitCostMult`), so a Damage level
-costs about as much as a zombie tier; capped upgrades rise ×1.4 per level. Balance sim (greedy player): keep-up ×1.6 at
-6 min, ×3 at 15 min, ×4.4 at 30 min, ×6 at 1 h (before: ×20 at 15 min and ×50–130 at 1 h).
+squad's one-off boosts get used up over time. Units are cheap to start (prices ×2, `unitCostMult`) but every level
+costs more than the last: Damage ×1.165 per level (faster than a tier's ×1.15), capped upgrades ×1.5, each extra hire
+×2.1. So the opening is easy to get going and the squad can't run away later. Balance sim (greedy player): keep-up
+×3.8 at 3 min, ×5.7 at 6 min, ×3 at 15 min, ×1.6 at 30 min, ×1.2 at 1 h.
 
 ## 13. Prestige
 On the **Hordes tab**: once you've cleared at least one horde in a run you can **prestige**: the run starts over (zombie
