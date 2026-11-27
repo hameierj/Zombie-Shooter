@@ -106,6 +106,13 @@ window.addEventListener('pagehide', () => game.save());
 // Block pinch/double-tap zoom on iOS (Safari ignores user-scalable=no).
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('dblclick', (e) => e.preventDefault());
+// …and a second tap within 300 ms on the cards/tips/title is swallowed (belt and braces for older iOS versions)
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd < 300 && (e.target as Element)?.closest?.('#unlock, #coach, #title')) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
 
 // Debug handle for testing in the console.
 (window as unknown as { zgame: typeof game }).zgame = game;

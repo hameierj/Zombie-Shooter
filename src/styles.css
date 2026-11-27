@@ -1030,3 +1030,7 @@ button.tc-head { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .co-hand, .co-spot::after { animation: none; } }
 #combo[hidden] { display: none !important; }
 #combo-face:not([src]) { display: none; }
+
+/* iOS Safari ignores user-scalable=no: a quick double tap anywhere that isn't a button zooms the page (and the zoom can
+   stick across a reload). Tapping through the unlock cards or tips fast did exactly that. Taps only, everywhere. */
+html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-action: manipulation; }
