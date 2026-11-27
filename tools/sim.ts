@@ -31,7 +31,9 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   const squad = () => owned().map((u) => ({ u, gun: s.guns.find((g) => g.uid === u.gun), attach: s.gear.find((g) => g.uid === u.attach), charm: s.gear.find((g) => g.uid === u.charm) }));
   const keep = (st = strains) => M.keepUp(squad(), fx(), st);
   const unlocked = (c) => M.classById(c).horde <= s.hordes;
-  const pay = (col, ln) => { if (s.dna[col] + 1e-9 < ln) return false; s.dna[col] = M.logSub(s.dna[col], ln); return true; };
+  const spent = {}, earned = {}, waits = {};   // STATS=1: per colour, DNA spent by category, earned, and seconds of income to afford the cheapest thing
+  let cat = '';
+  const pay = (col, ln) => { if (s.dna[col] + 1e-9 < ln) return false; s.dna[col] = M.logSub(s.dna[col], ln); if (cat) { spent[col] ??= {}; spent[col][cat] = M.logAdd(spent[col][cat] ?? -Infinity, ln); } return true; };
   const best = () => M.bestTier(strains);
   function equip() {
     const fl = M.gunFloor(strains);
@@ -63,35 +65,38 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
         const st = strains[x.id];
         if (!st.unlocked) { if (x.unlock && !M.COLOUR_HORDE[x.id] && strains[x.unlock.from].unlocked && strains[x.unlock.from].maxTier >= M.TIER_CAP) { const col = M.familyOf(x.unlock.from), ln = M.lnReleaseCost(x.id); if (pay(col, ln)) { st.unlocked = true; bought0 = true; } else saving.add(col); } continue; }   // players evolve as soon as they can; colours come from hordes
         const up = { ...strains, [x.id]: { ...st, tier: st.tier + 1 } };
-        if (st.tier < M.tierCapOf(x.id) && keep(up) >= 1.15) opts.push({ col: x.family, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); equip(); } });
+        if (st.tier < M.tierCapOf(x.id) && keep(up) >= 1.15) opts.push({ cat: 'tier', col: x.family, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); equip(); } });
         const sp = { ...strains, [x.id]: { ...st, spawn: st.spawn + 1 } };
-        if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ col: x.family, ln: M.lnSpawnCost(x.id, st.spawn, st.maxTier), go: () => { st.spawn++; } });
+        if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ cat: 'spawn', col: x.family, ln: M.lnSpawnCost(x.id, st.spawn, st.maxTier), go: () => { st.spawn++; } });
       }
       for (const u of Object.values(units)) {
         const c = M.classById(u.cls);
-        if (unlocked(u.cls) && u.count < M.unitCap(best())) opts.push({ col: c.primary, ln: M.lnHireCost(u.cls, u.count, f), go: () => { if (!u.count && !u.gun) drop(0, u.cls); u.count++; } });
+        if (unlocked(u.cls) && u.count < M.unitCap(best())) opts.push({ cat: 'hire:' + u.cls, col: c.primary, ln: M.lnHireCost(u.cls, u.count, f), go: () => { if (!u.count && !u.gun) drop(0, u.cls); u.count++; } });
         if (!u.count) continue;
         for (const n of M.UNIT_NODES) {
           const lv = M.nlv(u, n.id);
           if (M.unitNodeMaxed(n, lv) || (n.requires && !M.nlv(u, n.requires))) continue;
-          opts.push({ col: M.nodeColour(u.cls, n), ln: M.lnUnitNodeCost(u.cls, n, lv, f), go: () => { u.nodes[n.id] = lv + 1; equip(); } });
+          opts.push({ cat: 'unit:' + u.cls, col: M.nodeColour(u.cls, n), ln: M.lnUnitNodeCost(u.cls, n, lv, f), go: () => { u.nodes[n.id] = lv + 1; equip(); } });
         }
       }
       if (profile.tree) {
         const fr = TREE.filter((n) => n.id !== 'start' && !s.alloc.includes(n.id) && REGIONS[n.region].horde <= s.hordes && n.links.some((l) => l === 'start' || s.alloc.includes(l)));
-        for (const n of fr) opts.push({ col: REGIONS[n.region].dna, ln: M.lnTreeCost(s.alloc.filter((a) => TREE.find((t) => t.id === a)?.region === n.region).length, REGIONS[n.region]), go: () => { s.alloc.push(n.id); treeAt.push(`${n.region}@${Math.round(s.t / 60)}`); } });
+        for (const n of fr) opts.push({ cat: 'tree', col: REGIONS[n.region].dna, ln: M.lnTreeCost(s.alloc.filter((a) => TREE.find((t) => t.id === a)?.region === n.region).length, REGIONS[n.region]), go: () => { s.alloc.push(n.id); treeAt.push(`${n.region}@${Math.round(s.t / 60)}`); } });
       }
       let bought = false;
       // cheapest option per colour
       for (const col of M.STRAIN_IDS) {
         if (saving.has(col)) continue;
         const o = opts.filter((x) => x.col === col).sort((a, b) => a.ln - b.ln)[0];
-        if (o && pay(col, o.ln)) { o.go(); bought = true; }
+        if (o) { cat = o.cat; const ok = pay(col, o.ln); cat = ''; if (ok) { o.go(); bought = true; } }
+        if (process.env.STATS && o && guard === 0 && Math.floor(s.t) % 30 === 0) { const r = lastRate[col]; if (Number.isFinite(r)) { waits[col] ??= []; waits[col].push([s.t / 60, Math.exp(Math.min(50, o.ln - r))]); } }
       }
       if (!bought && !bought0) return;
     }
   }
   const out = [];
+  const lastRate = {};
+  const uwait = {}; let lastUW = -1;
   const hordeAt = [];
   const hordeBest = [];
   const tierAt = [];
@@ -99,6 +104,10 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   const capAt = [];
   let ci = 0;
   while (s.t < hours * 3600) {
+    if (process.env.STATS && Math.floor(s.t) % 600 === 0 && Math.floor(s.t) !== lastUW) {
+      lastUW = Math.floor(s.t);
+      for (const u of owned()) { const c = M.classById(u.cls), r = lastRate[c.primary]; if (!Number.isFinite(r)) continue; const ln = M.lnUnitNodeCost(u.cls, M.unitNodeById('dmg'), M.nlv(u, 'dmg'), fx()); (uwait[u.cls] ??= []).push(`${Math.round(s.t / 60)}:${Math.exp(Math.min(50, ln - r)).toFixed(0)}`); }
+    }
     if (ci < CHECKS.length && s.t >= CHECKS[ci] * 3600) {
       out.push({ h: CHECKS[ci], tiers: M.STRAIN_IDS.map((x) => strains[x].unlocked ? strains[x].tier : '-').join('/') + ` (${M.activeStrains(strains).length} types)`, hordes: s.hordes, nodes: s.alloc.length, drops: s.drops,
         squad: owned().map((u) => `${u.cls[0]}${u.count}:${M.nlv(u, 'dmg')}${M.abilityStage(u) ? '*' + M.abilityStage(u) : ''}`).join(' '), keep: keep() });
@@ -107,6 +116,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
     const sq = squad(), f = fx();
     const k = Math.min(1, M.keepUp(sq, f, strains));
     const rate = M.lnDnaPerSec(sq, f, strains);
+    for (const c of M.COLOURS) { lastRate[c] = rate[c] + Math.log(Number(process.env.LIVE ?? 1.4)); earned[c] = M.logAdd(earned[c] ?? -Infinity, rate[c] + Math.log(DT * Number(process.env.LIVE ?? 1.4))); }
     let kills = 0;
     // real play also earns combo (per type, ~×1.3 on average) and special zombies (~+10%)
     for (const c of M.COLOURS) s.dna[c] = M.logAdd(s.dna[c], rate[c] + Math.log(DT * Number(process.env.LIVE ?? 1.4)));
@@ -125,6 +135,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
     }
     s.t += DT;
   }
+  out.uwait = uwait; out.spent = spent; out.earned = earned; out.waits = waits;
   out.hordeAt = hordeAt; out.hordeBest = hordeBest; out.tierAt = tierAt; out.treeAt = treeAt; out.capAt = capAt;
   return out;
 }
@@ -137,6 +148,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (process.env.TREE) console.log('passives (region@min): ' + res.treeAt.join(' '));
     if (process.env.CAP) console.log('beatable horde tier: ' + res.capAt.join(' '));
     if (res.hordeAt.length) console.log('hordes at (min): ' + res.hordeAt.map((m, i) => `${i + 1}:${m.toFixed(0)}`).join(' ') + '\n  gaps (min): ' + res.hordeAt.map((m, i) => (m - (res.hordeAt[i - 1] ?? 0)).toFixed(0)).join(' '));
+    if (process.env.STATS) {
+      for (const col of M.COLOURS) {
+        const e = res.earned[col]; if (!Number.isFinite(e ?? -Infinity)) continue;
+        const sp = res.spent[col] ?? {};
+        const parts = Object.entries(sp).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${(Math.exp(v - e) * 100).toFixed(0)}%`).join(', ');
+        const w = res.waits[col] ?? [];
+        const bins = [10, 20, 30, 45, 60, 90, 120].map((m) => { const xs = w.filter(([t]) => t > m - 10 && t <= m).map(([, x]) => x).sort((a, b) => a - b); return xs.length ? `${m}m:${xs[Math.floor(xs.length / 2)].toFixed(0)}s` : ''; }).filter(Boolean).join(' ');
+        console.log(`${col.padEnd(9)} spent: ${parts}\n          median wait for its cheapest buy: ${bins}`);
+      }
+    }
+    if (process.env.STATS) for (const [c, w] of Object.entries(res.uwait)) console.log(`  ${c.padEnd(8)} (${M.classById(c).primary}) secs of income per Damage level @min: ${w.join(' ')}`);
     for (const r of res) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(34)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);
   }
 }
