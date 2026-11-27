@@ -680,7 +680,7 @@ textarea.code { background: #0a0d12; border: 1px solid var(--line); border-radiu
 #hud .keep-pill { margin-left: auto; }
 /* Squad cards (layout B): header, 2×4 equal buttons (Hire, Damage + 6 upgrades), gear shelf */
 .ucard { grid-template-columns: 52px minmax(0, 1fr); cursor: default; }
-.ucard .ugrid, .ucard .shelf { grid-column: 1 / -1; }
+.ucard .ugrid, .ucard .shelf, .ucard .ult-badge, .ucard .ult-prog, .ucard .evolve-big { grid-column: 1 / -1; }
 .ugrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .ugrid .mu { max-width: none; padding: 7px 2px 6px; }
 /* buttons come in stacked pairs, left to right: Hire/Damage, Crit/Crit ×, Speed/Range, Gear/Ability */

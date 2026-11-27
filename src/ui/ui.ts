@@ -101,7 +101,7 @@ function gearShelf(c: ClassId) {
     if (!open) return `<div class="sh locked"><span class="ico">🔒</span><div><b>${label}</b><span>unlock with Gear</span></div></div>`;
     const it = kind === 'gun' ? game.gun(u.gun) : game.gearItem(u[kind]);
     if (!it) return `<div class="sh empty"><span class="ico">–</span><div><b>${label}</b><span>none yet</span></div></div>`;
-    const icon = kind === 'gun' ? gunIcon(c) : (it as Gear).kind === 'attach' ? modIcon((it as M.Attachment).stat) : charmIcon((it as M.Charm).bane);
+    const icon = kind === 'gun' ? gunIcon(c, u.evo) : (it as Gear).kind === 'attach' ? modIcon((it as M.Attachment).stat) : charmIcon((it as M.Charm).bane);
     const txt = kind === 'gun' ? `×${fmtLn(M.lnGunPower(it as Gun))} dmg` : gearDesc(it as Gear);
     return `<div class="sh" style="--rar:${RARITY_COLOR[it.rarity]}" title="${esc(kind === 'gun' ? gunName(it as Gun) : gearName(it as Gear))}"><img class="px" src="${icon}" alt=""><div><b>${label}</b><span>${esc(txt)}</span></div></div>`;
   };
