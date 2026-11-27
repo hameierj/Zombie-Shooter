@@ -80,7 +80,7 @@ slowly. You never lose.
 | Hunter | Compound Bow | Piercing Arrows: hits more zombies | Yellow + Teal | Horde 1 |
 | Shotgunner | Shotgun | Knockback: pushes zombies back | Green + Red | Horde 2 |
 | Rifleman | Assault Rifle | Suppressive Fire: slows zombies | Yellow + Red | Horde 3 |
-| Sniper | Sniper Rifle | Headshot: executes weakened zombies | Red + Purple | Horde 4 |
+| Sniper | Sniper Rifle | Headshot: 10–30% chance per shot to kill outright; on bosses, ×10 damage instead | Red | Horde 4 |
 | Pyro | Flamethrower | Napalm: burning damage | Teal + Purple | Horde 5 |
 | Grenadier | Grenade Launcher | Cluster Bombs: extra splash | Purple + Green | Horde 6 |
 | Machine Gunner | Machine Gun | Overheat: +20/40/70% attack speed | Yellow + Red | Elite Horde 1 (8) |
