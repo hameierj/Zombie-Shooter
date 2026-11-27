@@ -32,7 +32,9 @@ function setShowKeep(on: boolean) { try { localStorage.setItem(KEEP_PREF, on ? '
 /** Buy amount for every repeatable purchase: 1, 10 or as many as you can afford. Remembered on the device. */
 type BuyAmt = 1 | 10 | 'max';
 let buyAmt: BuyAmt = (() => { try { const v = localStorage.getItem('zombie-idle-buy'); return v === '10' ? 10 : v === 'max' ? 'max' : 1; } catch { return 1; } })();
-const amtN = () => (buyAmt === 'max' ? 1000 : buyAmt);
+/** The quick rail always buys one level at a time (its prices are drawn, and its taps run, with this on). */
+let railSingle = false;
+const amtN = () => (railSingle ? 1 : buyAmt === 'max' ? 1000 : buyAmt);
 /** How many of a repeated purchase you'd get right now (up to the selected amount) and their total ln cost.
  * `costAt(i)` is the ln cost of the i-th extra one, or null when you can't buy more. */
 function preview(colour: StrainId, costAt: (i: number) => number | null): { n: number; ln: number } {
@@ -272,7 +274,8 @@ type ActionData = { action: string; arg?: string; n?: string; cls?: string; stra
 function onClick(e: Event) {
   const el = (e.target as Element).closest<HTMLElement | SVGElement>('[data-action]');
   if (!el || (el as HTMLButtonElement).disabled) return;
-  act({ ...el.dataset } as ActionData);
+  railSingle = !!el.closest('#zrail');
+  try { act({ ...el.dataset } as ActionData); } finally { railSingle = false; }
 }
 /** Run one UI action. Returns true if it bought something. */
 function act(d: ActionData): boolean {
@@ -471,6 +474,7 @@ function railRender() {
     <button class="${railMode === 'z' ? 'on' : ''}" data-action="rail-mode" data-arg="z" role="tab" aria-selected="${railMode === 'z'}" aria-label="Zombies"><img class="px" src="${zombieIcon('shambler')}" alt="">${zCan && railMode !== 'z' ? '<i class="zr-dot"></i>' : ''}</button>
     <button class="${railMode === 'u' ? 'on' : ''}" data-action="rail-mode" data-arg="u" role="tab" aria-selected="${railMode === 'u'}" aria-label="Units"><img class="px" src="${classIcon('pistol')}" alt="">${uCan && railMode !== 'u' ? '<i class="zr-dot"></i>' : ''}</button></div>`;
   let icons = '', pop = '';
+  railSingle = true;   // pop-over buttons show (and buy) a single level
   if (railMode === 'z') {
     icons = zs.map((st) => `<button class="zr-z ${railCan(st.id) ? 'can' : ''} ${railPick === st.id ? 'on' : ''} ${nextForm(st.id) ? 'evo' : ''}" data-action="rail-pick" data-arg="${st.id}" style="--dna:${st.color}" aria-label="${esc(st.plural)}, tier ${game.s.strains[st.id].tier}">
       <img class="px" src="${zombieIcon(st.id)}" alt=""><span>${fmtInt(game.s.strains[st.id].tier)}</span>${nextForm(st.id) ? biohazard('zr-bio') : ''}</button>`).join('');
@@ -499,6 +503,7 @@ function railRender() {
         ${u.count ? upgradeRow(c.id) : `<div class="ugrid">${hireBtn(c.id)}</div>`}</div>`;
     }
   }
+  railSingle = false;
   el.innerHTML = `<div class="zr-top">${collapse}${seg}</div><div class="zr-list" data-mode="${railMode}">${icons || '<span class="zr-empty">None yet</span>'}</div>${pop}`;
   const nl = el.querySelector<HTMLElement>('.zr-list')!;
   nl.scrollTop = scroll;

@@ -228,7 +228,7 @@ See `unit-ranges.png`.
 dot on the other side means something there is affordable); both choices are remembered. **Zombies**: every released
 type (grouped by colour, with its tier); tap one for **DNA +** and **Spawn +**. **Units**: every unlocked unit type with
 how many you have (dashed "New" if none); tap one for its Squad-card grid (Hire, Damage, Crit, Crit ×, Speed, Range,
-Gear, Ability), or just Hire for a type you haven't hired. Buttons use the Zombies/Squad buy amount; a green dot on an
+Gear, Ability), or just Hire for a type you haven't hired. Rail buttons always buy a single level (the ×1/×10/Max setting applies only in the Zombies and Squad tabs); a green dot on an
 icon means one of its upgrades is affordable. The list scrolls, and the rail hides while a menu is open.
 
 ## 11. Settings and saves
