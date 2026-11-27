@@ -39,7 +39,7 @@ export function unlockAudio() {
   init();
   if (!ctx) return;
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-  if (!tracksTried) loadTracks(); else if (!tracks) startMusic();
+  if (!tracksTried) loadTracks();
 }
 
 // ---------- music tracks (the teaser's chiptune): start sting, battle loop, horde loop ----------
@@ -48,21 +48,34 @@ let tracks: Record<'start' | TrackId, AudioBuffer> | null = null;
 let tracksTried = false;
 let playing: { id: TrackId; src: AudioBufferSourceNode; gain: GainNode } | null = null;
 let wantTrack: TrackId = 'battle';
+// The music files start downloading the moment the page loads, not on the first tap.
+const trackBytes = Promise.all([startUrl, battleUrl, hordeUrl].map(async (u) => (await fetch(u)).arrayBuffer()));
+trackBytes.catch(() => {});
 async function loadTracks() {
   tracksTried = true;
   try {
-    const get = async (u: string) => ctx!.decodeAudioData(await (await fetch(u)).arrayBuffer());
-    const [start, battle, horde] = await Promise.all([get(startUrl), get(battleUrl), get(hordeUrl)]);
+    const [start, battle, horde] = await Promise.all((await trackBytes).map((b) => ctx!.decodeAudioData(b)));
     tracks = { start, battle, horde };
     if (wantSting) playSting(); else playTrack(wantTrack);
-  } catch { startMusic(); }   // couldn't load the files: fall back to the built-in synth groove
+  } catch { startMusic(); }   // (the synth only starts once the context is running)   // couldn't load the files: fall back to the built-in synth groove
 }
 let wantSting = false;
 function playSting() {
   if (!tracks || !ctx) return;
   wantSting = false;
   const src = ctx.createBufferSource(); src.buffer = tracks.start; src.connect(sfxBus); src.start();
-  window.setTimeout(() => playTrack(wantTrack), 2600);
+  // the title music keeps going under the sting (ducked), instead of stopping and restarting
+  if (playing) { const g = playing.gain.gain, t = ctx.currentTime; g.setTargetAtTime(0.3, t, 0.05); g.setTargetAtTime(1, t + 2.6, 0.4); }
+  window.setTimeout(() => { if (playing?.id !== wantTrack) playTrack(wantTrack); }, 2600);
+}
+/** The title screen is up: get the music going as early as the browser allows. Desktop browsers often allow it right
+ * away; iPhones only once you first touch the screen (unlockAudio), and by then the tracks are already loaded. */
+export function titleMusic() {
+  init();
+  if (!ctx) return;
+  wantTrack = 'battle';
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (!tracksTried) loadTracks(); else if (tracks && !playing) playTrack('battle');
 }
 /** Switch the background music (crossfades). Before the tracks load, remembers what to play. */
 export function music(id: TrackId) {

@@ -5,7 +5,7 @@ import '@fontsource/silkscreen/400.css';
 import '@fontsource/silkscreen/700.css';
 import { game } from '../core/state.ts';
 import * as M from '../core/model.ts';
-import { startSting } from '../audio/sfx.ts';
+import { startSting, titleMusic } from '../audio/sfx.ts';
 
 let up = false;
 export const titleUp = () => up;
@@ -32,6 +32,7 @@ export function showTitle() {
     </div>
     <div class="t-scan"></div>`;
   document.body.appendChild(el);
+  titleMusic();
   // boot → logo (the logo can be skipped to by tapping early)
   let ready = false;
   const showLogo = () => { if (el.classList.contains('t-logo')) return; el.classList.add('t-logo'); window.setTimeout(() => { ready = true; el.classList.add('t-ready'); }, 700); };
