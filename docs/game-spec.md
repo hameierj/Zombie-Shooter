@@ -236,6 +236,17 @@ while the app is in the background).
 `docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).
 
 ## 12. Title screen, music and look
+- **Battle look ("rooftop siege")**: the squad stands on a rooftop on the left, its wall facing the street; a sidewalk of
+  spike barricades in front of it is the shredder; the horde comes down a city street at dusk with buildings, wrecks,
+  lamps and props (`src/game/city.ts`). Each boss's battleground gives the street its own mood (toxic puddles, mud,
+  sand, purple goo, neon, rust) and its own dusk grade. A multiply grade darkens the scene; muzzle flashes, fire and
+  explosions add light on top. Effects (`src/game/fxtex.ts` textures, pooled particles in BattleScene): tracers for
+  guns, a real flame stream for Pyros (zombies it touches burn), fireballs with smoke, sparks, debris, a shockwave
+  ring, a scorch mark and screen shake for grenades, mortars, exploders and every boss; blood sprays; kills leave
+  blood and a darkened body on the street (a decal layer, drawn in one batch per frame, faded and wiped after ~2,600
+  marks or when the battleground changes). Damage numbers are condensed white digits with a dark outline that pop in
+  and rise; crits are bigger and red with "!". Every zombie and soldier has a soft contact shadow. The 25 zombie
+  designs and 13 unit looks are unchanged.
 - **Title screen** (every launch): the screen switches on like an old TV, INSERT COIN blinks, the logo slams in, then
   PRESS START with a summary of the save (tier, hordes, time played) or NEW GAME. The battle is paused behind it and
   play time doesn't count. Tapping plays the start sting and the battle music starts.

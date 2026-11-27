@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import '@fontsource/lilita-one/400.css';
+import '@fontsource/saira-condensed/800.css';
+// canvas text doesn't trigger web-font loading, so ask for the damage-number font up front
+document.fonts?.load?.('800 20px "Saira Condensed"').catch(() => {});
 import './styles.css';
 import { BattleScene } from './game/BattleScene.ts';
 import { game } from './core/state.ts';
