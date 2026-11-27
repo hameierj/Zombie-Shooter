@@ -319,9 +319,8 @@ function act(d: ActionData): boolean {
     case 'zombie-ult': game.zombieUlt(sid); break;
     case 'global': game.buyGlobal(arg as M.ColourId, 1); break;
     case 'scavenger': game.buyScavenger(); break;
-    case 'autobuy': game.autoCfg.on = !game.autoCfg.on; game.save(); autoChip(); if (arg === 'settings') openSettings();
-      toast(`<b>Auto-buy ${game.autoCfg.on ? 'on' : 'off'}</b><span>${game.autoCfg.on ? 'Buys the cheapest upgrades in each colour, keeping your squad ahead of the zombies.' : 'Upgrades are back in your hands.'}</span>`, game.autoCfg.on ? '#5ee38c' : '#9aa3b0'); break;
-    case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals'; game.autoCfg[k] = !game.autoCfg[k]; game.save(); openSettings(); break; }
+    case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals'; const cfg = game.autoCfg; cfg[k] = !cfg[k]; game.save(); autoChip(); if (!$('#modal').hidden) openSettings();
+      break; }
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
@@ -863,17 +862,17 @@ function openPrestige() {
       <button class="btn danger sm" data-action="prestige-go" ${gain ? '' : 'disabled'}>Prestige</button></div></div>`);
 }
 /** Lifetime kill counters (kept through prestige). */
-/** The auto-buy switch on the map (shown once Horde 10 is beaten). */
+/** The auto-buy switches on the map (shown once Horde 10 is beaten): Zombies, Troops and Globals, each on its own. */
 function autoChip() {
   const el = document.getElementById('autobuy');
   if (!el) return;
   const show = game.autoUnlocked && !tab;
   el.hidden = !show;
   if (!show) return;
-  const on = game.autoCfg.on;
-  el.classList.toggle('on', on);
-  el.setAttribute('aria-pressed', String(on));
-  const t = el.querySelector('b'); if (t) t.textContent = on ? 'AUTO ON' : 'AUTO OFF';
+  const a = game.autoCfg;
+  if (!el.firstElementChild) el.innerHTML = `<span class="ab-l">AUTO</span>${(['zombies', 'units', 'globals'] as const).map((k) => `<button data-action="auto-pref" data-arg="${k}" aria-pressed="false"><i></i>${{ zombies: 'Zombies', units: 'Troops', globals: 'Globals' }[k]}</button>`).join('')}`;
+  for (const b of el.querySelectorAll<HTMLElement>('button')) { const on = a[b.dataset.arg as 'zombies' | 'units' | 'globals']; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+  el.classList.toggle('any', game.autoAny);
 }
 function killsHtml() {
   return `<div class="kills"><div><b>${fmtInt(game.s.kills)}</b><span>zombies killed</span></div><div><b>${fmtInt(game.s.bossKills ?? 0)}</b><span>bosses killed</span></div><div><b>${fmtInt(game.s.hordes)}</b><span>hordes beaten</span></div><div><b>${fmtInt(game.comboBest)}</b><span>best combo</span></div></div>`;
@@ -927,8 +926,8 @@ function openSettings() {
       ${sw('fps-pref', 'FPS counter', 'Frames per second and the slowest frame, over the battlefield', showFps())}
     </section>
     <section class="set-sec"><h4>Auto-buy</h4>${game.autoUnlocked ? `
-      ${sw('autobuy', 'Auto-buy', 'Also on the map: the AUTO switch in the top-left corner', game.autoCfg.on).replace('data-action="autobuy"', 'data-action="autobuy" data-arg="settings"')}
-      ${(['zombies', 'units', 'globals'] as const).map((k) => sw('auto-pref', { zombies: 'Zombies', units: 'Recruits', globals: 'Global upgrades' }[k], { zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms, only while your squad keeps up ×1.3', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`
+      <p class="sub small">Also on the map: the AUTO switches in the top-left corner.</p>
+      ${(['zombies', 'units', 'globals'] as const).map((k) => sw('auto-pref', { zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades' }[k], { zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms, only while your squad keeps up ×1.3', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`
       : `<p class="sub small">🔒 Beat Horde ${Game.AUTO_HORDE} to unlock auto-buy for free.</p>`}
     </section>
     <section class="set-sec"><h4>Saves</h4>

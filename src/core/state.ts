@@ -23,8 +23,8 @@ export interface SaveData {
   nextUid: number;
   kills: number;
   bossKills?: number;
-  /** Auto-buy (free after Horde 10): master switch on the map, plus what it may buy. */
-  auto?: { on: boolean; zombies: boolean; units: boolean; globals: boolean };                 // bosses killed (kept through prestige, like kills)
+  /** Auto-buy (free after Horde 10): each category is switched on or off on its own, from the map. */
+  auto?: { on?: boolean; zombies: boolean; units: boolean; globals: boolean };                 // bosses killed (kept through prestige, like kills)
   newItems: number[];
   lastSeen: number;
   /** Total time actually played (seconds, only while the app is open and visible). */
@@ -254,7 +254,12 @@ export class Game {
   /** Keep-up the auto-buyer keeps when raising zombies, so it never overruns the squad. */
   static readonly AUTO_KEEP = 1.3;
   get autoUnlocked() { return this.s.hordes >= Game.AUTO_HORDE; }
-  get autoCfg() { return (this.s.auto ??= { on: false, zombies: true, units: true, globals: true }); }
+  get autoCfg() {
+    const a = (this.s.auto ??= { zombies: false, units: false, globals: false });
+    if (a.on !== undefined) { if (!a.on) { a.zombies = a.units = a.globals = false; } delete a.on; }   // older saves had one master switch
+    return a;
+  }
+  get autoAny() { const a = this.autoCfg; return a.zombies || a.units || a.globals; }
   /** One pass: in every colour, buy the cheapest allowed thing it can afford, repeatedly, up to a few dozen buys. Raising a
    * zombie tier or spawn level only happens if the squad would still keep up ×1.3. Ultimate forms for units are left to
    * the player (a choice of tracks); zombie ultimates, evolutions, hires, unit upgrades and global upgrades are bought. */
@@ -262,7 +267,7 @@ export class Game {
   autoBuying = false;
   autoBuyTick() {
     const a = this.autoCfg;
-    if (!this.autoUnlocked || !a.on) return 0;
+    if (!this.autoUnlocked || !(a.zombies || a.units || a.globals)) return 0;
     this.autoBuying = true;
     try { return this.autoBuyPass(a); } finally { this.autoBuying = false; }
   }

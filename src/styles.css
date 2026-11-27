@@ -1169,14 +1169,17 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .scav-cost i { font-style: normal; font-size: 11px; color: #c0c7d0; display: inline-flex; align-items: center; gap: 2px; }
 .scav-cost i.short { color: #ff8a7a; }
 .scav-cost .vial { width: 10px; height: auto; }
-/* auto-buy switch on the map (after Horde 10) */
-#autobuy { position: fixed; z-index: 9; top: calc(var(--hud-h) + var(--sat) + 8px); left: calc(var(--sal, 0px) + 10px); display: flex; align-items: center; gap: 7px;
-  padding: 7px 11px 7px 9px; border-radius: 999px; border: 1px solid var(--line); background: rgba(12,16,22,.78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  color: #c0c7d0; font: 700 12px/1 Inter, system-ui, sans-serif; letter-spacing: .06em; cursor: pointer; }
-#autobuy i { width: 26px; height: 15px; border-radius: 999px; background: #3a414b; position: relative; transition: background .2s; }
-#autobuy i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #e8ebee; transition: transform .2s; }
-#autobuy.on { border-color: rgba(94,227,140,.6); color: #5ee38c; box-shadow: 0 0 12px rgba(94,227,140,.25); }
-#autobuy.on i { background: #2fae5c; } #autobuy.on i::after { transform: translateX(11px); }
-#autobuy:focus-visible { outline: 2px solid #ffd34d; outline-offset: 2px; }
-.menu-open ~ #autobuy, #app.menu-open #autobuy { display: none; }
+/* auto-buy switches on the map (after Horde 10) */
+#autobuy { position: fixed; z-index: 9; top: calc(var(--hud-h) + var(--sat) + 8px); left: calc(var(--sal, 0px) + 8px); display: flex; flex-direction: column; gap: 4px;
+  padding: 6px; border-radius: 14px; border: 1px solid var(--line); background: rgba(12,16,22,.78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+#autobuy.any { border-color: rgba(94,227,140,.5); box-shadow: 0 0 12px rgba(94,227,140,.2); }
+#autobuy .ab-l { font: 800 10px/1 Inter, system-ui, sans-serif; letter-spacing: .12em; color: #9aa3b0; text-align: center; padding: 1px 0 2px; }
+#autobuy button { display: flex; align-items: center; gap: 6px; padding: 5px 8px 5px 5px; min-height: 28px; border-radius: 999px; border: 1px solid transparent; background: rgba(255,255,255,.04);
+  color: #c0c7d0; font: 700 11px/1 Inter, system-ui, sans-serif; cursor: pointer; }
+#autobuy button i { flex: none; width: 24px; height: 14px; border-radius: 999px; background: #3a414b; position: relative; transition: background .2s; }
+#autobuy button i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #e8ebee; transition: transform .2s; }
+#autobuy button.on { color: #5ee38c; border-color: rgba(94,227,140,.4); }
+#autobuy button.on i { background: #2fae5c; } #autobuy button.on i::after { transform: translateX(10px); }
+#autobuy button:focus-visible { outline: 2px solid #ffd34d; outline-offset: 1px; }
+#app.menu-open #autobuy { display: none; }
 #fps { top: auto; bottom: 8px; }
