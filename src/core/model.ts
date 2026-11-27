@@ -10,31 +10,104 @@
 // The big passive tree gives squad-wide perks; hordes are optional challenges that unlock unit types and tree regions.
 
 export type ClassId = 'pistol' | 'bow' | 'shotgun' | 'rifle' | 'sniper' | 'flamer' | 'grenade';
+/** A DNA colour. Each colour is named after the first zombie type of its family. */
 export type StrainId = 'shambler' | 'runner' | 'brute' | 'spitter' | 'bloater';
+export type ColourId = StrainId;
+/** A zombie type (25 of them, five per DNA colour family). */
+export type ZombieId = StrainId
+  | 'crawler' | 'office' | 'farmer' | 'prisoner'
+  | 'jogger' | 'courier' | 'skater' | 'athlete'
+  | 'bouncer' | 'lumberjack' | 'butcher' | 'juggernaut'
+  | 'labtech' | 'sewer' | 'diver' | 'plague'
+  | 'chef' | 'sumo' | 'mutant' | 'abomination';
 export type RarityId = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type AttachStat = 'dmg' | 'spd' | 'crit' | 'range';
 import type { Fx } from './tree.ts';
 
 // ---------- Zombie types & DNA colours ----------
 export interface StrainDef {
-  id: StrainId; name: string; plural: string; dna: string; color: string;
+  id: ZombieId; name: string; plural: string;
+  family: ColourId; dna: string; color: string;   // the DNA colour it drops
   hp: number; dnaMult: number; speed: number; baseRate: number;
-  fromTier: number;              // only used to pick the zombie mix of hordes
-  unlock?: { from: StrainId; cost: number };
+  fromTier: number;              // only used to pick the zombie mix of hordes (family leaders only)
+  unlock?: { from: ZombieId; cost: number };       // paid in the colour of `from`
 }
-export const STRAINS: StrainDef[] = [
-  { id: 'shambler', name: 'Shambler', plural: 'Shamblers', dna: 'Green',  color: '#7ddc5a', hp: 1.0, dnaMult: 1.0, speed: 1.0,  baseRate: 1.0, fromTier: 1 },
-  { id: 'runner',   name: 'Runner',   plural: 'Runners',   dna: 'Yellow', color: '#ffd23f', hp: 0.6, dnaMult: 1.0, speed: 1.8,  baseRate: 0.6, fromTier: 6,  unlock: { from: 'shambler', cost: 150 } },
-  { id: 'brute',    name: 'Brute',    plural: 'Brutes',    dna: 'Red',    color: '#ff5a5a', hp: 2.5, dnaMult: 2.5, speed: 0.7,  baseRate: 0.4, fromTier: 14, unlock: { from: 'runner', cost: 4000 } },
-  { id: 'spitter',  name: 'Spitter',  plural: 'Spitters',  dna: 'Teal',   color: '#4ad6c8', hp: 1.2, dnaMult: 1.5, speed: 1.0,  baseRate: 0.5, fromTier: 25, unlock: { from: 'brute', cost: 1.2e5 } },
-  { id: 'bloater',  name: 'Bloater',  plural: 'Bloaters',  dna: 'Purple', color: '#b77bff', hp: 4.0, dnaMult: 4.0, speed: 0.55, baseRate: 0.3, fromTier: 40, unlock: { from: 'spitter', cost: 5e6 } },
+const FAMILY: Record<ColourId, { dna: string; color: string }> = {
+  shambler: { dna: 'Green', color: '#7ddc5a' }, runner: { dna: 'Yellow', color: '#ffd23f' }, brute: { dna: 'Red', color: '#ff5a5a' },
+  spitter: { dna: 'Teal', color: '#4ad6c8' }, bloater: { dna: 'Purple', color: '#b77bff' },
+};
+type Row = [ZombieId, string, string, ColourId, number, number, number, number, number, ZombieId | null, number];
+// id, name, plural, family, hp, dnaMult, speed, baseRate, fromTier, unlocked from, cost
+const ROWS: Row[] = [
+  ['shambler', 'Shambler', 'Shamblers', 'shambler', 1.0, 1.0, 1.0, 1.0, 1, null, 0],
+  ['runner', 'Runner', 'Runners', 'runner', 0.6, 1.0, 1.8, 0.6, 6, 'shambler', 150],
+  ['brute', 'Brute', 'Brutes', 'brute', 2.5, 2.5, 0.7, 0.4, 14, 'runner', 4000],
+  ['spitter', 'Spitter', 'Spitters', 'spitter', 1.2, 1.5, 1.0, 0.5, 25, 'brute', 1.2e5],
+  ['bloater', 'Bloater', 'Bloaters', 'bloater', 4.0, 4.0, 0.55, 0.3, 40, 'spitter', 5e6],
+  // Green family
+  ['crawler', 'Crawler', 'Crawlers', 'shambler', 0.8, 0.9, 0.6, 0.7, 999, 'shambler', 1.3e05],
+  ['office', 'Office Zombie', 'Office Zombies', 'shambler', 1.2, 1.25, 1.0, 0.6, 999, 'crawler', 1.4e08],
+  ['farmer', 'Farmer', 'Farmers', 'shambler', 1.5, 1.6, 0.9, 0.5, 999, 'office', 2.5e12],
+  ['prisoner', 'Prisoner', 'Prisoners', 'shambler', 2.0, 2.1, 1.1, 0.4, 999, 'farmer', 3e18],
+  // Yellow family
+  ['jogger', 'Jogger', 'Joggers', 'runner', 0.7, 1.15, 2.0, 0.5, 999, 'runner', 2.2e06],
+  ['courier', 'Courier', 'Couriers', 'runner', 0.9, 1.45, 1.9, 0.42, 999, 'jogger', 9.5e09],
+  ['skater', 'Skater', 'Skaters', 'runner', 1.1, 1.8, 2.2, 0.36, 999, 'courier', 6.8e14],
+  ['athlete', 'Athlete', 'Athletes', 'runner', 1.4, 2.3, 2.4, 0.3, 999, 'skater', 8e20],
+  // Red family
+  ['bouncer', 'Bouncer', 'Bouncers', 'brute', 3.0, 3.0, 0.8, 0.35, 999, 'brute', 3.5e07],
+  ['lumberjack', 'Lumberjack', 'Lumberjacks', 'brute', 3.6, 3.7, 0.75, 0.3, 999, 'bouncer', 6.3e11],
+  ['butcher', 'Butcher', 'Butchers', 'brute', 4.4, 4.5, 0.7, 0.27, 999, 'lumberjack', 4.5e16],
+  ['juggernaut', 'Juggernaut', 'Juggernauts', 'brute', 6.0, 6.2, 0.5, 0.22, 999, 'butcher', 5.3e22],
+  // Teal family
+  ['labtech', 'Lab Tech', 'Lab Techs', 'spitter', 1.4, 1.8, 1.0, 0.45, 999, 'spitter', 5.8e08],
+  ['sewer', 'Sewer Worker', 'Sewer Workers', 'spitter', 1.7, 2.2, 0.95, 0.4, 999, 'labtech', 4.2e13],
+  ['diver', 'Hazmat Diver', 'Hazmat Divers', 'spitter', 2.1, 2.7, 0.9, 0.35, 999, 'sewer', 1.2e19],
+  ['plague', 'Plague Doctor', 'Plague Doctors', 'spitter', 2.6, 3.4, 0.9, 0.3, 999, 'diver', 1.4e25],
+  // Purple family
+  ['chef', 'Chef', 'Chefs', 'bloater', 4.6, 4.7, 0.6, 0.28, 999, 'bloater', 9.5e09],
+  ['sumo', 'Sumo', 'Sumos', 'bloater', 5.4, 5.6, 0.5, 0.25, 999, 'chef', 2.8e15],
+  ['mutant', 'Mutant', 'Mutants', 'bloater', 6.5, 6.8, 0.6, 0.22, 999, 'sumo', 3.2e21],
+  ['abomination', 'Abomination', 'Abominations', 'bloater', 8.0, 8.5, 0.4, 0.2, 999, 'mutant', 3.8e27],
 ];
-export const STRAIN_IDS = STRAINS.map((s) => s.id);
-export const strainById = (id: StrainId) => STRAINS.find((s) => s.id === id)!;
-export type DnaMap = Record<StrainId, number | null>; // ln amounts per colour; null = 0
+export const STRAINS: StrainDef[] = ROWS.map(([id, name, plural, family, hp, dnaMult, speed, baseRate, fromTier, from, cost]) => ({
+  id, name, plural, family, dna: FAMILY[family].dna, color: FAMILY[family].color, hp, dnaMult, speed, baseRate, fromTier,
+  ...(from ? { unlock: { from, cost } } : {}),
+}));
+/** All zombie types. */
+export const ZOMBIE_IDS = STRAINS.map((s) => s.id);
+/** The five DNA colours. */
+export const STRAIN_IDS: ColourId[] = ['shambler', 'runner', 'brute', 'spitter', 'bloater'];
+export const COLOURS = STRAIN_IDS;
+export const strainById = (id: ZombieId) => STRAINS.find((s) => s.id === id)!;
+/** The DNA colour a zombie type drops. */
+export const familyOf = (id: ZombieId): ColourId => strainById(id).family;
+/** Zombie types of one colour family, in release order. */
+export const familyMembers = (c: ColourId) => STRAINS.filter((s) => s.family === c);
+export type DnaMap = Record<ColourId, number | null>; // ln amounts per colour; null = 0
 /** Per-type zombie dials. */
 export interface StrainState { unlocked: boolean; tier: number; maxTier: number; spawn: number }
-export type Strains = Record<StrainId, StrainState>;
+export type Strains = Record<ZombieId, StrainState>;
+
+// ---------- Special zombies (random in the stream; no dials) ----------
+export type SpecialId = 'golden' | 'armored' | 'screamer' | 'medic' | 'exploder';
+export interface SpecialDef { id: SpecialId; name: string; desc: string; weight: number; hp: number; dna: number; speed: number; loot: number; tint: number }
+export const SPECIALS: SpecialDef[] = [
+  { id: 'golden',   name: 'Golden',   desc: 'Fast and rich: ×15 DNA and a big item chance', weight: 1, hp: 1, dna: 15, speed: 1.7, loot: 25, tint: 0xffd23f },
+  { id: 'armored',  name: 'Armoured', desc: '×5 HP, ×5 DNA',                                weight: 3, hp: 5, dna: 5, speed: 0.8, loot: 3, tint: 0x9aa8bc },
+  { id: 'screamer', name: 'Screamer', desc: 'Speeds up nearby zombies; ×4 DNA',             weight: 2, hp: 2, dna: 4, speed: 1, loot: 2, tint: 0xff7ae0 },
+  { id: 'medic',    name: 'Medic',    desc: 'Heals nearby zombies; ×4 DNA',                 weight: 2, hp: 2, dna: 4, speed: 0.9, loot: 2, tint: 0x7affc0 },
+  { id: 'exploder', name: 'Exploder', desc: 'Blows up nearby zombies when killed; ×3 DNA',  weight: 2, hp: 1.5, dna: 3, speed: 1.1, loot: 2, tint: 0xff8a2a },
+];
+export const specialById = (id: SpecialId) => SPECIALS.find((x) => x.id === id)!;
+/** Chance that a zombie in the endless stream is special. */
+export const SPECIAL_CHANCE = 0.03;
+export function rollSpecial(rng: () => number): SpecialId | null {
+  if (rng() >= SPECIAL_CHANCE) return null;
+  let x = rng() * SPECIALS.reduce((a, d) => a + d.weight, 0);
+  for (const d of SPECIALS) if ((x -= d.weight) < 0) return d.id;
+  return null;
+}
 
 // ---------- Unit types ----------
 export interface AbilityDef { name: string; stages: string[] }
@@ -113,7 +186,7 @@ export const CONFIG = {
   tiersPerUnit: 10,
   baseCritDmg: 2,
   dropChance: 0.002,        // item drop chance per zombie at 1 zombie/s; it shrinks as the stream gets busier, so drops
-  dropRateExp: 0.6,         // stay minutes apart: ~1 per 8 min early, ~1 per 3 min with every type at full spawn rate
+  dropRateExp: 0.75,         // stay minutes apart: ~1 per 8 min early, ~1 per 3 min with every type at full spawn rate
   treeCost0: 15,
   treeCostGrowth: 1.9,
   walkSec: 10,
@@ -159,21 +232,21 @@ export function hordeDef(k: number): HordeDef {
   return { index: k, name: `Elite Horde ${n}`, tier: HORDE_TIERS[6] + 30 * n, unlocks: 'An epic item', region: -1, elite: true };
 }
 /** Hordes bring a fixed mix of zombie types for their tier (it doesn't depend on which types you've released). */
-export const hordeMix = (k: number) => STRAINS.filter((s) => s.fromTier <= hordeDef(k).tier).map((s) => s.id);
+export const hordeMix = (k: number) => STRAINS.filter((s) => s.fromTier <= hordeDef(k).tier).map((s) => s.id);  // family leaders only
 
 // ---------- Zombies ----------
-export const spawnRate = (s: StrainId, spawn: number) => strainById(s).baseRate * (1 + C.spawnPerLevel * spawn);
-export const lnZombieHp = (s: StrainId, tier: number, spawn: number) =>
+export const spawnRate = (s: ZombieId, spawn: number) => strainById(s).baseRate * (1 + C.spawnPerLevel * spawn);
+export const lnZombieHp = (s: ZombieId, tier: number, spawn: number) =>
   Math.log(C.baseHp * strainById(s).hp * (1 + C.spawnHpPerLevel * spawn)) + (tier - 1) * lnR;
-export const lnDnaPerKill = (s: StrainId, tier: number, fx: Fx) =>
+export const lnDnaPerKill = (s: ZombieId, tier: number, fx: Fx) =>
   Math.log(C.baseDna * strainById(s).dnaMult * (1 + fx.dna)) + (tier - 1) * lnR;
-export const lnTierCost = (s: StrainId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (tier - 1) * lnR;
-export const lnSpawnCost = (s: StrainId, lv: number) => Math.log(C.spawnCost0 * strainById(s).dnaMult) + lv * Math.log(C.spawnCostGrowth);
-export const activeStrains = (st: Strains) => STRAIN_IDS.filter((s) => st[s].unlocked);
+export const lnTierCost = (s: ZombieId, tier: number) => Math.log(C.tierCost0 * strainById(s).dnaMult) + (tier - 1) * lnR;
+export const lnSpawnCost = (s: ZombieId, lv: number) => Math.log(C.spawnCost0 * strainById(s).dnaMult) + lv * Math.log(C.spawnCostGrowth);
+export const activeStrains = (st: Strains) => ZOMBIE_IDS.filter((s) => st[s]?.unlocked);
 export const totalSpawnRate = (st: Strains) => activeStrains(st).reduce((a, s) => a + spawnRate(s, st[s].spawn), 0);
 /** Chance that one shredded zombie drops an item. */
 export const dropChance = (st: Strains, fx: Fx) => (C.dropChance / Math.pow(Math.max(1, totalSpawnRate(st)), C.dropRateExp)) * (1 + fx.drop);
-export const bestTier = (st: Strains) => Math.max(1, ...STRAIN_IDS.filter((s) => st[s].unlocked).map((s) => st[s].maxTier));
+export const bestTier = (st: Strains) => Math.max(1, ...activeStrains(st).map((s) => st[s].maxTier));
 
 // ---------- Items ----------
 export interface Gun { uid: number; cls: ClassId; rarity: RarityId; ilvl: number }
@@ -256,11 +329,13 @@ export function unitStats(e: SquadEntry, fx: Fx) {
   return { range, shotsPerSec, crit, critDmg, targets, lnDps, ability: ab };
 }
 /** Damage multiplier of a unit type against a zombie type (gun matchup, passive tree, charm). */
-export const matchMult = (e: SquadEntry, s: StrainId, fx: Fx) =>
-  (MATCH[e.u.cls]?.[s] ?? 1) * (fx.vs[s] ?? 1) * (e.charm ? 1 + (e.charm.bane === null || e.charm.bane === s ? e.charm.value : 0) : 1);
+export const matchMult = (e: SquadEntry, z: ZombieId, fx: Fx) => {
+  const s = familyOf(z);
+  return (MATCH[e.u.cls]?.[s] ?? 1) * (fx.vs[s] ?? 1) * (e.charm ? 1 + (e.charm.bane === null || e.charm.bane === s ? e.charm.value : 0) : 1);
+};
 
 /** ln squad DPS against one zombie type (counting extra targets at 50% and range as uptime). */
-export function lnSquadDps(squad: SquadEntry[], fx: Fx, s: StrainId) {
+export function lnSquadDps(squad: SquadEntry[], fx: Fx, s: ZombieId) {
   let ln = -Infinity;
   for (const e of squad) {
     if (!e.gun || e.u.count <= 0) continue;
@@ -287,10 +362,10 @@ export function keepUp(squad: SquadEntry[], fx: Fx, st: Strains) {
 /** DNA per second of each colour at the current settings. */
 export function lnDnaPerSec(squad: SquadEntry[], fx: Fx, st: Strains): Record<StrainId, number> {
   const f = Math.min(1, keepUp(squad, fx, st));
-  const out = {} as Record<StrainId, number>;
-  for (const s of STRAIN_IDS) {
+  const out = Object.fromEntries(COLOURS.map((c) => [c, -Infinity])) as Record<ColourId, number>;
+  for (const s of activeStrains(st)) {
     const x = st[s];
-    out[s] = x.unlocked ? Math.log(spawnRate(s, x.spawn) * f) + lnDnaPerKill(s, x.tier, fx) : -Infinity;
+    out[familyOf(s)] = logAdd(out[familyOf(s)], Math.log(spawnRate(s, x.spawn) * f) + lnDnaPerKill(s, x.tier, fx));
   }
   return out;
 }

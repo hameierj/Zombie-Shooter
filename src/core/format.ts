@@ -32,9 +32,9 @@ export const gunName = (g: Gun) => `${cap(g.rarity)} ${classById(g.cls).gun}`;
 
 const ATTACH_NAME = { dmg: 'Hollow Points', spd: 'Drum Magazine', crit: 'Laser Sight', range: 'Long Scope' } as const;
 export const gearName = (g: Gear) =>
-  g.kind === 'attach' ? `${cap(g.rarity)} ${ATTACH_NAME[g.stat]}` : `${cap(g.rarity)} ${g.bane ? `${strainById(g.bane).name} Bane` : 'Lucky Charm'}`;
+  g.kind === 'attach' ? `${cap(g.rarity)} ${ATTACH_NAME[g.stat]}` : `${cap(g.rarity)} ${g.bane ? `${strainById(g.bane).dna} Bane` : 'Lucky Charm'}`;
 export function gearDesc(g: Gear): string {
   const pct = (v: number) => `+${Math.round(v * 100)}%`;
   if (g.kind === 'attach') return `${pct(g.value)} ${g.stat === 'dmg' ? 'damage' : g.stat === 'spd' ? 'attack speed' : g.stat === 'crit' ? 'crit chance' : 'range'}`;
-  return g.bane ? `${pct(g.value)} damage vs ${strainById(g.bane).plural}` : `${pct(g.value)} damage vs everything`;
+  return g.bane ? `${pct(g.value)} damage vs ${strainById(g.bane).dna} zombies` : `${pct(g.value)} damage vs everything`;
 }

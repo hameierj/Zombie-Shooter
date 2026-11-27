@@ -7,7 +7,7 @@
 // if the boss reaches the shredder, or 10 horde zombies break through, the horde is lost.
 import Phaser from 'phaser';
 import * as M from '../core/model.ts';
-import type { ClassId, Gun, StrainId } from '../core/model.ts';
+import type { ClassId, Gun, SpecialId, ZombieId } from '../core/model.ts';
 import { game } from '../core/state.ts';
 import { fmtLn } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
@@ -22,7 +22,7 @@ const INTRO_SEC = 1.4;
 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
-  strain: StrainId; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
+  strain: ZombieId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
 }
 interface Shooter { body: Phaser.GameObjects.Sprite; gun: Phaser.GameObjects.Image; flash: Phaser.GameObjects.Image; cls: ClassId; cd: number; recoil: number; flashT: number; aim: number }
@@ -59,7 +59,7 @@ export class BattleScene extends Phaser.Scene {
   private phase: Phase = 'stream';
   private phaseT = 0;
   private zombies: Zombie[] = [];
-  private spawnTimers = new Map<StrainId, number>();
+  private spawnTimers = new Map<ZombieId, number>();
   private horde = { k: 0, queue: [] as Zombie[], t: 0, spawnT: 0, breaches: 0, bossThrough: false };
   private hordeText!: Phaser.GameObjects.Text;
   private ready = false;
@@ -135,11 +135,12 @@ export class BattleScene extends Phaser.Scene {
     for (const z of this.zombies) if (!onlyHorde || z.horde) z.sprite?.destroy();
     this.zombies = onlyHorde ? this.zombies.filter((z) => !z.horde) : [];
   }
-  private makeZombie(strain: StrainId, tier: number, spawnLv: number, horde: boolean, boss = false): Zombie {
+  private makeZombie(strain: ZombieId, tier: number, spawnLv: number, horde: boolean, boss = false, special: SpecialId | null = null): Zombie {
+    const sp = special ? M.specialById(special) : null;
     return {
-      strain, tier, horde, boss, atWall: false, lnHp: M.lnZombieHp(strain, tier, spawnLv) + (boss ? Math.log(C.bossHpMult) : 0), hp: 1, slow: 0, burn: 0,
+      strain, special, announced: false, tier, horde, boss, atWall: false, lnHp: M.lnZombieHp(strain, tier, spawnLv) + (boss ? Math.log(C.bossHpMult) : 0) + (sp ? Math.log(sp.hp) : 0), hp: 1, slow: 0, burn: 0,
       p: -0.02 - Math.random() * 0.05, l: boss ? 0 : Math.random() * 2 - 1,
-      speed: (M.strainById(strain).speed * (boss ? C.bossSpeed : (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1))) / C.walkSec,
+      speed: (M.strainById(strain).speed * (sp?.speed ?? 1) * (boss ? C.bossSpeed : (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1))) / C.walkSec,
       flash: -1, phase: Math.random() * 4, alive: true,
     };
   }
@@ -176,12 +177,12 @@ export class BattleScene extends Phaser.Scene {
     if (this.phase === 'stream' || this.phase === 'end') {
       // the endless stream: every released zombie type spawns at its own rate, tier and spawn level
       const ambient = this.zombies.filter((z) => z.alive && !z.horde).length;
-      for (const sid of game.colours) {
+      for (const sid of M.activeStrains(game.s.strains)) {
         const x = game.s.strains[sid];
-        let t = (this.spawnTimers.get(sid) ?? Math.random()) - dt;
+        let t = (this.spawnTimers.get(sid) ?? Math.random() * 2) - dt;
         while (t <= 0) {
           t += 1 / M.spawnRate(sid, x.spawn);
-          if (ambient < MAX_AMBIENT) this.zombies.push(this.makeZombie(sid, x.tier, x.spawn, false));
+          if (ambient < MAX_AMBIENT) this.zombies.push(this.makeZombie(sid, x.tier, x.spawn, false, false, M.rollSpecial(Math.random)));
         }
         this.spawnTimers.set(sid, t);
       }
@@ -222,12 +223,22 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private tickZombies(dt: number) {
+    // special zombies' auras: screamers speed up, medics heal the zombies around them
+    const screamers = this.zombies.filter((z) => z.alive && z.special === 'screamer');
+    const medics = this.zombies.filter((z) => z.alive && z.special === 'medic');
+    for (const m of medics) for (const z of this.zombies) if (z.alive && z !== m && this.dist(z, m) < 0.14) z.hp = Math.min(1, z.hp + 0.06 * dt);
     for (const z of this.zombies) {
       if (!z.alive) continue;
       z.flash -= dt;
+      if (z.special && !z.announced && z.p > 0.04) {
+        z.announced = true;
+        const [ax, ay] = this.zombieCenter(z);
+        this.floatText(`${M.specialById(z.special).name.toUpperCase()}!`, ax, ay - 18 * this.px, z.special === 'golden');
+      }
       if (z.p < 1) {
         z.slow = Math.max(0, z.slow - dt * 0.5);
-        const sp = z.speed * (1 - z.slow);
+        const boost = screamers.some((s) => s !== z && this.dist(z, s) < 0.16) ? 1.4 : 1;
+        const sp = z.speed * (1 - z.slow) * boost;
         z.p = Math.min(1, z.p + sp * dt); z.phase += dt * 6 * sp * C.walkSec;
         if (z.burn > 0) { z.burn -= dt; if (Math.random() < dt * 8) { const [bx, by] = this.zombieCenter(z); this.burst(bx, by + 8 * this.px, 0xff7a2a, 1); } }
         if (z.p > 0.6 && Math.random() < dt * 0.15) sfx.groan();
@@ -392,7 +403,19 @@ export class BattleScene extends Phaser.Scene {
       this.tweens.add({ targets: s, angle: 90, alpha: 0, duration: 380, ease: 'Quad.easeIn', onComplete: () => s.destroy() });
     }
     sfx.zombieDeath();
-    const loot = game.zombieKilled(z.strain, z.tier);
+    const sp = z.special ? M.specialById(z.special) : null;
+    if (sp) {
+      this.burst(x, y, sp.tint, 14);
+      this.floatText(`×${sp.dna} DNA`, x, y - 16 * this.px, true);
+      if (z.special === 'exploder') {
+        // the blast hurts every zombie close by
+        const b = this.take('boom').setPosition(x, y).setScale(this.px * 1.5).setDepth(8700).setAlpha(1);
+        this.tweens.add({ targets: b, scale: this.px * 4, alpha: 0, duration: 350, onComplete: () => this.give(b) });
+        sfx.boom();
+        for (const n of this.zombies) if (n.alive && n !== z && this.dist(n, z) < 0.13) this.damage(n, 0.6, '', false);
+      }
+    }
+    const loot = game.zombieKilled(z.strain, z.tier, sp ? { mult: sp.dna, lootMult: sp.loot } : {});
     if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 
@@ -501,6 +524,7 @@ export class BattleScene extends Phaser.Scene {
       z.sprite.setTexture(`z-${z.strain}-${frame}`).setPosition(x, y).setScale(z.boss ? px * 2 : px).setDepth(y);
       if (z.flash > 0) z.sprite.setTintFill(0xffffff);
       else if (z.boss) z.sprite.setTint(0xff9a9a);
+      else if (z.special) z.sprite.setTint(M.specialById(z.special).tint);
       else if (z.horde) z.sprite.setTint(0xffc0c0);
       else z.sprite.clearTint();
     }
@@ -542,6 +566,15 @@ export class BattleScene extends Phaser.Scene {
     g.clear();
     this.drawRanges(g);
     for (const c of this.crates) g.fillStyle(c.color, 0.35 + 0.25 * Math.sin(c.t * 10)).fillRect(c.img.x - 2 * px, c.img.y - 44 * px, 4 * px, 40 * px);
+    // special zombies: a pulsing ring at their feet in their colour
+    const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 160);
+    for (const z of this.zombies) {
+      if (!z.alive || !z.special) continue;
+      const [x, y] = this.toScreen(z.p, z.l);
+      const col = M.specialById(z.special).tint;
+      g.lineStyle(px, col, 0.5 + 0.4 * pulse).strokeEllipse(x, y - px, (14 + 2 * pulse) * px, 5 * px);
+      if (z.special === 'screamer' || z.special === 'medic') g.lineStyle(px * 0.6, col, 0.18).strokeCircle(x, y - 12 * px, 0.15 * (this.lay.spawnX - this.lay.stopX) * px);
+    }
     for (const z of this.zombies) {
       if (!z.alive || z.hp >= 1 || !z.sprite) continue;
       const [x, y] = this.toScreen(z.p, z.l);

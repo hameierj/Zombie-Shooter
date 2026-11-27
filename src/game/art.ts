@@ -136,6 +136,127 @@ const ZOMBIES: Record<string, ZSpec> = {
       for (const [x, y] of [[1, 3], [4, 6], [2, 8], [6, 4]]) { P(ctx, a.tx + x - 3, a.ty + y, '#d6aaff'); P(ctx, a.tx + x - 3, a.ty + y + 1, '#7a4aa8'); }
     },
   },
+  // ----- Green family -----
+  crawler: {
+    skin: '#7a9a5a', shirt: '#8a6a4a', pants: '#3a3020', eye: '#ff4040',
+    headW: 6, headH: 5, torsoW: 8, torsoH: 5, legH: 3, legW: 2, lean: 3, stride: 1, belly: 0,
+    extra: (ctx, a) => { P(ctx, a.tx + 2, a.ty + 1, '#5a4a30'); P(ctx, a.tx + 5, a.ty + 3, '#8a1c1c'); R(ctx, a.tx + 6, a.ty + 4, 3, 1, '#8a1c1c'); },
+  },
+  office: {
+    skin: '#93b373', shirt: '#e4e6ee', pants: '#2a2e3a', eye: '#ff4040',
+    headW: 6, headH: 6, torsoW: 7, torsoH: 7, legH: 6, legW: 2, lean: 1, stride: 2, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.tx + 3, a.ty + 1, 1, 4, '#c83c3c'); P(ctx, a.tx + 3, a.ty + 5, '#8a2020'); R(ctx, a.hx, a.hy + 2, 3, 1, '#1a1a1a'); P(ctx, a.hx + 1, a.hy + 2, '#9adcff'); },
+  },
+  farmer: {
+    skin: '#8fae66', shirt: '#c8463a', pants: '#3a5a9a', eye: '#ff4040',
+    headW: 6, headH: 6, torsoW: 7, torsoH: 7, legH: 6, legW: 2, lean: 1, stride: 2, belly: 0,
+    extra: (ctx, a) => {
+      R(ctx, a.tx + 1, a.ty + 3, 5, 4, '#3a5a9a'); R(ctx, a.tx + 1, a.ty, 1, 3, '#3a5a9a'); R(ctx, a.tx + 5, a.ty, 1, 3, '#3a5a9a');
+      R(ctx, a.hx - 2, a.hy, 10, 1, '#d8b44a'); R(ctx, a.hx, a.hy - 2, 6, 2, '#e8c860'); R(ctx, a.hx, a.hy - 1, 6, 1, '#a8842a');
+    },
+  },
+  prisoner: {
+    skin: '#88a868', shirt: '#ff8a2a', pants: '#ff8a2a', eye: '#ff4040',
+    headW: 6, headH: 6, torsoW: 7, torsoH: 7, legH: 6, legW: 2, lean: 1, stride: 2, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.tx + 1, a.ty + 2, 4, 2, '#f0f0f0'); R(ctx, a.tx + 2, a.ty + 2, 1, 1, '#222'); R(ctx, a.tx + 4, a.ty + 2, 1, 1, '#222'); R(ctx, a.hx + 1, a.hy - 1, 4, 1, '#3a2a20'); },
+  },
+  // ----- Yellow family -----
+  jogger: {
+    skin: '#9cb86e', shirt: '#4ad6ff', pants: '#22242a', eye: '#ffe04a',
+    headW: 5, headH: 5, torsoW: 5, torsoH: 6, legH: 8, legW: 2, lean: 2, stride: 3, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.hx, a.hy + 1, 5, 1, '#ff4a4a'); R(ctx, a.tx, a.ty + 1, 1, 4, '#9cb86e'); },
+  },
+  courier: {
+    skin: '#94b46a', shirt: '#e0402a', pants: '#2a3a5a', eye: '#ffe04a',
+    headW: 5, headH: 5, torsoW: 5, torsoH: 6, legH: 8, legW: 2, lean: 2, stride: 3, belly: 0,
+    extra: (ctx, a) => { shaded(ctx, a.tx + 4, a.ty, 4, 5, '#ffd23f'); R(ctx, a.hx, a.hy - 1, 5, 2, '#ffd23f'); R(ctx, a.hx, a.hy, 5, 1, '#c8a020'); },
+  },
+  skater: {
+    skin: '#9aba70', shirt: '#7a4ab0', pants: '#5a5a62', eye: '#ffe04a',
+    headW: 5, headH: 5, torsoW: 6, torsoH: 6, legH: 8, legW: 2, lean: 2, stride: 3, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.hx + 1, a.hy - 1, 5, 2, '#2a8a4a'); R(ctx, a.hx + 5, a.hy, 2, 1, '#2a8a4a'); R(ctx, a.tx + 1, a.ty + 3, 4, 1, '#9a6ad0'); },
+  },
+  athlete: {
+    skin: '#a0c070', shirt: '#ffd23f', pants: '#1a3a8a', eye: '#ffe04a',
+    headW: 5, headH: 5, torsoW: 6, torsoH: 6, legH: 8, legW: 2, lean: 2, stride: 3, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.tx + 2, a.ty + 1, 2, 3, '#1a3a8a'); P(ctx, a.tx + 4, a.ty + 1, '#1a3a8a'); R(ctx, a.hx, a.hy + 1, 5, 1, '#ffffff'); },
+  },
+  // ----- Red family -----
+  bouncer: {
+    skin: '#7f9461', shirt: '#1e1e24', pants: '#2a2a30', eye: '#ff4040',
+    headW: 7, headH: 6, torsoW: 10, torsoH: 9, legH: 6, legW: 3, lean: 0, stride: 2, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.hx, a.hy + 2, 5, 1, '#050505'); P(ctx, a.hx + 1, a.hy + 2, '#5a5a5a'); R(ctx, a.tx + 2, a.ty + 1, 6, 1, '#e8c040'); P(ctx, a.tx + 5, a.ty + 2, '#e8c040'); },
+  },
+  lumberjack: {
+    skin: '#829a60', shirt: '#b8322a', pants: '#3a5a8a', eye: '#ff4040',
+    headW: 7, headH: 6, torsoW: 10, torsoH: 9, legH: 6, legW: 3, lean: 0, stride: 2, belly: 0,
+    extra: (ctx, a) => {
+      for (let y = 1; y < 8; y += 3) R(ctx, a.tx + 1, a.ty + y, 8, 1, '#1a1a1a');
+      for (let x = 2; x < 9; x += 3) R(ctx, a.tx + x, a.ty + 1, 1, 7, '#7a1e1a');
+      R(ctx, a.hx - 1, a.hy + 3, 4, 3, '#6a3a1a'); R(ctx, a.hx + 1, a.hy - 1, 6, 2, '#2a4a8a');
+    },
+  },
+  butcher: {
+    skin: '#7c9660', shirt: '#e8e4d8', pants: '#3a3030', eye: '#ff4040',
+    headW: 7, headH: 6, torsoW: 10, torsoH: 9, legH: 6, legW: 3, lean: 0, stride: 2, belly: 0,
+    extra: (ctx, a) => {
+      for (const [x, y] of [[2, 3], [5, 5], [3, 6], [7, 2]]) R(ctx, a.tx + x, a.ty + y, 2, 1, '#a81c1c');
+      shaded(ctx, a.tx - 10, a.ty - 1, 4, 4, '#c8ccd2'); R(ctx, a.tx - 7, a.ty + 2, 2, 1, '#5a4028');
+    },
+  },
+  juggernaut: {
+    skin: '#6f8a56', shirt: '#4a4e56', pants: '#2a2a32', eye: '#ff3030',
+    headW: 8, headH: 7, torsoW: 12, torsoH: 10, legH: 6, legW: 4, lean: 0, stride: 1, belly: 0,
+    extra: (ctx, a) => {
+      shaded(ctx, a.tx, a.ty, 12, 6, '#5a5e66'); R(ctx, a.tx + 1, a.ty + 2, 10, 1, '#3a3e46');
+      shaded(ctx, a.hx, a.hy - 1, 8, 7, '#62666e'); R(ctx, a.hx, a.hy + 2, 5, 1, '#ff3030'); R(ctx, a.hx + 1, a.hy - 1, 6, 1, '#8a8e96');
+    },
+  },
+  // ----- Teal family -----
+  labtech: {
+    skin: '#78a070', shirt: '#e8e8e0', pants: '#4a4a5a', eye: '#8dffe0',
+    headW: 6, headH: 6, torsoW: 7, torsoH: 7, legH: 6, legW: 2, lean: 1, stride: 2, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.hx, a.hy + 1, 4, 2, '#3a8a7a'); P(ctx, a.hx + 1, a.hy + 1, '#bfffef'); R(ctx, a.tx + 4, a.ty + 1, 1, 3, '#4ad6c8'); },
+  },
+  sewer: {
+    skin: '#74986a', shirt: '#2a6a6a', pants: '#2a6a6a', eye: '#8dffe0',
+    headW: 6, headH: 6, torsoW: 7, torsoH: 7, legH: 6, legW: 2, lean: 1, stride: 2, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.hx - 1, a.hy - 1, 8, 2, '#ffd23f'); R(ctx, a.hx, a.hy - 2, 6, 1, '#ffe46a'); R(ctx, a.tx + 1, a.ty + 4, 5, 1, '#4ad6c8'); },
+  },
+  diver: {
+    skin: '#6f9a6a', shirt: '#e8d040', pants: '#e8d040', eye: '#8dffe0',
+    headW: 6, headH: 6, torsoW: 7, torsoH: 7, legH: 6, legW: 2, lean: 1, stride: 2, belly: 0,
+    extra: (ctx, a) => { shaded(ctx, a.hx - 1, a.hy - 1, 8, 7, '#e8d040'); R(ctx, a.hx, a.hy + 1, 4, 2, '#2a3a3a'); P(ctx, a.hx + 1, a.hy + 1, a.frame % 2 ? '#8dffe0' : '#4ad6c8'); R(ctx, a.hx - 1, a.hy + 4, 3, 2, '#222'); },
+  },
+  plague: {
+    skin: '#6a8a64', shirt: '#26262c', pants: '#1e1e24', eye: '#8dffe0',
+    headW: 6, headH: 6, torsoW: 7, torsoH: 8, legH: 5, legW: 2, lean: 1, stride: 2, belly: 0,
+    extra: (ctx, a) => { R(ctx, a.hx - 4, a.hy + 3, 4, 1, '#d8d0b0'); R(ctx, a.hx - 3, a.hy + 4, 3, 1, '#b8b090'); R(ctx, a.hx - 2, a.hy - 1, 10, 1, '#1a1a1e'); R(ctx, a.hx, a.hy - 3, 6, 2, '#26262c'); },
+  },
+  // ----- Purple family -----
+  chef: {
+    skin: '#9a88aa', shirt: '#f0f0f0', pants: '#2a2a3a', eye: '#d090ff',
+    headW: 6, headH: 5, torsoW: 11, torsoH: 8, legH: 5, legW: 3, lean: 0, stride: 1, belly: 5,
+    extra: (ctx, a) => { R(ctx, a.hx, a.hy - 3, 6, 3, '#f8f8f8'); R(ctx, a.hx - 1, a.hy - 4, 8, 2, '#ffffff'); R(ctx, a.tx - 2, a.ty + 3, 3, 1, '#c83c3c'); },
+  },
+  sumo: {
+    skin: '#a88ab8', shirt: null, pants: '#3a2a5a', eye: '#d090ff',
+    headW: 6, headH: 5, torsoW: 12, torsoH: 9, legH: 5, legW: 3, lean: 0, stride: 1, belly: 6,
+    extra: (ctx, a) => { R(ctx, a.hx + 3, a.hy - 2, 2, 2, '#1a1a1a'); R(ctx, a.tx - 2, a.ty + 7, 14, 2, '#3a2a5a'); },
+  },
+  mutant: {
+    skin: '#8a6aa8', shirt: '#4a3a5a', pants: '#2a2238', eye: '#ff70ff',
+    headW: 7, headH: 6, torsoW: 11, torsoH: 8, legH: 5, legW: 3, lean: 0, stride: 1, belly: 4,
+    extra: (ctx, a) => { P(ctx, a.hx + 3, a.hy + 1, '#ff70ff'); P(ctx, a.hx + 4, a.hy + 3, '#ff70ff'); shaded(ctx, a.tx + 7, a.ty - 2, 4, 4, '#a07ac0'); P(ctx, a.tx + 8, a.ty - 1, '#e0b0ff'); },
+  },
+  abomination: {
+    skin: '#7a5a8a', shirt: null, pants: '#2a1e34', eye: '#ff5050',
+    headW: 6, headH: 5, torsoW: 12, torsoH: 10, legH: 5, legW: 4, lean: 0, stride: 1, belly: 6,
+    extra: (ctx, a) => {
+      for (let i = 0; i < 4; i++) { R(ctx, a.tx + 2 + i * 2, a.ty + 3, 1, 4, '#2a1020'); P(ctx, a.tx + 1 + i * 2, a.ty + 4, '#2a1020'); }
+      for (const x of [3, 6, 9]) { P(ctx, a.tx + x, a.ty - 1, '#e8e0c0'); P(ctx, a.tx + x, a.ty - 2, '#e8e0c0'); }
+    },
+  },
 };
 
 export const ZOMBIE_W = 26;
@@ -518,6 +639,9 @@ export const STRAIN_DNA_COLOR: Record<string, string> = {
 };
 export const ZOMBIE_FRAMES = 4;
 const STRAINS: StrainId[] = ['shambler', 'runner', 'brute', 'spitter', 'bloater', 'burnt'];
+/** Extra zombie types (they drop one of the five DNA colours, so they only need body sprites). */
+const MORE_ZOMBIES: StrainId[] = ['crawler', 'office', 'farmer', 'prisoner', 'jogger', 'courier', 'skater', 'athlete',
+  'bouncer', 'lumberjack', 'butcher', 'juggernaut', 'labtech', 'sewer', 'diver', 'plague', 'chef', 'sumo', 'mutant', 'abomination'];
 const TYPES: DamageType[] = ['physical', 'fire', 'shock', 'toxic', 'cryo'];
 
 export interface ArtSet {
@@ -531,7 +655,7 @@ let cache: ArtSet | null = null;
 export function buildArt(): ArtSet {
   if (cache) return cache;
   const canvases: Record<string, HTMLCanvasElement> = {};
-  for (const s of STRAINS) for (let f = 0; f < ZOMBIE_FRAMES; f++) canvases[`z-${s}-${f}`] = drawZombie(s, f);
+  for (const s of [...STRAINS, ...MORE_ZOMBIES]) for (let f = 0; f < ZOMBIE_FRAMES; f++) canvases[`z-${s}-${f}`] = drawZombie(s, f);
   for (let i = 0; i < 4; i++) for (let f = 0; f < 2; f++) canvases[`hero-${i}-${f}`] = drawHero(i, f);
   CLASS_ORDER.forEach((cls, i) => {
     for (let f = 0; f < 2; f++) canvases[`hero-${cls}-${f}`] = drawHero(i, f);
@@ -596,4 +720,12 @@ export function nodeIcon(icon: string): string {
   return iconUrl(`icon-${icon}`, 3);
 }
 /** Zombie head-and-shoulders crop for chips and horde cards. */
-export const zombieIcon = (s: StrainId) => iconUrl(`z-${s}-0`, 2, [2, 2, 22, 18]);
+export function zombieIcon(s: StrainId): string {
+  // crop to the zombie's own outline (types differ a lot in height), keeping the top ~19 rows like a portrait
+  const src = buildArt().canvases[`z-${s}-0`];
+  const d = src.getContext('2d')!.getImageData(0, 0, src.width, src.height).data;
+  let x0 = src.width, y0 = src.height, x1 = 0, y1 = 0;
+  for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) if (d[(y * src.width + x) * 4 + 3] > 0) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const h = Math.min(19, y1 - y0 + 1);
+  return iconUrl(`z-${s}-0`, 2, [x0, y0, x1 - x0 + 1, h]);
+}

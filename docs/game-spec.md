@@ -1,6 +1,6 @@
 # Zombie Idle: Game Spec (v0.8)
 
-An idle zombie shooter with smooth HD cartoon art (drawn in code as vector shapes). Zombies walk at your shredder forever; your squad shoots them for DNA in five colours. You decide how hard the stream is, grow your squad and passive tree, and take on optional hordes to
+An idle zombie shooter with 16-bit pixel art. Zombies walk at your shredder forever; your squad shoots them for DNA in five colours. You decide how hard the stream is, grow your squad and passive tree, and take on optional hordes to
 unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 
 ## 1. The loop
@@ -13,13 +13,23 @@ unlock new recruit types and tree regions. Balance math: `scaling-model.md`.
 6. Rare **item drops** (guns, attachments, charms) give big jumps in power.
 
 ## 2. Zombie types and their dials (Zombies tab)
-| Type | DNA colour | HP | DNA | Base spawn | Released with |
-|---|---|---|---|---|---|
-| Shambler | Green | ×1 | ×1 | 1.0/s | start |
-| Runner | Yellow | ×0.6, fast | | 0.6/s | 150 Green |
-| Brute | Red | ×2.5, slow | ×2.5 | 0.4/s | 4,000 Yellow |
-| Spitter | Teal | ×1.2 | ×1.5 | 0.5/s | 120,000 Red |
-| Bloater | Purple | ×4, slow | ×4 | 0.3/s | 5,000,000 Teal |
+There are **25 zombie types in five DNA colour families**. Every type in a family drops that family's colour.
+The first type of each family is released with the previous family's colour; the other four are released one after
+another with the family's own colour (costs are tied to tiers ~30 to ~400, so new types keep appearing for hours).
+
+| Colour | Family (release order) |
+|---|---|
+| Green | Shambler, Crawler, Office Zombie, Farmer, Prisoner |
+| Yellow (fast) | Runner, Jogger, Courier, Skater, Athlete |
+| Red (tanky) | Brute, Bouncer, Lumberjack, Butcher, Juggernaut |
+| Teal | Spitter, Lab Tech, Sewer Worker, Hazmat Diver, Plague Doctor |
+| Purple (very tanky) | Bloater, Chef, Sumo, Mutant, Abomination |
+
+Later types in a family have more HP and drop proportionally more DNA. Hordes use the five family leaders.
+
+**Special zombies** (about 3% of the stream, no dials, glowing ring in their colour): Golden (fast, ×15 DNA, big
+item chance), Armoured (×5 HP, ×5 DNA), Screamer (speeds up nearby zombies, ×4 DNA), Medic (heals nearby zombies,
+×4 DNA), Exploder (blows up nearby zombies when killed, ×3 DNA).
 
 Every released type has **its own two dials**, paid in its own colour:
 | Dial | Range | Effect |
@@ -97,6 +107,8 @@ with the same economy and summarised: zombies, DNA of each colour, items found.
 
 ## 7. Screens and sound
 Soldiers stand at random spots along the wall, mixed together (up to 6 shown per unit type; the rest fire through them).
+Each hired unit type has a dashed **range line** on the road in its own colour, marked with its gun. A slim keep-up bar
+is pinned to the top of the Zombies and Squad menus.
 
 The zombie map fills the screen between the HUD (a counter for each DNA colour, keep-up status, sound, settings) and four big
 tabs at the bottom: **Zombies, Squad, Tree, Hordes**. Tapping a tab opens that menu **full-screen** (two-column layout

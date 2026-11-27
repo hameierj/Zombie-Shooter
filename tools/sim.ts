@@ -20,7 +20,7 @@ export const PROFILES = {
 
 export function simulate(profile, hours = HOURS, seed = SEED) {
   const rng = mulberry32(seed);
-  const strains = Object.fromEntries(M.STRAIN_IDS.map((s) => [s, { unlocked: s === 'shambler', tier: 1, maxTier: 1, spawn: 0 }]));
+  const strains = Object.fromEntries(M.ZOMBIE_IDS.map((s) => [s, { unlocked: s === 'shambler', tier: 1, maxTier: 1, spawn: 0 }]));
   const units = Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: c.id === 'pistol' ? 1 : 0, nodes: {}, gun: c.id === 'pistol' ? 1 : null, attach: null, charm: null }]));
   const s = { t: 0, dna: Object.fromEntries(M.STRAIN_IDS.map((x) => [x, -Infinity])), hordes: 0, nextUid: 2, guns: [{ uid: 1, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [], alloc: [], drops: 0 };
   const fx = () => treeFx(s.alloc);
@@ -54,11 +54,11 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
       const opts = [];
       for (const x of M.STRAINS) {
         const st = strains[x.id];
-        if (!st.unlocked) { if (x.unlock) opts.push({ col: x.unlock.from, ln: Math.log(x.unlock.cost), go: () => { st.unlocked = true; } }); continue; }
+        if (!st.unlocked) { if (x.unlock && strains[x.unlock.from].unlocked) opts.push({ col: M.familyOf(x.unlock.from), ln: Math.log(x.unlock.cost), go: () => { st.unlocked = true; } }); continue; }
         const up = { ...strains, [x.id]: { ...st, tier: st.tier + 1 } };
-        if (keep(up) >= 1.15) opts.push({ col: x.id, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); } });
+        if (keep(up) >= 1.15) opts.push({ col: x.family, ln: M.lnTierCost(x.id, st.tier), go: () => { st.tier++; st.maxTier = Math.max(st.maxTier, st.tier); } });
         const sp = { ...strains, [x.id]: { ...st, spawn: st.spawn + 1 } };
-        if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ col: x.id, ln: M.lnSpawnCost(x.id, st.spawn), go: () => { st.spawn++; } });
+        if (st.spawn < C.spawnMax && keep(sp) >= 1.15) opts.push({ col: x.family, ln: M.lnSpawnCost(x.id, st.spawn), go: () => { st.spawn++; } });
       }
       for (const u of Object.values(units)) {
         const c = M.classById(u.cls);
@@ -87,7 +87,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   let ci = 0;
   while (s.t < hours * 3600) {
     if (ci < CHECKS.length && s.t >= CHECKS[ci] * 3600) {
-      out.push({ h: CHECKS[ci], tiers: M.STRAIN_IDS.map((x) => strains[x].unlocked ? strains[x].tier : '-').join('/'), hordes: s.hordes, nodes: s.alloc.length, drops: s.drops,
+      out.push({ h: CHECKS[ci], tiers: M.STRAIN_IDS.map((x) => strains[x].unlocked ? strains[x].tier : '-').join('/') + ` (${M.activeStrains(strains).length} types)`, hordes: s.hordes, nodes: s.alloc.length, drops: s.drops,
         squad: owned().map((u) => `${u.cls[0]}${u.count}:${M.nlv(u, 'dmg')}${M.abilityStage(u) ? '*' + M.abilityStage(u) : ''}`).join(' '), keep: keep() });
       ci++;
     }
@@ -95,7 +95,8 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
     const k = Math.min(1, M.keepUp(sq, f, strains));
     const rate = M.lnDnaPerSec(sq, f, strains);
     let kills = 0;
-    for (const x of M.STRAIN_IDS) if (strains[x].unlocked) { s.dna[x] = M.logAdd(s.dna[x], rate[x] + Math.log(DT)); kills += M.spawnRate(x, strains[x].spawn) * k * DT; }
+    for (const c of M.COLOURS) s.dna[c] = M.logAdd(s.dna[c], rate[c] + Math.log(DT));
+    for (const x of M.activeStrains(strains)) kills += M.spawnRate(x, strains[x].spawn) * k * DT;
     if (rng() < kills * M.dropChance(strains, f)) drop();
     if (profile.hordes && M.hordeOdds(sq, f, s.hordes + 1) >= 1.1) {
       s.hordes++; s.t += 60;
@@ -111,6 +112,6 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   for (const p of Object.values(PROFILES)) {
     console.log(`\n=== ${p.label} ===`);
-    for (const r of simulate(p)) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(22)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);
+    for (const r of simulate(p)) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(34)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);
   }
 }

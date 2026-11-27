@@ -1,7 +1,7 @@
 // Game state and every action that changes it. The Phaser scene and the DOM UI both talk to the single
 // `game` instance exported here; it never touches rendering.
 import * as M from './model.ts';
-import type { Attachment, Charm, ClassId, DnaMap, Gear, Gun, Recruit, StrainId, Strains, Unit, UnitNodeId, UnitV5 } from './model.ts';
+import type { Attachment, Charm, ClassId, DnaMap, Gear, Gun, Recruit, StrainId, Strains, Unit, UnitNodeId, UnitV5, ZombieId } from './model.ts';
 import { REGIONS, TREE, treeFx, treeNode, type Fx } from './tree.ts';
 
 const C = M.CONFIG;
@@ -35,7 +35,7 @@ export interface OfflineReport { seconds: number; kills: number; sold: number; /
 type Listener = (evt: string, data?: unknown) => void;
 
 const emptyDna = (): DnaMap => Object.fromEntries(M.STRAIN_IDS.map((s) => [s, null])) as unknown as DnaMap;
-const emptyStrains = (): Strains => Object.fromEntries(M.STRAIN_IDS.map((s) => [s, { unlocked: s === 'shambler', tier: 1, maxTier: 1, spawn: 0 }])) as unknown as Strains;
+const emptyStrains = (): Strains => Object.fromEntries(M.ZOMBIE_IDS.map((s) => [s, { unlocked: s === 'shambler', tier: 1, maxTier: 1, spawn: 0 }])) as unknown as Strains;
 const emptyUnits = (): Record<ClassId, Unit> =>
   Object.fromEntries(M.CLASSES.map((c) => [c.id, { cls: c.id, count: 0, nodes: {}, gun: null, attach: null, charm: null }])) as unknown as Record<ClassId, Unit>;
 function freshSave(): SaveData {
@@ -114,7 +114,7 @@ export class Game {
   canAfford(c: StrainId, ln: number) { return ln <= this.dna(c) + 1e-9; }
   private pay(c: StrainId, ln: number) { if (!this.canAfford(c, ln)) return false; this.setDna(c, M.logSub(this.dna(c), ln)); return true; }
   /** DNA colours you can earn (released zombie types). */
-  get colours(): StrainId[] { return M.activeStrains(this.s.strains); }
+  get colours(): StrainId[] { const act = new Set(M.activeStrains(this.s.strains).map(M.familyOf)); return M.COLOURS.filter((c) => act.has(c)); }
 
   // ---------- squad ----------
   gun(uid: number | null | undefined) { return uid == null ? undefined : this.s.guns.find((g) => g.uid === uid); }
@@ -140,34 +140,34 @@ export class Game {
   // ---------- zombie dials ----------
   keepUp(st: Strains = this.s.strains) { return M.keepUp(this.squad(), this.fx, st); }
   /** Keep-up ratio if one zombie type's tier or spawn level changed by +1. */
-  keepUpIf(s: StrainId, what: 'tier' | 'spawn') {
+  keepUpIf(s: ZombieId, what: 'tier' | 'spawn') {
     const x = this.s.strains[s];
     return this.keepUp({ ...this.s.strains, [s]: { ...x, [what]: x[what] + 1 } });
   }
   lnDnaPerSec() { return M.lnDnaPerSec(this.squad(), this.fx, this.s.strains); }
   get totalSpawnRate() { return M.totalSpawnRate(this.s.strains); }
-  tierCost(s: StrainId) { return M.lnTierCost(s, this.s.strains[s].maxTier); }
-  raiseTier(s: StrainId) {
+  tierCost(s: ZombieId) { return M.lnTierCost(s, this.s.strains[s].maxTier); }
+  raiseTier(s: ZombieId) {
     const x = this.s.strains[s];
     if (x.tier < x.maxTier) x.tier++;
-    else if (this.pay(s, this.tierCost(s))) { x.maxTier++; x.tier++; }
+    else if (this.pay(M.familyOf(s), this.tierCost(s))) { x.maxTier++; x.tier++; }
     else return;
     this.emit('change');
   }
-  lowerTier(s: StrainId) { const x = this.s.strains[s]; if (x.tier > 1) { x.tier--; this.emit('change'); } }
-  spawnCost(s: StrainId) { return M.lnSpawnCost(s, this.s.strains[s].spawn); }
-  buySpawn(s: StrainId) {
+  lowerTier(s: ZombieId) { const x = this.s.strains[s]; if (x.tier > 1) { x.tier--; this.emit('change'); } }
+  spawnCost(s: ZombieId) { return M.lnSpawnCost(s, this.s.strains[s].spawn); }
+  buySpawn(s: ZombieId) {
     const x = this.s.strains[s];
-    if (x.spawn < C.spawnMax && this.pay(s, this.spawnCost(s))) { x.spawn++; this.emit('change'); }
+    if (x.spawn < C.spawnMax && this.pay(M.familyOf(s), this.spawnCost(s))) { x.spawn++; this.emit('change'); }
   }
-  canRelease(s: StrainId) {
+  canRelease(s: ZombieId) {
     const u = M.strainById(s).unlock;
-    return !!u && !this.s.strains[s].unlocked && this.s.strains[u.from].unlocked && this.canAfford(u.from, Math.log(u.cost));
+    return !!u && !this.s.strains[s].unlocked && this.s.strains[u.from].unlocked && this.canAfford(M.familyOf(u.from), Math.log(u.cost));
   }
-  release(s: StrainId) {
+  release(s: ZombieId) {
     const u = M.strainById(s).unlock;
     if (!u || !this.canRelease(s)) return;
-    this.pay(u.from, Math.log(u.cost));
+    this.pay(M.familyOf(u.from), Math.log(u.cost));
     this.s.strains[s].unlocked = true;
     this.emit('release', s);
     this.emit('change');
@@ -375,11 +375,13 @@ export class Game {
   /** A zombie reached the shredder: the combo halves. */
   comboBreak() { this.combo = Math.floor(this.combo / 2); }
 
-  zombieKilled(strain: StrainId, tier: number, opts: { silent?: boolean } = {}): Loot | null {
+  /** A zombie was shredded. `mult` scales its DNA (special zombies), `lootMult` its item chance. */
+  zombieKilled(strain: ZombieId, tier: number, opts: { silent?: boolean; mult?: number; lootMult?: number } = {}): Loot | null {
     if (!opts.silent) { this.combo++; this.comboIdle = 0; this.comboBest = Math.max(this.comboBest, this.combo); }
-    this.setDna(strain, M.logAdd(this.dna(strain), M.lnDnaPerKill(strain, tier, this.fx) + Math.log(opts.silent ? 1 : this.comboMult)));
+    const col = M.familyOf(strain);
+    this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + Math.log((opts.silent ? 1 : this.comboMult) * (opts.mult ?? 1))));
     this.s.kills++;
-    if (Math.random() >= M.dropChance(this.s.strains, this.fx)) return null;
+    if (Math.random() >= Math.min(0.5, M.dropChance(this.s.strains, this.fx) * (opts.lootMult ?? 1))) return null;
     const loot = this.rollLoot();
     if (!opts.silent) this.emit('loot', loot);
     return loot;
@@ -435,10 +437,8 @@ export class Game {
       const rates = this.lnDnaPerSec();
       const k = Math.min(1, this.keepUp());
       let kills = 0;
-      for (const s of this.colours) {
-        this.setDna(s, M.logAdd(this.dna(s), rates[s] + Math.log(DT)));
-        kills += M.spawnRate(s, this.s.strains[s].spawn) * k * DT;
-      }
+      for (const c of this.colours) this.setDna(c, M.logAdd(this.dna(c), rates[c] + Math.log(DT)));
+      for (const z of M.activeStrains(this.s.strains)) kills += M.spawnRate(z, this.s.strains[z].spawn) * k * DT;
       this.s.kills += Math.round(kills);
       if (Math.random() < kills * M.dropChance(this.s.strains, this.fx)) this.rollLoot();
     }
@@ -475,7 +475,7 @@ export class Game {
    * Raising them back up to the old best tier stays free. */
   private settleTiers() {
     for (let guard = 0; guard < 2000 && this.keepUp() < 1.2; guard++) {
-      const top = M.STRAIN_IDS.filter((c) => this.s.strains[c].unlocked && this.s.strains[c].tier > 1)
+      const top = M.ZOMBIE_IDS.filter((c) => this.s.strains[c].unlocked && this.s.strains[c].tier > 1)
         .sort((a, b) => this.s.strains[b].tier - this.s.strains[a].tier)[0];
       if (!top) break;
       this.s.strains[top].tier--;

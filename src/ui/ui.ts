@@ -207,37 +207,55 @@ function keepCardHtml(k: number) {
 function zombiesHtml() {
   const k = game.keepUp();
   const rates = game.lnDnaPerSec();
+  const f = Math.min(1, k);
   const word = (k: number) => (k >= 1.1 ? '<i class="good">keeps up</i>' : k >= 0.9 ? '<i class="warn">barely</i>' : '<i class="bad">overrun</i>');
-  const cards = M.STRAINS.map((st) => {
-    const x = game.s.strains[st.id];
+  const traits = (st: M.StrainDef) => `${st.hp}× HP · ${st.dnaMult}× DNA${st.speed > 1.2 ? ' · fast' : st.speed < 0.8 ? ' · slow' : ''}`;
+  const row = (st: M.StrainDef) => {
+    const x = game.s.strains[st.id], col = st.family;
     if (!x.unlocked) {
       const u = st.unlock!;
-      const fromOpen = game.s.strains[u.from].unlocked;
+      const fromOpen = game.s.strains[u.from].unlocked, pc = M.familyOf(u.from);
       return `<div class="srow locked" style="--dna:${st.color}">
         <img class="px face" src="${zombieIcon(st.id)}" alt="">
-        <div class="s-info"><b>${st.plural}</b><span class="sub">${st.dna} DNA · ${st.hp}× HP · ${st.dnaMult}× DNA${st.speed > 1.2 ? ' · fast' : st.speed < 0.8 ? ' · slow' : ''}</span></div>
-        <div class="s-btns">${fromOpen ? `<button class="btn sbtn" data-action="release" data-strain="${st.id}" ${costAttr(u.from, Math.log(u.cost))}><span>Release</span>${cost(u.from, Math.log(u.cost))}</button>`
+        <div class="s-info"><b>${st.plural}</b><span class="sub">${traits(st)}</span></div>
+        <div class="s-btns">${fromOpen ? `<button class="btn sbtn" data-action="release" data-strain="${st.id}" ${costAttr(pc, Math.log(u.cost))}><span>Release</span>${cost(pc, Math.log(u.cost))}</button>`
           : `<span class="sub small lockmsg">🔒 Release ${M.strainById(u.from).plural} first</span>`}</div>
       </div>`;
     }
     const kT = game.keepUpIf(st.id, 'tier'), kS = game.keepUpIf(st.id, 'spawn');
     const free = x.tier < x.maxTier;
+    const lnRate = Math.log(M.spawnRate(st.id, x.spawn) * f) + M.lnDnaPerKill(st.id, x.tier, game.fx);
     return `<div class="srow" style="--dna:${st.color}">
       <img class="px face" src="${zombieIcon(st.id)}" alt="">
       <div class="s-info"><b>${st.plural}</b>
-        <span class="sub">${vial(st.id)} +${fmtLn(rates[st.id])}/s · ${fmtLn(M.lnZombieHp(st.id, x.tier, x.spawn))} HP</span>
+        <span class="sub">${vial(col)} +${fmtLn(lnRate)}/s · ${fmtLn(M.lnZombieHp(st.id, x.tier, x.spawn))} HP</span>
         <span class="sub small">Tier ${fmtInt(x.tier)}${free ? `/${fmtInt(x.maxTier)}` : ''} · Spawn ${x.spawn}/${C.spawnMax} (${fmtNum(M.spawnRate(st.id, x.spawn))}/s)</span></div>
       <div class="s-btns">
-        <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(st.id, game.tierCost(st.id))} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : cost(st.id, game.tierCost(st.id))}${word(kT)}</button>
-        ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(st.id, game.spawnCost(st.id))} title="+12% ${st.plural}, each level +3% HP"><span>Spawn +</span>${cost(st.id, game.spawnCost(st.id))}${word(kS)}</button>`
+        <button class="btn sbtn" data-action="tier-up" data-strain="${st.id}" ${free ? '' : costAttr(col, game.tierCost(st.id))} title="Next tier: ×${C.R} DNA and ×${C.R} HP"><span>DNA +</span>${free ? '<span class="cost">free</span>' : cost(col, game.tierCost(st.id))}${word(kT)}</button>
+        ${x.spawn < C.spawnMax ? `<button class="btn sbtn" data-action="spawn" data-strain="${st.id}" ${costAttr(col, game.spawnCost(st.id))} title="+12% ${st.plural}, each level +3% HP"><span>Spawn +</span>${cost(col, game.spawnCost(st.id))}${word(kS)}</button>`
           : '<button class="btn sbtn ghost" disabled><span>Spawn</span><span class="cost">max</span></button>'}
       </div>
+    </div>`;
+  };
+  const families = M.COLOURS.map((c) => {
+    const members = M.familyMembers(c);
+    const open = members.filter((m) => game.s.strains[m.id].unlocked);
+    const next = members.find((m) => !game.s.strains[m.id].unlocked);
+    const hidden = members.length - open.length - (next ? 1 : 0);
+    const head = M.strainById(c);
+    return `<div class="family" style="--dna:${head.color}">
+      <div class="fam-head">${vial(c)}<b>${head.dna} DNA</b><span class="sub small">${open.length}/${members.length} types${open.length ? ` · +${fmtLn(rates[c])}/s` : ''}</span></div>
+      <div class="srows">${open.map(row).join('')}${next ? row(next) : ''}</div>
+      ${hidden > 0 ? `<p class="sub small more">+${hidden} more ${head.dna.toLowerCase()} zombie type${hidden > 1 ? 's' : ''} to discover</p>` : ''}
     </div>`;
   }).join('');
   return `
   ${keepCardHtml(k)}
-  <p class="sub">Each zombie type drops its own colour of DNA. Raise a type's <b>DNA</b> or <b>Spawn</b> to earn more of that colour; it also makes those zombies tougher.</p>
-  <div class="srows">${cards}</div>
+  <p class="sub">Zombies come in five DNA colours, five types each. Raise a type's <b>DNA</b> or <b>Spawn</b> to earn more of its colour; it also makes those zombies tougher. Release new types with DNA of their colour.</p>
+  ${families}
+  <h3>Special zombies</h3>
+  <p class="sub small">About ${Math.round(M.SPECIAL_CHANCE * 100)}% of zombies in the stream are special. They glow in their colour.</p>
+  <div class="specials">${M.SPECIALS.map((sp) => `<div class="sp"><i style="--c:#${sp.tint.toString(16).padStart(6, '0')}"></i><b>${sp.name}</b><span class="sub small">${sp.desc}</span></div>`).join('')}</div>
   <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. The word under each price is how your squad would cope after buying.</p>`;
 }
 

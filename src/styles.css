@@ -573,3 +573,15 @@ textarea.code { background: #0a0d12; border: 1px solid var(--line); border-radiu
 .keep.slim .meter { margin: 0; height: 8px; }
 .keep.slim .keep-x { font: 400 12px var(--display); }
 .keep.ok.slim b, .keep.ok.slim .keep-x { color: var(--good); } .keep.warn.slim b, .keep.warn.slim .keep-x { color: var(--warn); } .keep.bad.slim b, .keep.bad.slim .keep-x { color: var(--bad); }
+.family { margin-bottom: 14px; }
+.fam-head { display: flex; align-items: center; gap: 6px; margin: 4px 2px 6px; }
+.fam-head b { font: 400 13px var(--display); color: var(--dna); }
+.fam-head .sub { margin: 0 0 0 auto; }
+.family .srows { margin-bottom: 4px; }
+.family .more { margin: 2px 4px 0; }
+.specials { display: grid; gap: 6px; margin-bottom: 10px; }
+@media (min-width: 720px) { .specials { grid-template-columns: 1fr 1fr; } }
+.specials .sp { display: grid; grid-template-columns: 14px auto 1fr; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
+.specials .sp i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.specials .sp b { font: 400 12px var(--display); }
+.specials .sp .sub { margin: 0; }
