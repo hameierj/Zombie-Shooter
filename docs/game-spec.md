@@ -160,3 +160,9 @@ Railgunners 80%, Drone Operators 90%, Snipers 100%. Range bonuses are minor: +2%
 in total; only Snipers can cover the whole road (others cap
 at 95%). Zombies take about 16 s to walk the road, and the view is zoomed out (~400 art units across the short side).
 See `unit-ranges.png`.
+
+## 11. Save slots
+Settings → **Save slots**: three slots plus an automatic **Backup**. *Save here* copies the current game into a slot;
+*Load* swaps a slot in (the current game is copied to Backup first, so a swap can always be undone); *Code* shows a
+slot's save code; *Clear* empties it. *Import code* checks a pasted code, then loads it or files it into a slot.
+`docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).

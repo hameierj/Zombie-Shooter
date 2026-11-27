@@ -514,8 +514,16 @@ export class Game {
   resumeAfter(seconds: number) { return this.simulateOffline(seconds); }
   hardReset() { this.s = freshSave(); this.save(); this.emit('reset'); this.emit('change'); }
   exportSave() { return btoa(unescape(encodeURIComponent(JSON.stringify(this.s)))); }
+  /** Read a save code without loading it (throws on an invalid code). */
+  static decode(code: string): SaveData { return migrate(JSON.parse(decodeURIComponent(escape(atob(code.trim()))))); }
+  /** A short summary of a save, for the save-slot list. */
+  static summary(d: SaveData) {
+    return { best: M.bestTier(d.strains), hordes: d.hordes, kills: d.kills, types: M.activeStrains(d.strains).length,
+      soldiers: Object.values(d.units).reduce((a, u) => a + u.count, 0) };
+  }
   importSave(code: string) {
-    this.s = migrate(JSON.parse(decodeURIComponent(escape(atob(code.trim())))));
+    this.s = Game.decode(code);
+    this.s.lastSeen = Date.now();   // a loaded save starts fresh: no offline time from when it was made
     this.save();
     this.emit('reset');
     this.emit('change');

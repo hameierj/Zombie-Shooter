@@ -3,7 +3,7 @@
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
-import { game, type AutoSell, type Loot, type OfflineReport } from '../core/state.ts';
+import { Game, game, type AutoSell, type Loot, type OfflineReport } from '../core/state.ts';
 import { REGIONS, TREE, treeNode } from '../core/tree.ts';
 import { charmIcon, classIcon, crateIcon, gunIcon, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import { fmtInt, fmtLn, fmtMult, fmtNum, gearDesc, gearName, gunName, RARITY_COLOR } from '../core/format.ts';
@@ -139,6 +139,13 @@ function act(d: ActionData): boolean {
     case 'settings': openSettings(); break;
     case 'modal-close': closeModal(); break;
     case 'export': exportSave(); break;
+    case 'saves': openSlots(); break;
+    case 'slot-save': slotWrite(arg, game.exportSave()); toast(`<b>Saved to ${slotName(arg)}</b><span>Your current progress</span>`, '#5ee38c'); openSlots(); break;
+    case 'slot-load': loadCode(slotRead(arg)!.code, slotName(arg)); break;
+    case 'slot-clear': try { localStorage.removeItem(slotKey(arg)); } catch { /* ignore */ } openSlots(); break;
+    case 'slot-export': showCode(slotRead(arg)!.code, slotName(arg)); break;
+    case 'import-load': { const c = pendingImport; if (c) loadCode(c, 'the imported save'); break; }
+    case 'import-slot': { const c = pendingImport; if (c) { slotWrite(arg, c); toast(`<b>Imported into ${slotName(arg)}</b><span>Load it from Save slots whenever you like</span>`, '#5ee38c'); openSlots(); } break; }
     case 'import': importSave(); break;
     case 'reset': openModal(`<h3>Erase everything?</h3><p>This deletes your save on this device.</p><div class="row"><button class="btn ghost" data-action="modal-close">Cancel</button><button class="btn danger" data-action="reset-yes">Erase</button></div>`); break;
     case 'reset-yes': closeModal(); game.hardReset(); break;
@@ -638,19 +645,70 @@ function openSettings() {
       <button class="btn ${snd.music ? '' : 'ghost'} grow" data-action="sound-music">Music: ${snd.music ? 'On' : 'Off'}</button></div>
     <div class="row"><button class="btn ${showKeep() ? '' : 'ghost'} grow" data-action="keep-pref">Keep-up meter: ${showKeep() ? 'On' : 'Off'}</button></div>
     <p class="sub small">Shows whether your squad keeps up with the zombies, and a hint under every zombie upgrade. Off by default: watch the shredder instead (it flashes red when zombies reach it).</p>
-    <p class="sub">The game saves on this device automatically. Export a code to move your save between devices.</p>
-    <div class="row"><button class="btn" data-action="export">Export save</button><button class="btn" data-action="import">Import save</button></div>
+    <p class="sub">The game saves on this device automatically. Use save slots to keep copies, swap between saves, or move a save to another device with a code.</p>
+    <div class="row"><button class="btn grow" data-action="saves">Save slots</button><button class="btn ghost" data-action="export">Export code</button><button class="btn ghost" data-action="import">Import code</button></div>
     <div class="row"><button class="btn danger" data-action="reset">Erase progress</button><button class="btn ghost" data-action="modal-close">Close</button></div>
     <p class="sub small">${fmtInt(game.s.kills)} zombies shredded · ${game.s.hordes} hordes beaten</p>`);
 }
-function exportSave() {
-  const code = game.exportSave();
-  openModal(`<h3>Your save code</h3><textarea readonly class="code">${code}</textarea><div class="row"><button class="btn" id="copy-save">Copy</button><button class="btn ghost" data-action="modal-close">Close</button></div>`);
+// ---------- save slots ----------
+const SLOTS = ['1', '2', '3'];
+const slotKey = (id: string) => `zombie-idle-slot-${id}`;
+const slotName = (id: string) => (id === 'backup' ? 'Backup' : `Slot ${id}`);
+interface Slot { code: string; savedAt: number }
+function slotRead(id: string): Slot | null { try { const r = localStorage.getItem(slotKey(id)); return r ? JSON.parse(r) as Slot : null; } catch { return null; } }
+function slotWrite(id: string, code: string) { try { localStorage.setItem(slotKey(id), JSON.stringify({ code, savedAt: Date.now() })); } catch { toast('<b>Could not save</b><span>Storage is full or blocked</span>', '#ff6767'); } }
+let pendingImport: string | null = null;
+/** Replace the current game with a save code; the current progress goes to the Backup slot first. */
+function loadCode(code: string, from: string) {
+  try {
+    Game.decode(code);
+    slotWrite('backup', game.exportSave());
+    game.importSave(code);
+    closeModal();
+    toast(`<b>Loaded ${esc(from)}</b><span>Your previous progress is in the Backup slot</span>`, '#5ee38c');
+  } catch { toast('<b>That save could not be loaded</b><span>The code is invalid</span>', '#ff6767'); }
+}
+function slotHtml(id: string) {
+  const sl = slotRead(id);
+  let info = '<span class="sub small">Empty</span>';
+  if (sl) {
+    try {
+      const m = Game.summary(Game.decode(sl.code));
+      info = `<span class="sub small">Best tier ${fmtInt(m.best)} · ${m.hordes} hordes · ${m.soldiers} soldiers · ${m.types} zombie types · ${fmtInt(m.kills)} kills</span><span class="sub small">Saved ${new Date(sl.savedAt).toLocaleString()}</span>`;
+    } catch { info = '<span class="sub small bad">Damaged save</span>'; }
+  }
+  return `<div class="slotrow"><div><b>${slotName(id)}</b>${info}</div><div class="row">
+    ${id === 'backup' ? '' : `<button class="btn sm" data-action="slot-save" data-arg="${id}">Save here</button>`}
+    ${sl ? `<button class="btn sm" data-action="slot-load" data-arg="${id}">Load</button><button class="btn ghost sm" data-action="slot-export" data-arg="${id}">Code</button><button class="btn ghost sm" data-action="slot-clear" data-arg="${id}">Clear</button>` : ''}
+  </div></div>`;
+}
+function openSlots() {
+  const m = Game.summary(game.s);
+  openModal(`<h3>Save slots</h3>
+    <p class="sub">Current game: best tier ${fmtInt(m.best)} · ${m.hordes} hordes · ${m.soldiers} soldiers. <b>Save here</b> copies it into a slot; <b>Load</b> swaps a slot in (your current game goes to Backup first).</p>
+    <div class="slots">${[...SLOTS, 'backup'].map(slotHtml).join('')}</div>
+    <div class="row"><button class="btn ghost" data-action="import">Import code</button><button class="btn ghost" data-action="modal-close">Close</button></div>`);
+}
+function showCode(code: string, title: string) {
+  openModal(`<h3>${esc(title)} code</h3><textarea readonly class="code">${code}</textarea><div class="row"><button class="btn" id="copy-save">Copy</button><button class="btn ghost" data-action="saves">Back</button></div>`);
   $('#copy-save').onclick = () => { navigator.clipboard?.writeText(code).then(() => { $('#copy-save').textContent = 'Copied'; }).catch(() => $<HTMLTextAreaElement>('textarea.code').select()); };
 }
+function exportSave() { showCode(game.exportSave(), 'Current game'); }
 function importSave() {
-  openModal(`<h3>Import save</h3><textarea class="code" id="import-code" placeholder="Paste your save code"></textarea><div class="row"><button class="btn ghost" data-action="modal-close">Cancel</button><button class="btn" id="do-import">Import</button></div>`);
-  $('#do-import').onclick = () => { try { game.importSave($<HTMLTextAreaElement>('#import-code').value); closeModal(); } catch { $('#do-import').textContent = 'Invalid code'; } };
+  pendingImport = null;
+  openModal(`<h3>Import save code</h3><textarea class="code" id="import-code" placeholder="Paste a save code"></textarea>
+    <div id="import-opts"><div class="row"><button class="btn ghost" data-action="saves">Back</button><button class="btn" id="do-import">Check code</button></div></div>`);
+  $('#do-import').onclick = () => {
+    const code = $<HTMLTextAreaElement>('#import-code').value.trim();
+    try {
+      const m = Game.summary(Game.decode(code));
+      pendingImport = code;
+      $('#import-opts').innerHTML = `<p class="sub">Valid save: best tier ${fmtInt(m.best)} · ${m.hordes} hordes · ${m.soldiers} soldiers · ${fmtInt(m.kills)} kills.</p>
+        <div class="row"><button class="btn grow" data-action="import-load">Load now</button></div>
+        <div class="row">${SLOTS.map((id) => `<button class="btn ghost grow" data-action="import-slot" data-arg="${id}">Put in ${slotName(id)}</button>`).join('')}</div>
+        <p class="sub small">Loading moves your current game to the Backup slot first.</p>`;
+    } catch { $('#do-import').textContent = 'Invalid code'; }
+  };
 }
 export function showOfflineReport(r: OfflineReport) {
   const h = Math.floor(r.seconds / 3600), m = Math.floor((r.seconds % 3600) / 60);
