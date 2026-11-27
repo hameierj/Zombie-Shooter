@@ -280,10 +280,11 @@ function prestige() {
         <b>permanent perks that stack every time</b>.</p>
         <div class="steps">
           <div class="step"><div><b>Earn points.</b> Every horde you clear in a run is worth <b>1 point</b> (Bounty Hunter adds more).</div></div>
-          <div class="step"><div><b>Prestige.</b> Hordes tab → <b>Prestige now</b>. Zombie tiers and types, units, gear, DNA, the passive tree and hordes reset.
-            You keep your perks, points and play time, and your old run is copied to the <b>Backup</b> save slot first.</div></div>
-          <div class="step"><div><b>Spend points</b> on perks (Hordes tab → <b>Perks</b>) any time. They apply to this run and every run after.</div></div>
-          <div class="step"><div><b>Go again.</b> Every run is faster, so you clear more hordes and earn more points.</div></div>
+          <div class="step"><div><b>Choose your perks.</b> Hordes tab → <b>Prestige now</b> opens the perk picker. You can spend your saved points
+            <b>plus this run's points</b>. Tap a perk to add a level; <b>Undo picks</b> starts over and <b>Cancel</b> changes nothing.</div></div>
+          <div class="step"><div><b>Reset.</b> <b>Reset &amp; start run N</b> applies your picks, then zombie tiers and types, units, gear, DNA, the passive tree
+            and hordes reset. Perks, leftover points and play time are kept; your old run is copied to the <b>Backup</b> save slot first.</div></div>
+          <div class="step"><div><b>Go again.</b> Spend leftover points any time from Hordes → <b>Perks</b>. Every run is faster, so you clear more hordes and earn more points.</div></div>
         </div>
         <div class="rules" style="margin-top:10px">
           <div class="card"><div class="big">1h 50</div><span class="small">to Horde 7 on a first run</span></div>
