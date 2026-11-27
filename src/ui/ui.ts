@@ -1,6 +1,7 @@
 // DOM interface: HUD (one counter per DNA colour), four tabs (Zombies, Squad, Tree, Hordes), a full-screen screen
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
+import { showRanges, setShowRanges } from '../core/prefs';
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
 import { Game, game, type AutoSell, type Loot } from '../core/state.ts';
@@ -257,6 +258,7 @@ function act(d: ActionData): boolean {
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
     case 'sound-sfx': sfx.setSfx(!sfx.soundPrefs().sfx); openSettings(); break;
     case 'sound-music': sfx.setMusic(!sfx.soundPrefs().music); openSettings(); break;
+    case 'ranges-pref': setShowRanges(!showRanges()); openSettings(); break;
     case 'keep-pref': setShowKeep(!showKeep()); openSettings(); render(); break;
   }
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
@@ -613,8 +615,9 @@ function openSettings() {
   openModal(`<h3>Settings</h3>
     <div class="row"><button class="btn ${snd.sfx ? '' : 'ghost'} grow" data-action="sound-sfx">Sound effects: ${snd.sfx ? 'On' : 'Off'}</button>
       <button class="btn ${snd.music ? '' : 'ghost'} grow" data-action="sound-music">Music: ${snd.music ? 'On' : 'Off'}</button></div>
-    <div class="row"><button class="btn ${showKeep() ? '' : 'ghost'} grow" data-action="keep-pref">Difficulty meters: ${showKeep() ? 'On' : 'Off'}</button></div>
-    <p class="sub small">Shows whether your squad keeps up with the zombies, a hint under every zombie upgrade, and each horde's difficulty. Off by default: watch the shredder instead (it flashes red when zombies reach it).</p>
+    <div class="row"><button class="btn ${showKeep() ? '' : 'ghost'} grow" data-action="keep-pref">Difficulty meters: ${showKeep() ? 'On' : 'Off'}</button>
+      <button class="btn ${showRanges() ? '' : 'ghost'} grow" data-action="ranges-pref">Range lines: ${showRanges() ? 'On' : 'Off'}</button></div>
+    <p class="sub small">Shows whether your squad keeps up with the zombies, a hint under every zombie upgrade, and each horde's difficulty. Off by default: watch the shredder instead (it flashes red when zombies reach it). Range lines mark how far each unit type can shoot.</p>
     <p class="sub">The game saves on this device automatically. Use save slots to keep copies, swap between saves, or move a save to another device with a code.</p>
     <div class="row"><button class="btn grow" data-action="saves">Save slots</button><button class="btn ghost" data-action="export">Export code</button><button class="btn ghost" data-action="import">Import code</button></div>
     <div class="row"><button class="btn danger" data-action="reset">Erase progress</button><button class="btn ghost" data-action="modal-close">Close</button></div>

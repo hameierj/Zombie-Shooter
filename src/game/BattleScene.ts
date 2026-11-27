@@ -5,6 +5,7 @@
 // Zombies walk in endlessly at the current DNA Count tier and Spawn Rate. A horde is an optional challenge: the
 // stream pauses, 60 zombies of the horde's tier rush in and a boss follows. Kill them all before the timer runs out;
 // if the boss reaches the shredder, or 10 horde zombies break through, the horde is lost.
+import { showRanges } from '../core/prefs';
 import Phaser from 'phaser';
 import * as M from '../core/model.ts';
 import type { ClassId, Gun, SpecialId, VarietyId, ZombieId } from '../core/model.ts';
@@ -620,6 +621,7 @@ export class BattleScene extends Phaser.Scene {
   /** One dashed line per hired unit type at the edge of its range, with that type's gun as a marker. */
   private rangeIcons = new Map<ClassId, Phaser.GameObjects.Image>();
   private drawRanges(g: Phaser.GameObjects.Graphics) {
+    if (!showRanges()) { for (const icon of this.rangeIcons.values()) icon.setVisible(false); return; }
     const px = this.px;
     const top = this.lay.roadTop * px, bot = this.lay.roadBot * px;
     const owned = game.owned.filter((u) => u.count > 0);

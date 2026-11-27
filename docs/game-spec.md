@@ -134,7 +134,7 @@ repeatable purchase (DNA +, Spawn +, Hire, Damage + and unit-tree upgrades); but
 total price. The choice is remembered on the device.
 
 Soldiers stand at random spots along the wall, mixed together (up to 6 shown per unit type; the rest fire through them).
-Each hired unit type has a dashed **range line** on the road in its own colour, marked with its gun. A slim keep-up bar
+With **Settings → Range lines** on (off by default), each hired unit type has a dashed **range line** on the road in its own colour, marked with its gun. A slim keep-up bar
 is pinned to the top of the Zombies and Squad menus.
 
 The zombie map fills the screen between the top bar (a counter for each DNA colour; plus the keep-up pill when
