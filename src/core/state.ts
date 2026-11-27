@@ -87,7 +87,7 @@ function migrate(data: { version: number }): SaveData {
   if (s.version !== 6) throw new Error(`save version ${s.version}`);
   const f = freshSave();
   return { ...f, ...s, dna: { ...emptyDna(), ...s.dna }, strains: { ...emptyStrains(), ...s.strains }, units: { ...emptyUnits(), ...s.units }, gear: s.gear ?? [],
-    autoSell: s.autoSell ?? 'best' };   // auto-sell is on by default (keep the best of each kind)
+    autoSell: 'best' };   // auto-sell always keeps the best of each kind and sells the rest
 }
 
 export interface NodeState {

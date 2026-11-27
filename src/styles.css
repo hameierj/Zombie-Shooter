@@ -705,3 +705,4 @@ textarea.code { background: #0a0d12; border: 1px solid var(--line); border-radiu
 .sh.empty { border-style: dashed; }
 .sh.locked { opacity: .4; border-style: dashed; cursor: default; }
 @media (min-width: 720px) { .ugrid .mu { padding: 8px 4px 7px; } }
+.sh { cursor: default; }

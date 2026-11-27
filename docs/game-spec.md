@@ -70,7 +70,7 @@ slowly. You never lose.
   unit costs ×1.8 more and adds a little less than the last (20 units ≈ 9× one).
 - **Everything for a unit is on its Squad card** (there is no separate unit page): a header (portrait, count, level,
   DPS), a 2 × 4 grid of equal buttons (**Hire, Damage, Speed, Range / Crit, Crit ×, Gear slots (Attachment → Charm),
-  Ability (I → II → III)**; tap = buy with the buy amount), and a **gear shelf** (Gun, Attachment, Charm; tap to change).
+  Ability (I → II → III)**; tap = buy with the buy amount), and a **gear shelf** (Gun, Attachment, Charm; display only: units always carry their best items).
   The Squad menu dot lights only for an affordable Ability stage or Gear slot. The tree behind the buttons:
   Damage (endless, ×1.05 per level) → Attack Speed (20 levels), Range (10), Ability I → Crit Chance (15),
   Crit Damage (20), Ability II → Attachment Slot, Charm Slot, Ability III. The top half is paid in the type's first
@@ -124,7 +124,7 @@ the shredder**, so pushing the dials past what the squad can handle costs you th
 ## 6. Automation and time away
 **Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are
 free actions: **gear is always auto-equipped** (every unit type carries its best gun, attachment and charm; it
-re-optimises on every drop, hire and new slot), **auto-sell defaults to Keep best**, and **War Drums** (starts the next horde when your squad
+re-optimises on every drop, hire and new slot), **auto-sell always keeps the best of each kind** (no item stash to manage), and **War Drums** (starts the next horde when your squad
 should win; can be switched off on the Hordes tab). **There are no offline earnings:** only active play counts. When
 the app is closed or in the background the game simply pauses and saves.
 

@@ -84,17 +84,17 @@ function damageBtn(c: ClassId) {
   return `<button class="mu ${p.n > 0 ? 'afford' : ''}" style="--dna:${M.strainById(ns.colour).color}" data-action="buy-node" data-cls="${c}" data-arg="dmg" ${costAttr(ns.colour, p.ln)} title="${esc(`${nodeEffect(u, 'dmg', ns.level)} → ${nodeEffect(u, 'dmg', ns.level + 1)}`)}">
     <img class="px ic" src="${nodeIcon('dmg')}" alt=""><span>Damage</span><span class="lv">Lv ${ns.level}</span><span class="pc">${p.n > 1 ? `×${p.n} ` : ''}${vial(ns.colour)}${fmtLn(p.ln)}</span></button>`;
 }
-/** The gear shelf: gun, attachment and charm; tap to change. */
+/** The gear shelf: what the unit carries (always its best items; display only). */
 function gearShelf(c: ClassId) {
   const u = game.unit(c);
   const shelf = (kind: 'gun' | 'attach' | 'charm', label: string) => {
     const open = kind === 'gun' || M.nlv(u, kind);
-    if (!open) return `<button class="sh locked" disabled><span class="ico">🔒</span><div><b>${label}</b><span>unlock with Gear</span></div></button>`;
+    if (!open) return `<div class="sh locked"><span class="ico">🔒</span><div><b>${label}</b><span>unlock with Gear</span></div></div>`;
     const it = kind === 'gun' ? game.gun(u.gun) : game.gearItem(u[kind]);
-    if (!it) return `<button class="sh empty" data-action="pick" data-cls="${c}" data-arg="${kind}"><span class="ico">+</span><div><b>${label}</b><span>empty</span></div></button>`;
+    if (!it) return `<div class="sh empty"><span class="ico">–</span><div><b>${label}</b><span>none yet</span></div></div>`;
     const icon = kind === 'gun' ? gunIcon(c) : (it as Gear).kind === 'attach' ? modIcon((it as M.Attachment).stat) : charmIcon((it as M.Charm).bane);
     const txt = kind === 'gun' ? `${gunName(it as Gun).split(' ')[0]} T${fmtInt((it as Gun).ilvl)}` : gearDesc(it as Gear);
-    return `<button class="sh" style="--rar:${RARITY_COLOR[it.rarity]}" data-action="pick" data-cls="${c}" data-arg="${kind}"><img class="px" src="${icon}" alt=""><div><b>${label}</b><span>${esc(txt)}</span></div></button>`;
+    return `<div class="sh" style="--rar:${RARITY_COLOR[it.rarity]}" title="${esc(kind === 'gun' ? gunName(it as Gun) : gearName(it as Gear))}"><img class="px" src="${icon}" alt=""><div><b>${label}</b><span>${esc(txt)}</span></div></div>`;
   };
   return `<div class="shelf">${shelf('gun', 'Gun')}${shelf('attach', 'Attachment')}${shelf('charm', 'Charm')}</div>`;
 }
@@ -235,13 +235,6 @@ function act(d: ActionData): boolean {
       break;
     }
     case 'hire': for (let i = 0, t = -1; i < amtN() && t !== game.unit(cls).count; i++) { t = game.unit(cls).count; game.hire(cls); } break;
-    case 'item': openItem(Number(arg)); break;
-    case 'pick': openPicker(cls, arg as 'gun' | 'attach' | 'charm'); break;
-    case 'equip-gun': closeModal(); game.equipGun(cls, Number(arg)); break;
-    case 'equip-gear': closeModal(); game.equipGear(cls, d.slot as 'attach' | 'charm', arg === 'none' ? null : Number(arg)); break;
-    case 'sell': closeModal(); { const v = game.sell(Number(arg)); if (v) toast(`<b>Sold</b><span>+${fmtLn(v.ln)} ${M.strainById(v.colour).dna} DNA</span>`, M.strainById(v.colour).color); } break;
-    case 'autosell': game.setAutoSell(arg === 'off' ? null : (arg as AutoSell)); break;
-    case 'sell-matching': { const n = game.sellMatching(); if (n) toast(`<b>Sold ${n} item${n > 1 ? 's' : ''}</b><span>DNA added</span>`, '#6fdc7a'); } break;
     case 'node': if (!view.dragged) { selectedNode = arg; render(); } break;
     case 'allocate': game.allocate(arg); break;
     case 'zoom': view.s = Math.max(0.35, Math.min(2.5, view.s * (arg === 'in' ? 1.25 : 0.8))); applyView(); break;
@@ -415,25 +408,11 @@ function squadHtml() {
       ${u.count ? `${upgradeRow(c.id)}${gearShelf(c.id)}` : `<div class="ugrid">${hireBtn(c.id)}<p class="sub small hint">Hire one to unlock upgrades and gear. Upgrades are paid in ${vial(c.primary)} and ${vial(c.secondary)}.</p></div>`}
     </div>`;
   }).join('');
-  const items = [...s.guns.map((g) => ({ uid: g.uid, icon: gunIcon(g.cls), rarity: g.rarity, label: `T${fmtInt(g.ilvl)}`, power: M.lnGunPower(g) })),
-    ...s.gear.map((g) => ({ uid: g.uid, icon: g.kind === 'attach' ? modIcon(g.stat) : charmIcon(g.bane), rarity: g.rarity, label: g.kind === 'attach' ? g.stat.toUpperCase() : 'CHARM', power: g.value * 10 }))]
-    .sort((a, b) => M.CONFIG.rarities.findIndex((r) => r.id === b.rarity) - M.CONFIG.rarities.findIndex((r) => r.id === a.rarity) || b.power - a.power);
-  return `${topBar()}<p class="sub">Hire, upgrade and equip each unit right on its card. Ability and Gear slots unlock stage by stage; tap a gear slot to change it. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
+  return `${topBar()}<p class="sub">Hire and upgrade each unit right on its card; Ability and Gear slots unlock stage by stage. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
   <div class="grid2">${cards}</div>
-  <h3>Items <small>${items.length}/60 · guns, attachments and charms (rare drops and horde rewards)</small></h3>
-  ${autoSellHtml()}
-  <div class="tiles">${items.map((it) => `<button class="tile" style="--rar:${RARITY_COLOR[it.rarity]}" data-action="item" data-arg="${it.uid}">
-    <img class="px" src="${it.icon}" alt=""><span class="ilvl">${it.label}</span>${game.isEquipped(it.uid) ? '<span class="tag">IN USE</span>' : s.newItems.includes(it.uid) ? '<span class="tag new">NEW</span>' : ''}</button>`).join('')}</div>`;
+  <p class="sub small">Every unit always carries its best gear, and extra drops are sold for DNA automatically.</p>`;
 }
 
-function autoSellHtml() {
-  const cur = game.s.autoSell;
-  const opts: [string, string][] = [['off', 'Off'], ['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare'], ['epic', 'Epic'], ['best', 'Keep best']];
-  const n = cur ? game.autoSellMatches().length : 0;
-  return `<div class="card autosell"><div class="as-head"><b>Auto-sell drops</b><span class="sub small">${cur === 'best' ? 'Keeps what your units have equipped plus the best gun for each unit type, the best attachment of each stat and the best charm for each zombie type. Everything else is sold' : cur ? `Selling ${cur} and lower drops; upgrades are always kept` : 'Sell drops of a rarity and lower, or keep only the best of each kind'}. Horde rewards are never auto-sold.</span></div>
-    <div class="seg">${opts.map(([id, label]) => `<button class="${(cur ?? 'off') === id ? 'on' : ''}" style="${id === 'off' ? '' : `--rar:${id === 'best' ? '#ffd34d' : RARITY_COLOR[id as M.RarityId]}`}" data-action="autosell" data-arg="${id}">${label}</button>`).join('')}</div>
-    ${n ? `<button class="btn wide sm" data-action="sell-matching">Sell ${n} matching item${n > 1 ? 's' : ''} in the stash now</button>` : ''}</div>`;
-}
 
 // ---------- a unit type's own screen ----------
 const UNODE_ICON: Record<UnitNodeId, string> = { dmg: 'dmg', spd: 'spd', range: 'range', crit: 'crit', critx: 'critdmg', attach: 'slot-mod', charm: 'slot-charm', ab1: '', ab2: '', ab3: '' };
@@ -449,48 +428,6 @@ function nodeEffect(u: Unit, id: UnitNodeId, lv: number): string {
     case 'charm': return lv ? 'Charm slot open' : 'Opens a charm slot';
     default: { const i = Number(id.slice(2)) - 1; return c.ability.stages[i]; }
   }
-}
-function openPicker(cls: ClassId, kind: 'gun' | 'attach' | 'charm') {
-  const u = game.unit(cls), c = M.classById(cls);
-  if (kind === 'gun') {
-    const cur = game.gun(u.gun);
-    const opts = game.s.guns.filter((g) => g.cls === cls && g.uid !== u.gun).sort((a, b) => M.lnGunPower(b) - M.lnGunPower(a));
-    openModal(`<h3>${c.plural}' gun</h3><p class="sub">Every ${c.name} carries the same issued gun.</p>
-      <div class="picks">${opts.map((g) => { const r = cur ? Math.exp(M.lnGunPower(g) - M.lnGunPower(cur)) : 2;
-        return `<div class="pick" style="--rar:${RARITY_COLOR[g.rarity]}"><img class="px" src="${gunIcon(cls)}" alt=""><div><b style="color:${RARITY_COLOR[g.rarity]}">${gunName(g)}</b><span class="sub">tier ${fmtInt(g.ilvl)} · <span class="${r > 1.005 ? 'good' : 'bad'}">${r >= 1 ? '+' : ''}${Math.round((r - 1) * 100)}% damage</span></span></div>
-        <button class="btn sm" data-action="equip-gun" data-cls="${cls}" data-arg="${g.uid}">Issue</button></div>`; }).join('') || `<p class="sub">No other ${c.gun}s yet. They drop rarely from zombies; hordes always give one.</p>`}</div>
-      <div class="row"><button class="btn ghost" data-action="modal-close">Close</button></div>`);
-    return;
-  }
-  const cur = u[kind];
-  const opts = game.s.gear.filter((g) => g.kind === kind).sort((a, b) => b.value - a.value);
-  openModal(`<h3>${c.plural}' ${kind === 'attach' ? 'attachment' : 'charm'}</h3>
-    <div class="picks">${opts.map((g) => { const on = Object.values(game.s.units).find((o) => o[kind] === g.uid);
-      return `<div class="pick" style="--rar:${RARITY_COLOR[g.rarity]}"><img class="px" src="${g.kind === 'attach' ? modIcon(g.stat) : charmIcon(g.bane)}" alt=""><div><b style="color:${RARITY_COLOR[g.rarity]}">${gearName(g)}</b><span class="sub">${gearDesc(g)}${on && on.cls !== cls ? ` · on ${M.classById(on.cls).plural}` : ''}</span></div>
-      <button class="btn sm" data-action="equip-gear" data-cls="${cls}" data-slot="${kind}" data-arg="${g.uid}" ${g.uid === cur ? 'disabled' : ''}>${g.uid === cur ? 'Equipped' : 'Equip'}</button></div>`; }).join('') || '<p class="sub">None yet. Attachments and charms are rare drops.</p>'}</div>
-    <div class="row">${cur != null ? `<button class="btn ghost" data-action="equip-gear" data-cls="${cls}" data-slot="${kind}" data-arg="none">Remove</button>` : ''}<button class="btn ghost" data-action="modal-close">Close</button></div>`);
-}
-function sellBtn(uid: number) {
-  const v = game.sellValue(uid);
-  if (!v || game.isEquipped(uid)) return '<button class="btn ghost" disabled>In use</button>';
-  return `<button class="btn ghost" data-action="sell" data-arg="${uid}">Sell · ${cost(v.colour, v.ln)}</button>`;
-}
-function openItem(uid: number) {
-  const g = game.gun(uid), gear = game.gearItem(uid);
-  if (g) {
-    const c = M.classById(g.cls), u = game.unit(g.cls), cur = game.gun(u.gun), issued = u.gun === uid;
-    const r = cur && !issued ? Math.exp(M.lnGunPower(g) - M.lnGunPower(cur)) : 1;
-    openModal(`<div class="item-head"><img class="px big" src="${gunIcon(g.cls)}" alt=""><div><h3 style="color:${RARITY_COLOR[g.rarity]}">${gunName(g)}</h3><p class="sub">Tier ${fmtInt(g.ilvl)} · for ${c.plural}</p></div></div>
-      <div class="give">${u.count ? `<button class="btn" data-action="equip-gun" data-cls="${g.cls}" data-arg="${uid}" ${issued ? 'disabled' : ''}>${issued ? `Issued to your ${c.plural}` : `Issue to all ${c.plural} (${r >= 1 ? '+' : ''}${Math.round((r - 1) * 100)}% damage)`}</button>` : `<p class="sub">Hire a ${c.name} to use this gun.</p>`}</div>
-      <div class="row">${sellBtn(uid)}<button class="btn ghost" data-action="modal-close">Close</button></div>`);
-    return;
-  }
-  if (!gear) return;
-  const slot = gear.kind;
-  const users = game.owned.filter((u) => M.nlv(u, slot));
-  openModal(`<div class="item-head"><img class="px big" src="${gear.kind === 'attach' ? modIcon(gear.stat) : charmIcon(gear.bane)}" alt=""><div><h3 style="color:${RARITY_COLOR[gear.rarity]}">${gearName(gear)}</h3><p class="sub">${gearDesc(gear)} · fits any unit type with ${slot === 'attach' ? 'an attachment' : 'a charm'} slot</p></div></div>
-    <div class="give">${users.map((u) => `<button class="btn ${u[slot] === uid ? 'ghost' : ''}" data-action="equip-gear" data-cls="${u.cls}" data-slot="${slot}" data-arg="${uid}" ${u[slot] === uid ? 'disabled' : ''}>${u[slot] === uid ? `On ${M.classById(u.cls).plural}` : `Give to ${M.classById(u.cls).plural}`}</button>`).join('') || `<p class="sub">Unlock ${slot === 'attach' ? 'an Attachment' : 'a Charm'} Slot in a unit type's tree first.</p>`}</div>
-    <div class="row">${sellBtn(uid)}<button class="btn ghost" data-action="modal-close">Close</button></div>`);
 }
 
 // ---------- Tree tab: sub-tabs for the global passive web and every unit type's own tree ----------
