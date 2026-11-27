@@ -215,6 +215,11 @@ its tier). Tap one for a pop-over with its two upgrades, **DNA +** (tier) and **
 Zombies tab. A green dot means one of them is affordable. The list scrolls; the ‹ › button collapses it to a small tab
 (remembered). It hides while a menu is open.
 
+**Quick unit rail.** The same thing on the left edge for your unit types: each unlocked type shows its icon and how many
+you have (dashed "New" if none yet). Tap one for its Squad-card upgrade grid (Hire, Damage, Crit, Crit ×, Speed, Range,
+Gear, Ability), or just Hire for a type you haven't hired. A green dot means something there is affordable. Only one
+rail pop-over is open at a time.
+
 ## 11. Settings and saves
 Settings is one screen in three sections. **Sound & display**: on/off switches for sound effects, music, range lines and
 difficulty meters. **Saves**: the current game (with when it was last saved), three slots and an automatic **Backup**,

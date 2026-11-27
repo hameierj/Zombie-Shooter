@@ -174,7 +174,7 @@ let softTimer = 0;
 // ---------- init ----------
 export function initUI() {
   document.addEventListener('click', onClick);
-  document.addEventListener('pointerdown', (e) => { lastPointer = performance.now(); pointerDown++; if (railPick && !(e.target as Element).closest?.('#zrail')) { railPick = null; railRender(); } }, { passive: true, capture: true });
+  document.addEventListener('pointerdown', (e) => { lastPointer = performance.now(); pointerDown++; if (railPick && !(e.target as Element).closest?.('#zrail')) { railPick = null; railRender(); } if (urailPick && !(e.target as Element).closest?.('#urail')) { urailPick = null; urailRender(); } }, { passive: true, capture: true });
   const release = () => { lastPointer = performance.now(); pointerDown = Math.max(0, pointerDown - 1); };
   document.addEventListener('pointerup', release, { passive: true });
   document.addEventListener('pointercancel', release, { passive: true });
@@ -242,6 +242,8 @@ function act(d: ActionData): boolean {
     case 'close': tab = null; render(); break;
     case 'rail': railOpen = !railOpen; railPick = null; try { localStorage.setItem('zombie-idle-rail', railOpen ? '1' : '0'); } catch { /* ignore */ } railRender(); break;
     case 'rail-pick': railPick = railPick === arg ? null : (arg as M.ZombieId); railRender(); break;
+    case 'urail': urailOpen = !urailOpen; urailPick = null; try { localStorage.setItem('zombie-idle-urail', urailOpen ? '1' : '0'); } catch { /* ignore */ } urailRender(); break;
+    case 'urail-pick': urailPick = urailPick === arg ? null : (arg as ClassId); urailRender(); break;
     case 'buy-amt': buyAmt = arg === 'max' ? 'max' : (Number(arg) as 1 | 10); try { localStorage.setItem('zombie-idle-buy', String(buyAmt)); } catch { /* ignore */ } render(); break;
     case 'tier-up': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].tier; i++) { t = game.s.strains[sid].tier; game.raiseTier(sid); } break;
     case 'spawn': for (let i = 0, t = -1; i < amtN() && t !== game.s.strains[sid].spawn; i++) { t = game.s.strains[sid].spawn; game.buySpawn(sid); } break;
@@ -334,6 +336,7 @@ function refresh() {
     b.classList.toggle('badge', badge);
   }
   for (const b of document.querySelectorAll<HTMLElement>('#zrail .zr-z')) b.classList.toggle('can', railCan(b.dataset.arg as M.ZombieId));
+  for (const b of document.querySelectorAll<HTMLElement>('#urail .zr-z')) b.classList.toggle('can', urailCan(b.dataset.arg as ClassId));
   // keep buttons live as DNA comes in: enable + highlight the moment one becomes affordable (or stops being), and
   // redraw so ×10 / Max previews catch up
   let flipped = false;
@@ -360,7 +363,7 @@ function render() {
   const panel = $('#panel');
   document.getElementById('app')!.classList.toggle('menu-open', !!tab);
   panel.hidden = !tab;
-  railRender();
+  railRender(); urailRender();
   if (!tab) { refresh(); return; }
   const body = $('#tab-body');
   const key = `${tab}:${tab === 'tree' ? treeView : ''}`;
@@ -419,8 +422,47 @@ function railRender() {
     p.style.top = `${Math.max(0, Math.min(el.clientHeight - p.offsetHeight, top))}px`;
   }
 }
+// ---------- quick unit rail: unlocked unit types down the LEFT edge; tap one for its Squad-card upgrades ----------
+let urailOpen = (() => { try { return localStorage.getItem('zombie-idle-urail') !== '0'; } catch { return true; } })();
+let urailPick: ClassId | null = null;
+const UNIT_NODES_ALL: UnitNodeId[] = ['dmg', 'spd', 'range', 'crit', 'critx', 'ab1', 'ab2', 'ab3', 'attach', 'charm'];
+/** Can you hire one more of this type, or afford any of its upgrades? */
+function urailCan(c: ClassId) {
+  if (game.canHire(c)) return true;
+  return game.unit(c).count > 0 && UNIT_NODES_ALL.some((id) => { const n = game.node(c, id); return !n.maxed && !n.locked && n.canAfford; });
+}
+function urailRender() {
+  const el = document.getElementById('urail');
+  if (!el) return;
+  const types = M.CLASSES.filter((c) => game.classUnlocked(c.id));
+  el.hidden = !!tab || types.length === 0;
+  if (el.hidden) { urailPick = null; return; }
+  const list = el.querySelector<HTMLElement>('.zr-list'), scroll = list?.scrollTop ?? 0;
+  el.className = urailOpen ? 'open' : '';
+  const toggle = `<button class="zr-toggle" data-action="urail" aria-label="${urailOpen ? 'Hide' : 'Show'} unit upgrades" aria-expanded="${urailOpen}">
+    ${urailOpen ? CHEV('M15 5l-7 7 7 7') : `${CHEV('M9 5l7 7-7 7')}<img class="px" src="${classIcon('pistol')}" alt="">`}</button>`;
+  if (!urailOpen) { el.innerHTML = toggle; return; }
+  const icons = types.map((c) => { const u = game.unit(c.id), col = M.strainById(c.primary).color;
+    return `<button class="zr-z ${u.count ? '' : 'new'} ${urailCan(c.id) ? 'can' : ''} ${urailPick === c.id ? 'on' : ''}" data-action="urail-pick" data-arg="${c.id}" style="--dna:${col}" aria-label="${esc(c.plural)}: ${u.count}">
+      <img class="px" src="${classIcon(c.id)}" alt=""><span>${u.count ? `×${u.count}` : 'New'}</span></button>`; }).join('');
+  let pop = '';
+  if (urailPick) {
+    const c = M.classById(urailPick), u = game.unit(c.id);
+    pop = `<div class="zr-pop u-pop ${u.count ? '' : 'narrow'}" style="--dna:${M.strainById(c.primary).color}">
+      <div class="zr-head"><img class="px" src="${classIcon(c.id)}" alt=""><div><b>${esc(c.plural)}</b><span>${u.count ? `${u.count} hired · ${esc(c.gun)}` : `Not hired yet · ${esc(c.gun)}`}</span></div></div>
+      ${u.count ? upgradeRow(c.id) : `<div class="ugrid">${hireBtn(c.id)}</div>`}</div>`;
+  }
+  el.innerHTML = `${toggle}<div class="zr-list">${icons}</div>${pop}`;
+  const nl = el.querySelector<HTMLElement>('.zr-list')!;
+  nl.scrollTop = scroll;
+  const p = el.querySelector<HTMLElement>('.zr-pop'), on = el.querySelector<HTMLElement>('.zr-z.on');
+  if (p && on) {
+    const top = on.offsetTop - nl.scrollTop + nl.offsetTop + on.offsetHeight / 2 - p.offsetHeight / 2;
+    p.style.top = `${Math.max(0, Math.min(el.clientHeight - p.offsetHeight, top))}px`;
+  }
+}
 nlScrollHook();
-function nlScrollHook() { document.addEventListener('scroll', (e) => { if (railPick && (e.target as Element)?.classList?.contains('zr-list')) { railPick = null; railRender(); } }, true); }
+function nlScrollHook() { document.addEventListener('scroll', (e) => { if ((e.target as Element)?.classList?.contains('zr-list')) { if (railPick) { railPick = null; railRender(); } if (urailPick) { urailPick = null; urailRender(); } } }, true); }
 
 // ---------- Zombies tab: one card per zombie type ----------
 /** The keep-up meter, pinned to the top of the Zombies menu while you scroll (refresh() keeps it live). */
