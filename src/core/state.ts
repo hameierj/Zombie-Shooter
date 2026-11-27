@@ -406,12 +406,24 @@ export class Game {
   /** A zombie reached the shredder: the combo halves. */
   comboBreak() { this.combo = Math.floor(this.combo / 2); }
 
+  /** The colour a kill pays in: its family's, or (for horde zombies of a family you haven't released yet) the nearest
+   * released colour it descends from, so you never get DNA you can't see or use. */
+  payColour(strain: ZombieId): StrainId {
+    let id: ZombieId | undefined = M.familyOf(strain);
+    for (let guard = 0; id && guard < 8; guard++) {
+      if (this.s.strains[id]?.unlocked) return M.familyOf(id);
+      id = M.strainById(id).unlock?.from;
+    }
+    return 'shambler';
+  }
+  /** Colours to show in the top bar: every released colour, plus any colour you hold DNA in. */
+  get shownColours(): StrainId[] { const c = new Set(this.colours); return M.COLOURS.filter((x) => c.has(x) || Number.isFinite(this.dna(x))); }
   /** A zombie was shredded. `mult` scales its DNA (special zombies), `lootMult` its item chance. */
   zombieKilled(strain: ZombieId, tier: number, opts: { silent?: boolean; mult?: number; lootMult?: number; shredded?: boolean } = {}): Loot | null {
     const paid = (opts.mult ?? 1) > 0;
     // shredded zombies don't count for the combo
     if (!opts.silent && !opts.shredded) { this.combo++; this.comboIdle = 0; this.comboBest = Math.max(this.comboBest, this.combo); }
-    const col = M.familyOf(strain);
+    const col = this.payColour(strain);
     if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + Math.log((opts.silent ? 1 : this.comboMult) * (opts.mult ?? 1))));
     this.s.kills++;
     if (Math.random() >= Math.min(0.5, M.dropChance(this.s.strains, this.fx) * (opts.lootMult ?? 1))) return null;
@@ -449,6 +461,7 @@ export class Game {
   canAllocate(id: string) {
     const n = treeNode(id);
     if (!n || n.id === 'start' || this.s.alloc.includes(id) || !this.regionOpen(n.region)) return false;
+    if (!this.s.strains[this.treeColour(id)].unlocked) return false;   // paid in a colour you haven't released yet
     return n.links.some((l) => l === 'start' || this.s.alloc.includes(l));
   }
   canAffordNode(id: string) { return this.canAllocate(id) && this.canAfford(this.treeColour(id), this.treeCost()); }

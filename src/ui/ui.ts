@@ -307,7 +307,7 @@ function act(d: ActionData): boolean {
 
 // ---------- HUD (refreshed in place) ----------
 function refresh() {
-  const cols = game.colours;
+  const cols = game.shownColours;
   const hud = $('#hud-dna');
   if (hud.dataset.cols !== cols.join(',')) {
     hud.dataset.cols = cols.join(',');
@@ -511,6 +511,7 @@ function treeStep(ri: number, k: string, num: number, first = false) {
   const state = has ? 'owned' : can ? 'avail' : 'locked';
   const act = has ? '<span class="tc-own">✓ Owned</span>'
     : can ? `<button class="tc-buy" data-action="allocate" data-arg="${id}" ${costAttr(col, ln)}>${vial(col)}${fmtLn(ln)}</button>`
+    : !game.s.strains[col].unlocked && game.regionOpen(n.region) && (k === 's1' || STEP_PREV[k].some((p) => game.s.alloc.includes(`r${ri}.${p}`))) ? `<span class="tc-hint">release ${M.strainById(col).plural} first</span>`
     : `<span class="tc-hint">${k === 'k' ? 'after 6 in either path' : `after step ${num - 1}`}</span>`;
   return `<div class="tc-step ${state} ${kind} ${first ? 'first' : ''} ${treeFresh === id ? 'just' : ''}"><div class="tc-mark">${has ? '✓' : num}</div>
     <div class="tc-txt"><b>${esc(n.size === 'small' ? n.desc : n.name)}</b>${n.size === 'small' ? '' : `<span>${esc(n.desc)}</span>`}</div><div class="tc-act">${act}</div></div>`;
@@ -529,7 +530,8 @@ function treeChecklistHtml() {
     const colour = M.strainById(reg.dna);
     if (!game.regionOpen(ri)) return `<div class="tc-region locked" style="--rc:${reg.color}"><div class="tc-head">${treeRing(got, reg.color)}<div><b>${reg.name}</b><span class="tc-sub">🔒 Beat Horde ${reg.horde} to open · paid in ${colour.dna}</span></div><span></span></div><p class="tc-lockinfo">Goal: <b>${esc(key.name)}</b>: ${esc(key.desc)}</p></div>`;
     const open = treeOpen === ri, rd = ready(ri), av = avail(ri);
-    const sub = got === 10 ? 'Complete' : rd ? `<span class="tc-ready">${rd} ready to take</span> · paid in ${colour.dna}` : av ? `${av} next · paid in ${colour.dna}` : `Paid in ${colour.dna}`;
+    const released = game.s.strains[reg.dna].unlocked;
+    const sub = got === 10 ? 'Complete' : !released ? `Paid in ${colour.dna} · <span class="tc-need">release ${colour.plural} first</span>` : rd ? `<span class="tc-ready">${rd} ready to take</span> · paid in ${colour.dna}` : av ? `${av} next · paid in ${colour.dna}` : `Paid in ${colour.dna}`;
     return `<div class="tc-region ${open ? 'open' : ''}" style="--rc:${reg.color}">
       <button class="tc-head" data-action="region" data-arg="${ri}" aria-expanded="${open}">${treeRing(got, reg.color)}<div><b>${reg.name}</b><span class="tc-sub">${sub}</span></div><span class="tc-chev">▶</span></button>
       ${open ? `<div class="tc-goal"><i></i><div>Goal: <em>${esc(key.name)}</em>. ${esc(key.desc)}</div></div>

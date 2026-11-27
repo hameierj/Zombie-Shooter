@@ -889,3 +889,4 @@ button.tc-head { cursor: pointer; }
 .perk .btn.sm { min-height: 34px; padding: 0 12px; flex: none; }
 .perk.maxed { opacity: .7; }
 .pk-max { font: 700 12px Inter, system-ui, sans-serif; color: var(--accent); flex: none; padding: 0 6px; }
+.tc-need { color: #ffb08a; font-weight: 600; }
