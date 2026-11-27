@@ -4,7 +4,7 @@
 import * as M from '../core/model.ts';
 import type { ClassId, ZombieId } from '../core/model.ts';
 import { REGIONS, treeNode } from '../core/tree.ts';
-import { classIcon, crateIcon, vialIcon, zombieIcon } from '../game/art.ts';
+import { classIcon, crateIcon, gunIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import * as sfx from '../audio/sfx.ts';
 
 export interface Card { eyebrow: string; title: string; body: string; icon: string; color: string; extra?: string; bio?: boolean }
@@ -54,6 +54,12 @@ export function evolveCard(id: ZombieId): Card {
   const st = M.strainById(id), stage = M.stageOf(id);
   return { eyebrow: 'Evolution', title: `${st.plural}!`, color: st.color, icon: zombieIcon(id), bio: true,
     body: `Form ${stage + 1} of the ${esc(st.dna.toLowerCase())} family. Tier 1 is as tough and as rich as tier ${M.TIER_CAP * stage + 1}.<br><span class="uk-sub">They join the stream alongside the older forms${M.isLastForm(id) ? ', and this final form has no tier cap' : `; at tier ${M.TIER_CAP} the next form opens`}.</span>` };
+}
+
+export function ultCard(c: ClassId, evo: 0 | 1): Card {
+  const cd = M.classById(c), d = M.ULTS[c][evo];
+  return { eyebrow: `${cd.plural} · ultimate form`, title: d.name, color: d.color, icon: gunIcon(c, evo), bio: true,
+    body: `Your ${esc(cd.plural.toLowerCase())} now carry the <b style="color:${d.color}">${esc(d.gun)}</b>. ${esc(d.desc)}<br><span class="uk-sub">×${M.CONFIG.ultDps} DPS · fire rate ${d.fx.rate < 1 ? 'slower' : 'faster'} (×${d.fx.rate}) · Damage upgrades keep scaling it.</span>` };
 }
 
 export function showCards(cards: Card[], delay = 0) {

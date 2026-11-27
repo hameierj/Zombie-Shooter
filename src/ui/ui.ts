@@ -2,7 +2,7 @@
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import { showTitle } from './title.ts';
-import { biohazard, evolveCard, hordeCards, overlayUp, showCards } from './unlocks.ts';
+import { biohazard, evolveCard, hordeCards, overlayUp, showCards, ultCard } from './unlocks.ts';
 import { coachUp } from './tutorial.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges } from '../core/prefs';
@@ -197,9 +197,10 @@ export function initUI() {
     if (evt === 'stuck') offerRollBack();
     if (evt === 'horde-lost') toast('<b>The horde was too strong</b><span>Upgrade your units and try again.</span>', '#ff6b6b');
     if (evt === 'release' && !M.COLOUR_HORDE[data as M.ZombieId]) showCards([evolveCard(data as M.ZombieId)]);   // new colours get their card with the horde's
+    if (evt === 'unit-evolve') showCards([ultCard(data as ClassId, game.unit(data as ClassId).evo ?? 0)]);
     if (evt === 'phase') battlePhase = data as string;
     if (evt === 'horde-start') battlePhase = 'intro';
-    if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase', 'horde-start'].includes(evt)) soft();
+    if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase', 'horde-start', 'unit-evolve'].includes(evt)) soft();
   });
   render();
   refresh();
@@ -218,6 +219,7 @@ function tickNudge() {
   let key = '', html = '';
   if (!quiet) {
     const off = (k: string) => (nudgeOff.get(k) ?? 0) > performance.now();
+    let ult: M.ClassDef | undefined;
     const fresh = M.CLASSES.find((c) => game.classUnlocked(c.id) && game.unit(c.id).count === 0 && game.canHire(c.id) && !off(`hire-${c.id}`));
     if (fresh) {
       key = `hire-${fresh.id}`;
@@ -225,6 +227,12 @@ function tickNudge() {
       html = `<div class="nd-card" style="--c:${col}"><img class="px nd-ic" src="${classIcon(fresh.id)}" alt="">
         <div class="nd-t"><b>${esc(fresh.plural)}</b><span>Ready to hire</span></div>
         <button class="btn nd-go" data-action="nudge-hire" data-cls="${fresh.id}">Hire ${cost(fresh.primary, game.hireCost(fresh.id))}</button>
+        <button class="nd-x" data-action="nudge-x" data-arg="${key}" aria-label="Dismiss">✕</button></div>`;
+    } else if ((ult = M.CLASSES.find((c) => game.canEvolveUnit(c.id) && !off(`ult-${c.id}`)))) {
+      key = `ult-${ult.id}`;
+      html = `<div class="nd-card ult" style="--c:#c88aff"><img class="px nd-ic" src="${classIcon(ult.id)}" alt="">
+        <div class="nd-t"><b>${esc(ult.plural)}</b><span>Ultimate form ready</span></div>
+        <button class="btn nd-go" data-action="ult-open" data-cls="${ult.id}">Evolve</button>
         <button class="nd-x" data-action="nudge-x" data-arg="${key}" aria-label="Dismiss">✕</button></div>`;
     } else if (battlePhase === 'stream' && !game.autoHorde && game.hordeOdds() >= C.hordeWinOdds && !off(`horde-${game.nextHorde}`)) {
       const h = M.hordeDef(game.nextHorde), bd = M.BOSSES[h.boss];
@@ -329,6 +337,8 @@ function act(d: ActionData): boolean {
     case 'toggle': game.s.autoHordeOn = !game.s.autoHordeOn; render(); break;
     case 'settings': openSettings(); break;
     case 'modal-close': closeModal(); break;
+    case 'ult-open': openUlt(cls); break;
+    case 'ult-pick': if (game.evolveUnit(cls, arg === '1' ? 1 : 0)) closeModal(); else openUlt(cls); break;
     case 'export': exportSave(); break;
     case 'saves': openSettings(); break;
     case 'slot-save': slotAction('save', arg); break;
@@ -500,7 +510,7 @@ function railRender() {
       pop = `<div class="zr-pop u-pop ${u.count ? '' : 'narrow'}" style="--dna:${M.strainById(c.primary).color}">
         <div class="zr-head"><img class="px" src="${classIcon(c.id)}" alt=""><div><b>${esc(c.plural)}</b><span>${u.count ? `${u.count} hired · ${esc(c.gun)}` : `Not hired yet · ${esc(c.gun)}`}</span></div>
           ${u.count ? `<span class="zr-rate dps" title="Damage per second from all your ${esc(c.plural)}"><svg viewBox="0 0 24 24" class="i"><path d="M14.5 3.5l6 6-9 9-6-6zM4 20l3.5-3.5M8 13l3 3"/></svg>${fmtLn(game.stats(u).lnDps + Math.log(M.unitPower(u.count)))}<i>/s</i></span>` : ''}</div>
-        ${u.count ? upgradeRow(c.id) : `<div class="ugrid">${hireBtn(c.id)}</div>`}</div>`;
+        ${u.count ? upgradeRow(c.id) + ultButton(c.id) : `<div class="ugrid">${hireBtn(c.id)}</div>`}</div>`;
     }
   }
   railSingle = false;
@@ -622,7 +632,7 @@ function squadHtml() {
       <img class="px portrait" src="${classIcon(c.id)}" alt="">
       <div class="u-main"><b>${c.plural}</b><span class="count">×${u.count}<small>/${game.unitCap}</small></span>
         <span class="sub">${u.count ? `Lv ${M.nlv(u, 'dmg')} · ${fmtLn(game.unitDps(u))} DPS` : `${c.gun} · not hired yet`}</span></div>
-      ${u.count ? `${upgradeRow(c.id)}${gearShelf(c.id)}` : recruitPanel(c)}
+      ${u.count ? `${upgradeRow(c.id)}${ultButton(c.id, true)}${gearShelf(c.id)}` : recruitPanel(c)}
     </div>`;
   }).join('');
   return `${topBar()}<p class="sub">Hire and upgrade each unit right on its card; Ability and Gear slots unlock stage by stage. Up to <b>${game.unitCap}</b> of each type for now (${C.maxPerType} max; barracks grow every ${C.tiersPerUnit} tiers).</p>
@@ -630,6 +640,47 @@ function squadHtml() {
   <p class="sub small">Every unit always carries its best gear, and extra drops are sold for DNA automatically.</p>`;
 }
 
+
+// ---------- ultimate forms ----------
+/** The unit card's ultimate-form slot: progress toward it, the Evolve button, or the form it took. */
+function ultButton(c: ClassId, progress = false) {
+  const u = game.unit(c);
+  if (u.evo !== undefined) {
+    const d = M.ULTS[c][u.evo];
+    return `<div class="ult-badge" style="--uc:${d.color}"><img class="px" src="${gunIcon(c, u.evo)}" alt=""><span><b>${esc(d.name)}</b><small>${esc(d.gun)} · ultimate form · ×${C.ultDps} DPS</small></span></div>`;
+  }
+  if (!M.ultReady(u)) {
+    if (!progress) return '';
+    const done = M.ULT_NODES.filter((id) => game.node(c, id).maxed).length;
+    return `<div class="ult-prog" title="Max every upgrade except Damage to unlock a choice of two ultimate forms"><i style="width:${(done / M.ULT_NODES.length) * 100}%"></i><span>Ultimate form: ${done}/${M.ULT_NODES.length} upgrades maxed</span></div>`;
+  }
+  const ln = game.ultCost(c), col = M.classById(c).primary;
+  return `<button class="btn evolve-big ult ${game.canAfford(col, ln) ? 'afford' : ''}" data-action="ult-open" data-cls="${c}" ${costAttr(col, ln)}>${biohazard('bio')}<span class="ev-t"><b>Ultimate form</b><small>Choose 1 of 2 · ×${C.ultDps} DPS</small></span>${cost(col, ln)}</button>`;
+}
+function ultTraits(f: M.UltFx) {
+  const t: string[] = [];
+  if (f.targets) t.push(`+${f.targets} ${f.hit === 'pierce' ? 'pierced' : f.hit === 'splash' ? 'in the blast' : f.hit === 'chain' ? 'chained' : 'hit at once'}`);
+  if (f.knock) t.push('Knockback');
+  if (f.knockMult !== undefined) t.push('Lighter push');
+  if (f.burn) t.push(`Sets on fire${f.vuln ? ` · +${Math.round(f.vuln * 100)}% damage taken` : ''}`);
+  if (f.slow) t.push(`${Math.round(f.slow * 100)}% slow`);
+  return t;
+}
+function openUlt(c: ClassId) {
+  const cd = M.classById(c), u = game.unit(c);
+  if (u.evo !== undefined || !M.ultReady(u)) return;
+  const ln = game.ultCost(c), col = cd.primary, ok = game.canAfford(col, ln);
+  const cards = M.ULTS[c].map((d, i) => `<div class="ult-card" style="--uc:${d.color}">
+      <div class="ult-art"><img class="px" src="${gunIcon(c, i as 0 | 1)}" alt=""></div>
+      <span class="ult-tag">${esc(d.tag)}</span><b class="ult-name">${esc(d.name)}</b><small class="ult-gun">${esc(d.gun)}</small>
+      <p>${esc(d.desc)}</p>
+      <ul class="ult-stats"><li><span>DPS</span><b>×${C.ultDps}</b></li><li><span>Fire rate</span><b>${fmtMult(d.fx.rate)}</b></li><li><span>Per shot</span><b>${fmtMult(C.ultDps / d.fx.rate)}</b></li>
+        ${ultTraits(d.fx).map((x) => `<li class="tr">${esc(x)}</li>`).join('')}</ul>
+      <button class="btn ult-go ${ok ? 'afford' : ''}" data-action="ult-pick" data-cls="${c}" data-arg="${i}" ${ok ? '' : 'disabled'}>Evolve ${cost(col, ln)}</button></div>`).join('');
+  openModal(`<div class="set-head"><h3>${esc(cd.plural)}: ultimate form</h3><button class="xbtn" data-action="modal-close" aria-label="Close">✕</button></div>
+    <p class="sub">Every upgrade except Damage is maxed. Choose one track; the choice is permanent. Both double DPS but play very differently.${ok ? '' : ` <b class="bad">Needs ${fmtLn(ln)} ${esc(M.strainById(col).dna)} DNA.</b>`}</p>
+    <div class="ult-pick">${cards}</div>`);
+}
 
 // ---------- a unit type's own screen ----------
 const UNODE_ICON: Record<UnitNodeId, string> = { dmg: 'dmg', spd: 'spd', range: 'range', crit: 'crit', critx: 'critdmg', attach: 'slot-mod', charm: 'slot-charm', ab1: '', ab2: '', ab3: '' };

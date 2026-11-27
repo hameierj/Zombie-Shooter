@@ -109,6 +109,31 @@ slowly. You never lose.
 - **Drops are rare** and scale gently with total spawn rate; each arrives as a crate in its rarity colour. Every horde
   win guarantees a rare-or-better item (the new unit type's gun for hordes 1–6).
 
+
+### Ultimate forms
+
+When every upgrade of a unit type except Damage is maxed (Speed, Range, Crit, Crit ×, all three Ability stages and both gear
+slots), it can take an **ultimate form**: a choice of two tracks, permanent for the run. Both multiply its DPS by **×2**
+(fire rate × damage per shot = 2) and Damage ranks keep scaling it; they differ in play style. The fee is 2× everything
+those maxed upgrades cost together, in the unit's colour. An Evolve button appears on the unit card and its rail pop-over
+(cards show progress toward it before that), a prompt pops up when it's affordable, and choosing opens a side-by-side pick,
+then a reveal card; the soldiers flare up, carry the new gun art and glow in the track's colour.
+
+| Unit | Track 1 | Track 2 |
+|---|---|---|
+| Pistoleers | **Hand Cannon** (.50 Magnum): fire rate ×0.45. Slow, thunderous shots that punch through a zombie and knock the next one back. | **Akimbo** (Twin Pistols): fire rate ×2.6. A pistol in each hand: a storm of lighter shots that never stops. |
+| Hunters | **Blast Bolts** (Explosive Crossbow): fire rate ×0.55. Heavy bolts that explode on impact, catching the zombies around the target. | **Repeater** (Auto Crossbow): fire rate ×2.2. A magazine-fed crossbow that rattles off bolts, each piercing one more zombie. |
+| Shotgunners | **Dragon's Breath** (Incendiary Shotgun): fire rate ×1. Every blast sets zombies on fire; burning zombies take +30% damage from every attack. | **Full Auto** (Auto Shotgun): fire rate ×3. A drum-fed shotgun that fires as fast as you can blink, with a lighter push. |
+| Riflemen | **Battle Rifle** (Marksman Rifle): fire rate ×0.45. Big rounds that tear through two zombies in a line. | **Cryo Rounds** (Cryo Carbine): fire rate ×1.6. Faster freezing rounds: every hit slows zombies by half. |
+| Snipers | **Anti-Materiel** (.50 Cal Rifle): fire rate ×0.4. Enormous single shots that pass through three zombies and hurl them back. | **Designated Marksman** (Semi-Auto Sniper): fire rate ×3. A semi-automatic sniper: three times the shots, each a little lighter. |
+| Pyros | **Napalm Cannon** (Napalm Launcher): fire rate ×0.5. Lobs sticky napalm that bursts over a crowd; burning zombies take +25% damage. | **Plasma Torch** (Plasma Torch): fire rate ×1.4. A roaring blue jet that reaches two more zombies at once. |
+| Grenadiers | **Thumper** (Heavy Launcher): fire rate ×0.5. Huge shells with a bigger blast that throws zombies back. | **Auto Launcher** (Drum Launcher): fire rate ×2.5. A revolving drum that empties grenade after grenade. |
+| Machine Gunners | **Minigun** (Rotary Cannon): fire rate ×2.5. Six spinning barrels: a solid wall of lead. | **Heavy MG** (.50 Heavy MG): fire rate ×0.6. Slower, bigger rounds that pierce a zombie and shove the line back. |
+| Drone Operators | **Kamikaze Swarm** (Bomb Drones): fire rate ×0.6. Drones dive in and explode, hurting the zombies around the target. | **Laser Drones** (Laser Drones): fire rate ×2.5. Drones that hover and fire rapid laser bolts. |
+| Railgunners | **Gauss Cannon** (Gauss Cannon): fire rate ×0.45. A slow, colossal slug that pierces three more zombies. | **Pulse Rail** (Pulse Rail): fire rate ×2.5. Rapid pulses of charged rail fire. |
+| Mortar Team | **Heavy Artillery** (Howitzer): fire rate ×0.5. Massive shells: a wider blast that knocks zombies back. | **Rocket Barrage** (Rocket Pods): fire rate ×3. Volleys of small rockets that never stop falling. |
+| Tesla Troopers | **Storm Caller** (Storm Coil): fire rate ×0.6. Huge bolts that arc to three more zombies. | **Arc Lancer** (Arc Lance): fire rate ×2.2. Rapid zaps that leave zombies stunned and crawling (60% slow). |
+
 ## 4. Passive tree (Tree tab)
 One **checklist per region**, one region open at a time. Each region shows a progress ring (n/10), how many passives
 are ready, the DNA colour it's paid in, and its keystone up front as the **goal**. Inside: steps 1–3, then **Path A and

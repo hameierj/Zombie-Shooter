@@ -246,6 +246,18 @@ export class Game {
     if (n) this.emit('change');
     return n;
   }
+  /** Ultimate form: price, readiness and evolving down track 0 or 1. */
+  ultCost(c: ClassId) { return M.lnUltCost(c, this.fx); }
+  ultReady(c: ClassId) { return M.ultReady(this.s.units[c]); }
+  canEvolveUnit(c: ClassId) { return this.ultReady(c) && this.canAfford(M.classById(c).primary, this.ultCost(c)); }
+  evolveUnit(c: ClassId, track: 0 | 1) {
+    if (!this.canEvolveUnit(c) || !this.pay(M.classById(c).primary, this.ultCost(c))) return false;
+    this.s.units[c].evo = track;
+    this.emit('unit-evolve', c);
+    this.emit('change');
+    return true;
+  }
+  get unitEvolveReady() { return this.owned.some((u) => this.canEvolveUnit(u.cls)); }
   nodesAffordable(c: ClassId) { return M.UNIT_NODES.filter((n) => this.node(c, n.id).canAfford).length; }
   /** Affordable tree items for a unit type, not counting the endless Damage ranks (used for the menu dots). */
   treeItemsAffordable(c: ClassId) { return M.UNIT_NODES.filter((n) => n.id !== 'dmg' && this.node(c, n.id).canAfford).length; }

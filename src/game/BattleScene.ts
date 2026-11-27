@@ -33,7 +33,7 @@ const STUCK_SEC = 20;          // seconds of a swamped shredder before offering 
 
 type Phase = 'stream' | 'intro' | 'horde' | 'end';
 interface Zombie {
-  strain: ZombieId; variety: VarietyId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number;
+  strain: ZombieId; variety: VarietyId; special: SpecialId | null; announced: boolean; tier: number; lnHp: number; hp: number; p: number; l: number; speed: number; horde: boolean; boss: boolean; atWall: boolean; slow: number; burn: number; vuln?: number;
   shredded?: boolean;  // killed by the shredder: no DNA (only the squad's kills pay)
   flash: number; phase: number; alive: boolean; sprite?: Phaser.GameObjects.Sprite;
   back?: number;       // drawing only: art px pushed back up the road so a pile at the shredder forms a visible queue
@@ -60,6 +60,8 @@ const RANGE_COLOR: Record<ClassId, number> = {
   pistol: 0xf2f2f2, bow: 0x7ddc5a, shotgun: 0xff9a3c, rifle: 0x4aa3ff, sniper: 0x7fe8ff, flamer: 0xff5a5a, grenade: 0xd8c46a,
   mg: 0xc0c8d0, drone: 0x4ad6c8, rail: 0x5a8cff, mortar: 0xb08850, tesla: 0x9a8aff,
 };
+
+const ULT_TINT = (u: M.Unit) => (u.evo === undefined ? 0xffffff : Phaser.Display.Color.HexStringToColor(M.ULTS[u.cls][u.evo].color).color);
 
 export class BattleScene extends Phaser.Scene {
   private W = 100; private H = 100; private px = 3;
@@ -134,10 +136,11 @@ export class BattleScene extends Phaser.Scene {
     this.banner = this.add.text(0, 0, '', tx).setOrigin(0.5).setDepth(9500).setAlpha(0);
     this.sub = this.add.text(0, 0, '', tx).setOrigin(0.5).setDepth(9500).setAlpha(0);
     this.hordeText = this.add.text(0, 0, '', { fontFamily: FONT, color: '#ffd34d', stroke: '#140c1c' }).setOrigin(0, 0).setDepth(9500).setVisible(false);
-    game.on((evt) => {
+    game.on((evt, data) => {
       if (evt === 'horde-start' && this.phase === 'stream') this.startHorde();
       if (evt === 'reset') { this.clearZombies(); this.setPhase('stream'); this.relayout(); }
-      if (evt === 'horde-won') this.newGround = true;   // the map changes to the next boss's battleground once the dust settles
+      if (evt === 'horde-won') this.newGround = true;
+      if (evt === 'unit-evolve') this.evolveFx(data as ClassId);   // the map changes to the next boss's battleground once the dust settles
     });
     this.ready = true;
     this.relayout();
@@ -380,7 +383,7 @@ export class BattleScene extends Phaser.Scene {
         else { z.p = Math.min(1, z.p + sp * dt); z.phase += dt * 6 * sp * C.walkSec; }
         if (z.bossKind === 'titan' && z.p > 0 && (z.stepT = (z.stepT ?? 0.9) - dt) <= 0) { z.stepT = 0.9; this.cameras.main.shake(140, 0.004); const [tx, ty] = this.zScreen(z); this.burst(tx, ty, 0x8a7a60, 5); }
         if (z.bossKind === 'brood' && z.p > 0.02 && (z.spawnT = (z.spawnT ?? 2.5) - dt) <= 0) { z.spawnT = 2.5; this.broodSpawn(z, 2, 0.3, 1.2); }
-        if (z.burn > 0) { z.burn -= dt; if (Math.random() < dt * 14) { const [bx, by] = this.zombieCenter(z); this.part('fire', bx + (Math.random() - 0.5) * 6 * this.px, by + (Math.random() - 0.3) * 10 * this.px, { vy: -24 * this.px, life: 0.3 + Math.random() * 0.2, s0: (3 * this.px) / 48, s1: (6 * this.px) / 48, rise: -8 * this.px }); } }
+        if (z.burn > 0) { z.burn -= dt; if (z.burn <= 0) z.vuln = 0; if (Math.random() < dt * 14) { const [bx, by] = this.zombieCenter(z); this.part('fire', bx + (Math.random() - 0.5) * 6 * this.px, by + (Math.random() - 0.3) * 10 * this.px, { vy: -24 * this.px, life: 0.3 + Math.random() * 0.2, s0: (3 * this.px) / 48, s1: (6 * this.px) / 48, rise: -8 * this.px }); } }
         if (z.p > 0.6 && Math.random() < dt * 0.15) sfx.groan();
       }
       else if (z.horde) {
@@ -488,7 +491,10 @@ export class BattleScene extends Phaser.Scene {
         s.recoil = Math.max(0, s.recoil - dt * 30);
         const gx = fx + ((HERO_GRIP.x - HERO_W / 2) * px - Math.cos(s.aim) * s.recoil * px) * cs;
         const gy = fy - ((HERO_H - HERO_GRIP.y) * px + bob * px) * cs;
+        const gk = u.evo === undefined ? `gun-${u.cls}` : `gun-${u.cls}-u${u.evo}`;
+        if (s.gun.texture.key !== gk) s.gun.setTexture(gk);
         s.gun.setVisible(!!gun).setPosition(Math.round(gx), Math.round(gy)).setRotation(s.aim).setDepth(fy + 1).setScale(sc);
+        if (u.evo !== undefined && !arriving && Math.random() < dt * 2.5) this.light(fx, fy - 6 * px, 14, ULT_TINT(u), 0.32, 0.6);   // an ultimate form glows in its track's colour
         s.flash.setScale(sc);
         s.flashT -= dt;
         s.flash.setVisible(s.flashT > 0);
@@ -525,15 +531,17 @@ export class BattleScene extends Phaser.Scene {
       if (!target) { s.cd = Math.max(s.cd, 0.05); return; }
       const crit = Math.random() < st.crit;
       // this soldier's share of the group's DPS, per shot (expected value matches the model; crits carry the multiplier)
-      const lnShot = st.lnDps + Math.log(M.unitPower(r.count) / visible) - Math.log(rate) - Math.log(1 + st.crit * (st.critDmg - 1)) + (crit ? Math.log(st.critDmg) : 0);
+      const lnShot = st.lnDps + Math.log(M.unitPower(r.count) / visible) - Math.log(rate) - Math.log(1 + st.crit * (st.critDmg - 1)) + (crit ? Math.log(st.critDmg) : 0)
+        - (st.ult?.vuln ? Math.log(1 + st.ult.vuln * 0.5) : 0);   // the model counts fire vulnerability as an average; here it lands on burning zombies
       // extra targets: the nearest other zombies to the main target (pierce, spread, splash)
       const hits = [target, ...this.zombies.filter((z) => z.alive && z !== target && z.p >= 1 - st.range && this.hittable(z))
         .sort((a, b) => this.dist(a, target!) - this.dist(b, target!)).slice(0, Math.max(0, st.targets - 1))
-        .filter((z) => this.dist(z, target!) < 0.25)];
-      this.shoot(s, r.cls, hits);
+        .filter((z) => this.dist(z, target!) < (st.ult?.hit === 'splash' ? 0.14 : 0.25))];
+      this.shoot(s, r.cls, hits, r.evo);
       for (const z of hits) {
         if (!z.alive) continue;
-        const ln = lnShot + Math.log(M.matchMult(e, z.strain, game.fx)) - (ab.execute ? Math.log(ab.dmg) : 0);
+        if (st.ult?.burn) { z.burn = Math.max(z.burn, st.ult.burn); z.vuln = Math.max(z.vuln ?? 0, st.ult.vuln ?? 0); }
+        const ln = lnShot + Math.log(M.matchMult(e, z.strain, game.fx)) - (ab.execute ? Math.log(ab.dmg) : 0) + (z.burn > 0 && z.vuln ? Math.log(1 + z.vuln) : 0);
         // abilities: knockback, slow, napalm, headshot execute
         if (ab.knockback && !z.boss) z.p = Math.max(0, z.p - ab.knockback);   // bosses can't be pushed back
         if (ab.slow) z.slow = Math.max(z.slow, ab.slow);
@@ -666,7 +674,7 @@ export class BattleScene extends Phaser.Scene {
     sfx.loot(rarity);
   }
 
-  private shoot(s: Shooter, cls: ClassId, hits: Zombie[]) {
+  private shoot(s: Shooter, cls: ClassId, hits: Zombie[], evo?: 0 | 1) {
     const [tx, ty] = this.zombieCenter(hits[0]);
     s.aim = Phaser.Math.Clamp(Math.atan2(ty - s.gun.y, tx - s.gun.x), -0.5, 0.5);
     s.recoil = cls === 'sniper' || cls === 'shotgun' ? 3 : 1.5;
@@ -678,6 +686,7 @@ export class BattleScene extends Phaser.Scene {
       const b = this.take(key).setPosition(mx, my).setRotation(Math.atan2(y2 - my, x2 - mx)).setScale(this.S).setBlendMode(key === 'arrow' ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.ADD).setDepth(8600).setAlpha(1);
       this.tweens.add({ targets: b, x: x2, y: y2, duration: ms, onComplete: () => { this.give(b); after?.(); } });
     };
+    if (evo !== undefined) this.ultShot(s, cls, evo, hits, mx, my);
     switch (cls) {
       case 'pistol': s.flashT = 0.04; this.tracer(mx, my, tx, ty, 1, 0xffe2b0, 0.08); this.hitFx(tx, ty); break;
       case 'rifle': s.flashT = 0.04; this.tracer(mx, my, tx, ty, 1.1, 0xffd69a, 0.07); this.hitFx(tx, ty); break;
@@ -739,6 +748,40 @@ export class BattleScene extends Phaser.Scene {
         break;
       }
     }
+  }
+
+  /** Extra effects of an ultimate form's shot, on top of the gun's own (track colour, blasts, fire, pierce lines, frost). */
+  private ultShot(s: Shooter, cls: ClassId, evo: 0 | 1, hits: Zombie[], mx: number, my: number) {
+    const d = M.ULTS[cls][evo], f = d.fx, col = Phaser.Display.Color.HexStringToColor(d.color).color, px = this.px;
+    const pts = hits.map((z) => this.zombieCenter(z));
+    const [tx, ty] = pts[0];
+    if (f.rate < 1) { s.recoil = 4; this.light(mx, my, 26, col, 0.55, 0.08); }
+    if (f.hit === 'pierce') { const far = pts.reduce((a, b) => (b[0] > a[0] ? b : a)); this.tracer(mx, my, far[0] + 24 * px, far[1] + (far[1] - my) * 0.1, 2.2, col, 0.12); }
+    else if (f.hit === 'splash') {
+      const go = () => { this.explode(tx, ty + 8 * px, cls === 'grenade' || cls === 'mortar' ? 1.25 : 0.6); if (f.burn) for (let i = 0; i < 8; i++) this.part('fire', tx + (Math.random() - 0.5) * 30 * px, ty + (Math.random() - 0.2) * 12 * px, { vy: -30 * px, life: 0.5 + Math.random() * 0.4, s0: (4 * px) / 48, s1: (9 * px) / 48, rise: -10 * px }); };
+      if (cls === 'grenade' || cls === 'mortar') this.time.delayedCall(cls === 'mortar' ? 700 : 380, () => this.light(tx, ty, 50, col, 0.7, 0.2));
+      else this.time.delayedCall(cls === 'drone' ? 420 : 120, go);
+    } else if (f.rate > 1 && cls !== 'flamer') this.tracer(mx, my, tx, ty, 0.9, col, 0.06);
+    if (cls === 'flamer' && evo === 1) this.light((mx + tx) / 2, (my + ty) / 2, 60, col, 0.5, 0.08);
+    for (const [x, y] of pts) {
+      if (f.burn && !f.hit) for (let i = 0; i < 2; i++) this.part('fire', x + (Math.random() - 0.5) * 8 * px, y + (Math.random() - 0.3) * 8 * px, { vy: -26 * px, life: 0.4, s0: (3 * px) / 48, s1: (7 * px) / 48, rise: -8 * px });
+      if (f.slow) this.light(x, y, 12, col, 0.6, 0.18);
+      if (f.knock) this.light(x, y, 10, 0xffffff, 0.4, 0.06);
+    }
+  }
+  /** A unit type just evolved: every visible soldier of it flares up in its new colour. */
+  private evolveFx(cls: ClassId) {
+    const u = game.unit(cls);
+    if (u.evo === undefined) return;
+    const col = ULT_TINT(u), px = this.px;
+    for (const [key, s] of this.shooters) {
+      if (!key.startsWith(`${cls}-`)) continue;
+      const x = s.body.x, y = s.body.y - 8 * px;
+      this.light(x, y, 60, col, 0.9, 0.6);
+      for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; this.part('spark', x, y, { vx: Math.cos(a) * 70 * px, vy: Math.sin(a) * 50 * px, life: 0.6, s0: 0.5, s1: 0.1, damp: 2 }); }
+      s.hop = 0.24;
+    }
+    this.cameras.main.flash(250, 255, 255, 255, false);
   }
 
   // ---------- rooftop-siege effects ----------

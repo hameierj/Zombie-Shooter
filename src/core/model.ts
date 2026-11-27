@@ -247,6 +247,8 @@ export const CONFIG = {
   spawnMax: 30,
   spawnHpPerLevel: 0.03,    // …and +3% HP
   releaseSec: 180,          // (RELEASE_COST was tuned to ~3 min of a normal run's income)…
+  ultDps: 2,                // a unit's ultimate form doubles its DPS (either track)
+  ultCostMult: 2,           // evolving a unit costs 2× everything its maxed non-Damage upgrades cost together
   releaseTier: 50,          // a colour's next form opens when the current one reaches the tier cap (TIER_CAP)
   spawnCost0: 0.5,          // the first spawn level costs half the type's tier-1 price…
   spawnCostGrowth: 1.6,     // …×1.6 per spawn level (its own ladder: buying DNA tiers doesn't change it)
@@ -403,7 +405,7 @@ export function rollGear(rng: () => number, uid: number, minRarity = 0): Gear {
 
 // ---------- Units ----------
 /** One unit type: how many you have, its tree, issued gun and equipped gear. */
-export interface Unit { cls: ClassId; count: number; nodes: Partial<Record<UnitNodeId, number>>; gun: number | null; attach: number | null; charm: number | null }
+export interface Unit { cls: ClassId; count: number; nodes: Partial<Record<UnitNodeId, number>>; gun: number | null; attach: number | null; charm: number | null; evo?: 0 | 1 }
 /** Pre-v6 shapes, kept only to migrate old saves. */
 export interface Recruit { id: number; cls: ClassId; level: number; gun: number | null }
 export interface UnitV5 { cls: ClassId; count: number; level: number; gun: number | null }
@@ -455,24 +457,109 @@ export function abilityFx(u: Unit) {
   return out;
 }
 
+// ---------- Ultimate forms: once every upgrade but Damage is maxed, a unit type can evolve down one of two tracks ----------
+/** What a track changes. Every track doubles the unit's DPS (`rate` × damage per shot = 2); the rest is play style. */
+export interface UltFx {
+  rate: number;                 // attack speed × this (damage per shot × 2/rate)
+  targets?: number;             // extra zombies hit per shot
+  hit?: 'pierce' | 'splash' | 'chain';  // how those extra hits are drawn: a line through, a blast around the target, arcs
+  knock?: number;               // push-back per hit (share of the road; not bosses)
+  knockMult?: number;           // × the unit's own Knockback ability
+  burn?: number;                // seconds a hit sets zombies on fire
+  vuln?: number;                // burning zombies take this much extra damage from every attack
+  slow?: number;                // hits slow zombies by this much
+}
+export interface UltDef { name: string; gun: string; tag: string; desc: string; color: string; fx: UltFx }
+export const ULTS: Record<ClassId, [UltDef, UltDef]> = {
+  pistol: [
+    { name: 'Hand Cannon', gun: '.50 Magnum', tag: 'Heavy', color: '#ff8a3c', desc: 'Slow, thunderous shots that punch through a zombie and knock the next one back.', fx: { rate: 0.45, targets: 1, hit: 'pierce', knock: 0.025 } },
+    { name: 'Akimbo', gun: 'Twin Pistols', tag: 'Rapid', color: '#5ad8ff', desc: 'A pistol in each hand: a storm of lighter shots that never stops.', fx: { rate: 2.6 } },
+  ],
+  bow: [
+    { name: 'Blast Bolts', gun: 'Explosive Crossbow', tag: 'Explosive', color: '#ff8a3c', desc: 'Heavy bolts that explode on impact, catching the zombies around the target.', fx: { rate: 0.55, targets: 3, hit: 'splash' } },
+    { name: 'Repeater', gun: 'Auto Crossbow', tag: 'Rapid', color: '#5ad8ff', desc: 'A magazine-fed crossbow that rattles off bolts, each piercing one more zombie.', fx: { rate: 2.2, targets: 1, hit: 'pierce' } },
+  ],
+  shotgun: [
+    { name: "Dragon's Breath", gun: 'Incendiary Shotgun', tag: 'Fire', color: '#ff5a2a', desc: 'Every blast sets zombies on fire; burning zombies take +30% damage from every attack.', fx: { rate: 1, targets: 1, burn: 3, vuln: 0.3 } },
+    { name: 'Full Auto', gun: 'Auto Shotgun', tag: 'Rapid', color: '#5ad8ff', desc: 'A drum-fed shotgun that fires as fast as you can blink, with a lighter push.', fx: { rate: 3, knockMult: 0.4 } },
+  ],
+  rifle: [
+    { name: 'Battle Rifle', gun: 'Marksman Rifle', tag: 'Pierce', color: '#ff8a3c', desc: 'Big rounds that tear through two zombies in a line.', fx: { rate: 0.45, targets: 2, hit: 'pierce' } },
+    { name: 'Cryo Rounds', gun: 'Cryo Carbine', tag: 'Freeze', color: '#8ae8ff', desc: 'Faster freezing rounds: every hit slows zombies by half.', fx: { rate: 1.6, slow: 0.5 } },
+  ],
+  sniper: [
+    { name: 'Anti-Materiel', gun: '.50 Cal Rifle', tag: 'Heavy', color: '#ff8a3c', desc: 'Enormous single shots that pass through three zombies and hurl them back.', fx: { rate: 0.4, targets: 3, hit: 'pierce', knock: 0.04 } },
+    { name: 'Designated Marksman', gun: 'Semi-Auto Sniper', tag: 'Rapid', color: '#5ad8ff', desc: 'A semi-automatic sniper: three times the shots, each a little lighter.', fx: { rate: 3 } },
+  ],
+  flamer: [
+    { name: 'Napalm Cannon', gun: 'Napalm Launcher', tag: 'Explosive', color: '#ff5a2a', desc: 'Lobs sticky napalm that bursts over a crowd; burning zombies take +25% damage.', fx: { rate: 0.5, targets: 3, hit: 'splash', burn: 4, vuln: 0.25 } },
+    { name: 'Plasma Torch', gun: 'Plasma Torch', tag: 'Wide', color: '#7a9cff', desc: 'A roaring blue jet that reaches two more zombies at once.', fx: { rate: 1.4, targets: 2 } },
+  ],
+  grenade: [
+    { name: 'Thumper', gun: 'Heavy Launcher', tag: 'Explosive', color: '#ff8a3c', desc: 'Huge shells with a bigger blast that throws zombies back.', fx: { rate: 0.5, targets: 3, hit: 'splash', knock: 0.03 } },
+    { name: 'Auto Launcher', gun: 'Drum Launcher', tag: 'Rapid', color: '#5ad8ff', desc: 'A revolving drum that empties grenade after grenade.', fx: { rate: 2.5 } },
+  ],
+  mg: [
+    { name: 'Minigun', gun: 'Rotary Cannon', tag: 'Rapid', color: '#5ad8ff', desc: 'Six spinning barrels: a solid wall of lead.', fx: { rate: 2.5 } },
+    { name: 'Heavy MG', gun: '.50 Heavy MG', tag: 'Pierce', color: '#ff8a3c', desc: 'Slower, bigger rounds that pierce a zombie and shove the line back.', fx: { rate: 0.6, targets: 1, hit: 'pierce', knock: 0.01 } },
+  ],
+  drone: [
+    { name: 'Kamikaze Swarm', gun: 'Bomb Drones', tag: 'Explosive', color: '#ff8a3c', desc: 'Drones dive in and explode, hurting the zombies around the target.', fx: { rate: 0.6, targets: 2, hit: 'splash' } },
+    { name: 'Laser Drones', gun: 'Laser Drones', tag: 'Rapid', color: '#ff5ad8', desc: 'Drones that hover and fire rapid laser bolts.', fx: { rate: 2.5 } },
+  ],
+  rail: [
+    { name: 'Gauss Cannon', gun: 'Gauss Cannon', tag: 'Pierce', color: '#ff8a3c', desc: 'A slow, colossal slug that pierces three more zombies.', fx: { rate: 0.45, targets: 3, hit: 'pierce' } },
+    { name: 'Pulse Rail', gun: 'Pulse Rail', tag: 'Rapid', color: '#5ad8ff', desc: 'Rapid pulses of charged rail fire.', fx: { rate: 2.5 } },
+  ],
+  mortar: [
+    { name: 'Heavy Artillery', gun: 'Howitzer', tag: 'Explosive', color: '#ff8a3c', desc: 'Massive shells: a wider blast that knocks zombies back.', fx: { rate: 0.5, targets: 2, hit: 'splash', knock: 0.03 } },
+    { name: 'Rocket Barrage', gun: 'Rocket Pods', tag: 'Rapid', color: '#5ad8ff', desc: 'Volleys of small rockets that never stop falling.', fx: { rate: 3 } },
+  ],
+  tesla: [
+    { name: 'Storm Caller', gun: 'Storm Coil', tag: 'Chain', color: '#b48aff', desc: 'Huge bolts that arc to three more zombies.', fx: { rate: 0.6, targets: 3, hit: 'chain' } },
+    { name: 'Arc Lancer', gun: 'Arc Lance', tag: 'Stun', color: '#5ad8ff', desc: 'Rapid zaps that leave zombies stunned and crawling (60% slow).', fx: { rate: 2.2, slow: 0.6 } },
+  ],
+};
+/** The non-Damage upgrades that must all be maxed before a unit type can evolve. */
+export const ULT_NODES: UnitNodeId[] = ['spd', 'range', 'crit', 'critx', 'ab1', 'ab2', 'ab3', 'attach', 'charm'];
+export const ultReady = (u: Unit) => u.count > 0 && u.evo === undefined && ULT_NODES.every((id) => unitNodeMaxed(unitNodeById(id), nlv(u, id)));
+export const ultOf = (u: Unit) => (u.evo === undefined ? null : ULTS[u.cls][u.evo]);
+/** Evolving costs C.ultCostMult × everything those maxed upgrades cost together (in the unit's colour): a hefty fee. */
+export function lnUltCost(cls: ClassId, fx: Fx) {
+  let ln = -Infinity;
+  for (const id of ULT_NODES) {
+    const n = unitNodeById(id), top = n.kind === 'capped' ? n.max ?? 1 : 1;
+    for (let l = 0; l < top; l++) ln = logAdd(ln, lnUnitNodeCost(cls, n, l, fx));
+  }
+  return ln + Math.log(C.ultCostMult);
+}
+
 /** Per-unit stats after its tree, gear, ability and the passive tree. */
 export function unitStats(e: SquadEntry, fx: Fx) {
   const { u, gun, attach } = e;
   const c = classById(u.cls);
   const ab = abilityFx(u);
+  const ult = ultOf(u)?.fx;
+  if (ult) {   // the ultimate form: its own rate, hits, knockback and slows; DPS ×2 is added below
+    ab.knockback = ab.knockback * (ult.knockMult ?? 1) + (ult.knock ?? 0);
+    ab.slow = Math.max(ab.slow, ult.slow ?? 0);
+    if (ult.knock) ab.uptime *= 1 + ult.knock * 3;
+    if (ult.slow) ab.uptime *= 1 + ult.slow * 0.3;
+    if (ult.vuln) ab.dmg *= 1 + ult.vuln * 0.5;
+  }
   const a = (stat: AttachStat) => (attach?.stat === stat ? attach.value : 0);
   // only Snipers cover the whole road; everyone else tops out just short of it
   // range bonuses are minor: +2% per Range level, small attachments/passives, at most +30% in total
   const range = Math.min(u.cls === 'sniper' ? 1 : 0.95, c.range * (1 + Math.min(0.3, fx.range + 0.02 * nlv(u, 'range') + a('range'))));
   const spdMult = 1 + fx.spd + (fx.classSpd[u.cls] ?? 0) + 0.04 * nlv(u, 'spd') + a('spd') + ab.spd;
-  const shotsPerSec = c.rate * spdMult;
+  const shotsPerSec = c.rate * spdMult * (ult?.rate ?? 1);
   const crit = Math.min(0.9, c.crit + fx.crit + 0.02 * nlv(u, 'crit') + a('crit'));
   const critDmg = C.baseCritDmg + fx.critDmg + 0.1 * nlv(u, 'critx');
-  const targets = c.targets + (fx.targets[u.cls] ?? 0) + ab.targets;
+  const targets = c.targets + (fx.targets[u.cls] ?? 0) + ab.targets + (ult?.targets ?? 0);
   const lnDmgMult = Math.log(1 + fx.dmg + (fx.classDmg[u.cls] ?? 0) + a('dmg')) + Math.log((fx.classMore[u.cls] ?? 1) * fx.more * ab.dmg);
   const lnDps = Math.log(c.dps) + lnGunPower(gun) + nlv(u, 'dmg') * Math.log(C.dmgPerLevel) + lnDmgMult
-    + Math.log(spdMult) + Math.log(1 + crit * (critDmg - 1));
-  return { range, shotsPerSec, crit, critDmg, targets, lnDps, ability: ab };
+    + Math.log(spdMult) + Math.log(1 + crit * (critDmg - 1)) + (ult ? Math.log(C.ultDps) : 0);
+  return { range, shotsPerSec, crit, critDmg, targets, lnDps, ability: ab, ult };
 }
 /** Damage multiplier of a unit type against a zombie type (gun matchup, passive tree, charm). */
 export const matchMult = (e: SquadEntry, z: ZombieId, fx: Fx) => {

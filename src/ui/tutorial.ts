@@ -44,6 +44,8 @@ const STEPS: Step[] = [
     when: () => game.s.hordes >= 1 && game.allocatableCount() > 0, target: () => rectOf('#tabs [data-arg="tree"]') },
   { id: 'evolve', title: 'Evolution', text: 'At <b>tier 50</b> a zombie type can evolve into a tougher, much richer form that joins the stream. When it’s ready, tap it on the rail and press <b>Evolve</b>.',
     when: () => anyTierAtLeast(40), target: () => rectOf('#zrail .zr-list') ?? rectOf('#tabs [data-arg="zombies"]') },
+  { id: 'ultimate', title: 'Ultimate form', text: 'One of your unit types has every upgrade except Damage maxed. It can now take an <b>ultimate form</b>: pick one of two tracks. Both double its DPS but play very differently.',
+    when: () => M.CLASSES.some((c) => game.ultReady(c.id)), target: () => rectOf('#zrail .zr-seg [data-arg="u"]') ?? rectOf('#tabs [data-arg="squad"]') },
 ];
 
 let lastShown = 0;

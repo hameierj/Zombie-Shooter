@@ -3,6 +3,7 @@
 // gradient shading, rounded shapes, a clean dark outline and a soft ground shadow. Phaser scales sprites by
 // px / RES, so layout code keeps working in art units. The same canvases are exported as data URLs for the DOM.
 import type { ClassId } from '../core/model.ts';
+import { ULTS } from '../core/model.ts';
 type DamageType = 'physical' | 'fire' | 'shock' | 'toxic' | 'cryo';
 type StrainId = string;
 type Ctx = CanvasRenderingContext2D;
@@ -658,6 +659,52 @@ function drawClassGun(cls: ClassId): HTMLCanvasElement {
     }
   }, { outline: 0.45 });
 }
+
+/** A unit's ultimate-form gun: the Pistoleer's are drawn new (a long-barrelled magnum, a pair of pistols); the rest are
+ * the class gun reworked: heavy tracks bigger, darker and trimmed in the track colour; rapid tracks doubled up (a second
+ * barrel/drum behind) with glowing accents. */
+function drawUltGun(cls: ClassId, evo: 0 | 1): HTMLCanvasElement {
+  const d = ULTS[cls][evo], col = d.color, heavy = d.fx.rate < 1;
+  if (cls === 'pistol' && evo === 0) return sprite(GUN_W, GUN_H, (ctx) => {
+    part(ctx, 2.6, 6.2, 2.8, 4.2, 1, '#5a3a22');                 // wooden grip
+    part(ctx, 3.4, 3.4, 4.6, 3.2, 0.9, '#2e3138');               // frame
+    ell(ctx, 7.6, 5.2, 2.1, 1.8); shade(ctx, '#5a606c', 5.5, 3.4, 4.2, 3.6, 0.4, 0.35); edge(ctx, 0.3);   // cylinder
+    ctx.fillStyle = METAL_D; for (const y of [4.4, 5.9]) ctx.fillRect(6.4, y, 2.4, 0.35);
+    part(ctx, 9.2, 3.6, 8.2, 2, 0.6, '#3a3e47');                  // long barrel
+    part(ctx, 9.2, 3.2, 8.2, 0.7, 0.3, col);                     // vent rib in the track colour
+    ctx.fillStyle = '#c7ced8'; ctx.fillRect(16.4, 2.8, 0.8, 0.5);
+    glow(ctx, 17.6, 4.6, 1.2, col, 0.7);
+  }, { outline: 0.45 });
+  if (cls === 'pistol' && evo === 1) return sprite(GUN_W, GUN_H, (ctx) => {
+    for (const [dx, dy, a] of [[-0.4, 2.6, 0.8], [0, 0, 1]] as const) {
+      ctx.globalAlpha = a;
+      part(ctx, 3 + dx, 6 + dy, 2.4, 3.4, 0.8, '#2a2d33');
+      part(ctx, 2.6 + dx, 3.4 + dy, 9.6, 2.6, 0.8, dy ? '#30343c' : METAL);
+      part(ctx, 3.2 + dx, 3.2 + dy, 8.4, 0.6, 0.3, col);
+      ctx.fillStyle = '#c7ced8'; ctx.fillRect(11.2 + dx, 3 + dy, 0.7, 0.5);
+    }
+    ctx.globalAlpha = 1;
+    glow(ctx, 12.8, 4.7, 1, col, 0.6); glow(ctx, 12.4, 7.3, 1, col, 0.6);
+  }, { outline: 0.45 });
+  const base = drawClassGun(cls);
+  return sprite(GUN_W, GUN_H, (ctx) => {
+    const [tc, t] = makeCanvas(GUN_W * RES, GUN_H * RES);
+    t.drawImage(base, 0, 0);
+    t.globalCompositeOperation = 'source-atop';
+    t.fillStyle = heavy ? 'rgba(20,16,12,.35)' : 'rgba(10,30,50,.18)'; t.fillRect(0, 0, tc.width, tc.height);
+    t.fillStyle = col; t.globalAlpha = 0.22; t.fillRect(0, 0, tc.width, tc.height);
+    t.globalAlpha = 0.85; t.fillRect(0, 5.6 * RES, tc.width, 0.5 * RES);                // a stripe in the track colour
+    if (heavy) {
+      // bigger: scaled up around the grip
+      ctx.save(); ctx.translate(3, 6); ctx.scale(1.12, 1.2); ctx.translate(-3, -6); ctx.drawImage(tc, 0, 0, GUN_W, GUN_H); ctx.restore();
+      glow(ctx, 21.4, 5.2, 1.8, col, 0.85);
+    } else {
+      ctx.globalAlpha = 0.75; ctx.drawImage(tc, -1.2, 2.2, GUN_W, GUN_H); ctx.globalAlpha = 1;   // the second barrel / drum behind
+      ctx.drawImage(tc, 0, 0, GUN_W, GUN_H);
+      for (const x of [8, 12, 16]) glow(ctx, x, 4.6, 0.7, col, 0.8);
+    }
+  }, { outline: 0 });
+}
 function drawGun(type: DamageType): GunArt {
   const map: Record<DamageType, ClassId> = { physical: 'rifle', fire: 'flamer', shock: 'rifle', toxic: 'grenade', cryo: 'sniper' };
   return { canvas: drawClassGun(map[type]), grip: [3, 6], muzzle: [21, 5] };
@@ -996,6 +1043,7 @@ export function buildArt(): ArtSet {
   CLASS_ORDER.forEach((cls, i) => {
     for (let f = 0; f < 2; f++) canvases[`hero-${cls}-${f}`] = drawHero(i, f);
     canvases[`gun-${cls}`] = drawClassGun(cls);
+    for (const e of [0, 1] as const) canvases[`gun-${cls}-u${e}`] = drawUltGun(cls, e);
   });
   canvases['vial-dna'] = drawVial('#7ddc5a');
   canvases['arrow'] = sprite(9, 3, (c) => { c.strokeStyle = '#8a5a2e'; c.lineWidth = 0.6; c.beginPath(); c.moveTo(0.5, 1.5); c.lineTo(7, 1.5); c.stroke(); c.beginPath(); c.moveTo(7, 0.4); c.lineTo(8.8, 1.5); c.lineTo(7, 2.6); c.closePath(); c.fillStyle = '#d6dbe2'; c.fill(); c.fillStyle = '#ff5a5a'; c.beginPath(); c.moveTo(0.2, 0.3); c.lineTo(2, 1.5); c.lineTo(0.2, 2.7); c.fill(); }, { outline: 0.25 });
@@ -1058,7 +1106,7 @@ export const modIcon = (stat: string) => iconUrl(`mod-${stat}`, 3);
 export const crateIcon = (rarity: string) => iconUrl(`crate-${rarity}`, 3);
 export const heroIcon = (i: number) => iconUrl(`hero-${i}-0`, 2, [2, 0.5, 16, 15]);
 export const classIcon = (cls: ClassId) => iconUrl(`hero-${cls}-0`, 3, [2, 0.5, 16, 15]);
-export const gunIcon = (cls: ClassId) => iconUrl(`gun-${cls}`, 3);
+export const gunIcon = (cls: ClassId, evo?: 0 | 1) => iconUrl(evo === undefined ? `gun-${cls}` : `gun-${cls}-u${evo}`, 3);
 export const dnaIcon = () => iconUrl('vial-dna', 2);
 /** Icon for a tree node: 'z:<strain>', 'hero:<n>' or a named icon. */
 export function nodeIcon(icon: string): string {
