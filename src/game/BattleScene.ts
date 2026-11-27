@@ -294,7 +294,9 @@ export class BattleScene extends Phaser.Scene {
   }
 
   // ---------- squad: soldiers stand at random spots along the wall, each firing for a share of its unit type ----------
-  private static readonly VISIBLE_PER_TYPE = 6;
+  private static readonly VISIBLE_PER_TYPE = 20;   // every soldier is drawn (up to 20 per unit type)
+  /** Soldier sprite scale (shrinks a little when the wall gets crowded). */
+  private crowd = 1;
   private spots = new Map<string, number>();   // soldier key → random sort key (where along the wall it stands)
 
   private syncShooters() {
@@ -318,7 +320,7 @@ export class BattleScene extends Phaser.Scene {
   private wallFeet(i: number, n: number, key: string): [number, number] {
     const r = this.spots.get(key) ?? 0.5;
     const ay = this.lay.laneTop + (this.lay.laneBot - this.lay.laneTop) * ((i + 0.5) / Math.max(1, n));
-    const ax = Math.round(this.lay.bunkerRight * (0.3 + 0.48 * ((r * 7919) % 1)));
+    const ax = Math.round(this.lay.bunkerRight * (0.16 + 0.64 * ((r * 7919) % 1)));
     return [ax * this.px, Math.round(ay) * this.px];
   }
   private shooterFeet(_i: number, _n: number): [number, number] {
@@ -331,6 +333,10 @@ export class BattleScene extends Phaser.Scene {
     const px = this.px;
     const order = [...this.spots.entries()].sort((a, b) => a[1] - b[1]).map(([key]) => key);
     const n = order.length;
+    // crowded wall: shrink soldiers so the whole army fits (each needs roughly 13×15 art units)
+    const room = this.lay.bunkerRight * 0.72 * (this.lay.laneBot - this.lay.laneTop);
+    this.crowd = Math.max(0.55, Math.min(1, Math.sqrt(room / Math.max(1, n * 13 * 15))));
+    const cs = this.crowd, sc = this.S * cs;
     for (const u of game.owned) {
       const gun = game.gun(u.gun);
       const visible = Math.min(u.count, BattleScene.VISIBLE_PER_TYPE);
@@ -340,11 +346,12 @@ export class BattleScene extends Phaser.Scene {
         const i = order.indexOf(key);
         const [fx, fy] = this.wallFeet(i, n, key);
         const bob = Math.floor(this.time.now / 450 + i) % 2;
-        s.body.setTexture(`hero-${u.cls}-${bob}`).setPosition(fx, fy).setDepth(fy);
+        s.body.setTexture(`hero-${u.cls}-${bob}`).setPosition(fx, fy).setDepth(fy).setScale(sc);
         s.recoil = Math.max(0, s.recoil - dt * 30);
-        const gx = fx + (HERO_GRIP.x - HERO_W / 2) * px - Math.cos(s.aim) * s.recoil * px;
-        const gy = fy - (HERO_H - HERO_GRIP.y) * px - bob * px;
-        s.gun.setVisible(!!gun).setPosition(Math.round(gx), Math.round(gy)).setRotation(s.aim).setDepth(fy + 1);
+        const gx = fx + ((HERO_GRIP.x - HERO_W / 2) * px - Math.cos(s.aim) * s.recoil * px) * cs;
+        const gy = fy - ((HERO_H - HERO_GRIP.y) * px + bob * px) * cs;
+        s.gun.setVisible(!!gun).setPosition(Math.round(gx), Math.round(gy)).setRotation(s.aim).setDepth(fy + 1).setScale(sc);
+        s.flash.setScale(sc);
         s.flashT -= dt;
         s.flash.setVisible(s.flashT > 0);
         if (s.flashT > 0) { const [mx, my] = this.muzzle(s); s.flash.setPosition(mx, my).setDepth(fy + 2); }
@@ -354,7 +361,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private muzzle(s: Shooter): [number, number] {
-    const len = (GUN_W - 5) * this.px;
+    const len = (GUN_W - 5) * this.px * this.crowd;
     return [s.gun.x + Math.cos(s.aim) * len, s.gun.y + Math.sin(s.aim) * len];
   }
 
@@ -364,7 +371,9 @@ export class BattleScene extends Phaser.Scene {
     const st = M.unitStats(e, game.fx);
     const ab = st.ability;
     const groupShots = st.shotsPerSec * M.unitPower(r.count);
-    const rate = Math.min(8, groupShots / visible);
+    // shots drawn per soldier: the group's real rate, but at most ~40 visible shots/s per unit type (damage is unaffected)
+    const cap = r.cls === 'rail' || r.cls === 'sniper' ? 8 : 40;   // big single shots: fewer, so beams don't clutter the road
+    const rate = Math.min(8, groupShots / visible, cap / visible);
     s.cd -= dt;
     while (s.cd <= 0) {
       s.cd += 1 / rate;
@@ -511,8 +520,8 @@ export class BattleScene extends Phaser.Scene {
         s.flashT = 0.08;
         const far = hits.map((z) => this.zombieCenter(z)).reduce((a, b) => (b[0] > a[0] ? b : a));
         const beam = this.add.graphics().setDepth(8700).setBlendMode(Phaser.BlendModes.ADD);
-        for (const [w, col, a] of [[5, 0x3a6aff, 0.45], [2, 0xd8ecff, 1]] as const) beam.lineStyle(w * px, col, a).lineBetween(mx, my, far[0] + 30 * px, far[1]);
-        this.tweens.add({ targets: beam, alpha: 0, duration: 180, onComplete: () => beam.destroy() });
+        for (const [w, col, a] of [[3.5, 0x3a6aff, 0.4], [1.4, 0xd8ecff, 0.9]] as const) beam.lineStyle(w * px, col, a).lineBetween(mx, my, far[0] + 30 * px, far[1]);
+        this.tweens.add({ targets: beam, alpha: 0, duration: 130, onComplete: () => beam.destroy() });
         for (const z of hits) { const [x, y] = this.zombieCenter(z); this.spark(x, y); }
         break;
       }
