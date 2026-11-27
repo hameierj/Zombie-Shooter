@@ -58,10 +58,10 @@ type UpBtn = { key: string; name: string; icon: string; stages: UnitNodeId[] };
 const UP_BUTTONS: UpBtn[] = [
   { key: 'spd', name: 'Speed', icon: 'spd', stages: ['spd'] },
   { key: 'range', name: 'Range', icon: 'range', stages: ['range'] },
-  { key: 'ab', name: 'Ability', icon: '', stages: ['ab1', 'ab2', 'ab3'] },
   { key: 'crit', name: 'Crit', icon: 'crit', stages: ['crit'] },
   { key: 'critx', name: 'Crit ×', icon: 'critdmg', stages: ['critx'] },
   { key: 'slots', name: 'Gear', icon: 'slot-mod', stages: ['attach', 'charm'] },
+  { key: 'ab', name: 'Ability', icon: '', stages: ['ab1', 'ab2', 'ab3'] },
 ];
 /** Preview of a progressive button: how many stages you'd buy now (up to the buy amount) and their total price. */
 function stagePrev(c: ClassId, stages: UnitNodeId[]) {
