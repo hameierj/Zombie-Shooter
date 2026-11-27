@@ -1043,3 +1043,12 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .keep-pill .kp-bar::after { content: ''; position: absolute; left: 50%; top: -1px; bottom: -1px; width: 1px; background: rgba(255,255,255,.45); }   /* ×1 mark */
 @media (min-width: 430px) { .keep-pill .kp-bar { display: block; } }
 @media (min-width: 560px) { .keep-pill .kp-word { display: inline; } }
+.zr-pop .zr-head > div { flex: 1; min-width: 0; }
+.zr-rate { align-self: flex-start; display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  font: 700 12.5px/1 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; color: var(--dna); background: color-mix(in srgb, var(--dna) 14%, transparent); border: 1px solid color-mix(in srgb, var(--dna) 35%, transparent); }
+.zr-rate .vial { height: 13px; }
+.zr-rate i { font-style: normal; font-weight: 600; opacity: .75; }
+.zr-pop .zr-head .zr-rate { display: inline-flex; font-size: 12.5px; color: var(--dna); margin-left: 6px; }
+.zr-pop .zr-head .zr-rate img, .zr-pop .zr-head .zr-rate .vial { width: auto; height: 13px; }
+.zr-pop .zr-head .zr-rate i { display: inline; }
+.zr-pop .zr-head > div span { white-space: nowrap; }
