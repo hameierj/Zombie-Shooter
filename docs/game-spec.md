@@ -44,7 +44,8 @@ Every released type has **its own two dials**, paid in its own colour:
 The **keep-up meter** is an option in Settings, **off by default**: players read the battlefield instead, and the
 shredder glows and pulses red while zombies are reaching it. The **shredder** grinds every zombie that reaches it by
 1% of its HP per second (no upgrades), so the road always clears and you can't get permanently stuck. Shredded
-zombies drop **no DNA** and don't count for the combo: only the squad's kills pay. When the shredder stays swamped for
+zombies pay **25% of their DNA × keep-up²** and don't count for the combo: a little help when slightly behind,
+almost nothing when hopelessly overrun on purpose (so pushing tiers sky-high can't be farmed). When the shredder stays swamped for
 20 s, a message suggests upgrading the squad. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
 whether the squad would still keep up. If the squad falls behind, zombies pile up at the shredder, which grinds them
 slowly. You never lose.
@@ -83,8 +84,10 @@ slowly. You never lose.
   win guarantees a rare-or-better item (the new unit type's gun for hordes 1–6).
 
 ## 4. Upgrade Trees tab
-Sub-tabs across the top switch between **Global** (the passive web below) and every unlocked unit type's own
-upgrade tree (a dot marks any tree with an affordable upgrade). Unit trees are also on each unit's Squad screen;
+Sub-tabs across the top switch between **Global** (the passive tree below; a **List** view by default with
+"Available now" cards and collapsible regions, or the pan/zoom **Web**) and every unlocked unit type's own
+upgrade tree, shown as rows with level, now → next, and Upgrade / Max buttons (a dot marks any tree with an
+affordable upgrade). Unit trees are also on each unit's Squad screen;
 "Gear ›" jumps there.
 
 ### Global passive tree

@@ -380,9 +380,10 @@ export class Game {
   comboBreak() { this.combo = Math.floor(this.combo / 2); }
 
   /** A zombie was shredded. `mult` scales its DNA (special zombies), `lootMult` its item chance. */
-  zombieKilled(strain: ZombieId, tier: number, opts: { silent?: boolean; mult?: number; lootMult?: number } = {}): Loot | null {
-    const paid = (opts.mult ?? 1) > 0;   // shredded zombies pay nothing and don't count for the combo
-    if (!opts.silent && paid) { this.combo++; this.comboIdle = 0; this.comboBest = Math.max(this.comboBest, this.combo); }
+  zombieKilled(strain: ZombieId, tier: number, opts: { silent?: boolean; mult?: number; lootMult?: number; shredded?: boolean } = {}): Loot | null {
+    const paid = (opts.mult ?? 1) > 0;
+    // shredded zombies don't count for the combo
+    if (!opts.silent && !opts.shredded) { this.combo++; this.comboIdle = 0; this.comboBest = Math.max(this.comboBest, this.combo); }
     const col = M.familyOf(strain);
     if (paid) this.setDna(col, M.logAdd(this.dna(col), M.lnDnaPerKill(strain, tier, this.fx) + Math.log((opts.silent ? 1 : this.comboMult) * (opts.mult ?? 1))));
     this.s.kills++;

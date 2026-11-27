@@ -31,6 +31,9 @@ let unitView: ClassId | null = null;     // the unit type whose own screen is op
 let unitNode: UnitNodeId = 'dmg';
 /** Which tree the Tree tab shows: the global passive web or one unit type's own tree. */
 let treeView: 'global' | ClassId = 'global';
+/** Global tree layout: an easy list (default) or the pan/zoom web. Remembered on the device. */
+let treeMode: 'list' | 'web' = (() => { try { return localStorage.getItem('zombie-idle-tree-mode') === 'web' ? 'web' : 'list'; } catch { return 'list'; } })();
+const openRegions = new Set<number>();
 let selectedNode = 'start';
 let lastPointer = 0;
 let pointerDown = 0;
@@ -112,6 +115,8 @@ function act(d: ActionData): boolean {
     case 'release': game.release(sid); break;
     case 'open-unit': unitView = cls; unitNode = 'dmg'; render(); break;
     case 'units': unitView = null; render(); break;
+    case 'tree-mode': treeMode = arg === 'web' ? 'web' : 'list'; try { localStorage.setItem('zombie-idle-tree-mode', treeMode); } catch { /* ignore */ } render(); break;
+    case 'region': { const r = Number(arg); if (openRegions.has(r)) openRegions.delete(r); else openRegions.add(r); render(); break; }
     case 'goto-unit': tab = 'squad'; unitView = cls; render(); break;
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
     case 'unode': unitNode = arg as UnitNodeId; render(); break;
@@ -201,9 +206,9 @@ function render() {
   const scroll = body.dataset.key === key ? body.scrollTop : 0;
   body.dataset.key = key;
   $('#panel-title').textContent = tab === 'squad' && unitView ? M.classById(unitView).plural : TITLES[tab];
-  body.className = tab === 'tree' && treeView === 'global' ? 'tree-mode' : '';
+  body.className = tab === 'tree' && treeView === 'global' && treeMode === 'web' ? 'tree-mode' : '';
   body.innerHTML = tab === 'zombies' ? zombiesHtml() : tab === 'squad' ? (unitView ? unitScreenHtml(unitView) : squadHtml()) : tab === 'tree' ? treeTabHtml() : hordesHtml();
-  if (tab === 'tree' && treeView === 'global') bindTree(); else body.scrollTop = scroll;
+  if (tab === 'tree' && treeView === 'global' && treeMode === 'web') bindTree(); else body.scrollTop = scroll;
   refresh();
 }
 
@@ -277,7 +282,7 @@ function zombiesHtml() {
   <h3>Special zombies</h3>
   <p class="sub small">About ${Math.round(M.SPECIAL_CHANCE * 100)}% of zombies in the stream are special. They glow in their colour.</p>
   <div class="specials">${M.SPECIALS.map((sp) => `<div class="sp"><i style="--c:#${sp.tint.toString(16).padStart(6, '0')}"></i><b>${sp.name}</b><span class="sub small">${sp.desc}</span></div>`).join('')}</div>
-  <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. ${showKeep() ? 'The word under each price is how your squad would cope after buying.' : 'Watch the shredder: when it flashes red, zombies are getting through (shredded zombies drop no DNA).'}</p>`;
+  <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. ${showKeep() ? 'The word under each price is how your squad would cope after buying.' : 'Watch the shredder: when it flashes red, zombies are getting through (shredded zombies pay much less DNA).'}</p>`;
 }
 
 // ---------- Squad tab: overview of unit types, plus the item stash ----------
@@ -337,38 +342,27 @@ function nodeEffect(u: Unit, id: UnitNodeId, lv: number): string {
     default: { const i = Number(id.slice(2)) - 1; return c.ability.stages[i]; }
   }
 }
-/** A unit type's upgrade tree (3 columns × 4 rows with lines to prerequisites) and the selected node's sheet. */
+/** A unit type's upgrade tree as tap-friendly rows: icon, level, now → next, and the buy buttons right on the row. */
 function unitTreeBlock(cls: ClassId) {
   const c = M.classById(cls), u = game.unit(cls);
-  // the unit's tree: 3 columns × 4 rows with lines to prerequisites
-  const ROW = 96;
-  const pos = (n: M.UnitNodeDef) => ({ x: ((n.x + 0.5) / 3) * 100, y: n.y * ROW + 40 });
-  const lines = M.UNIT_NODES.filter((n) => n.requires).map((n) => {
-    const p = pos(M.unitNodeById(n.requires!)), q = pos(n);
-    return `<line x1="${p.x}%" y1="${p.y}" x2="${q.x}%" y2="${q.y}" class="${M.nlv(u, n.requires!) ? 'on' : ''}"/>`;
-  }).join('');
-  const nodes = M.UNIT_NODES.map((n) => {
-    const ns = game.node(cls, n.id), p = pos(n);
+  const order = [...M.UNIT_NODES].sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows = order.map((n) => {
+    const ns = game.node(cls, n.id);
     const col = M.strainById(ns.colour).color;
-    const label = n.kind === 'unlock' ? (ns.level ? '✓' : '') : n.kind === 'capped' ? `${ns.level}/${n.max}` : `Lv ${ns.level}`;
     const icon = n.id.startsWith('ab') ? classIcon(cls) : nodeIcon(UNODE_ICON[n.id]);
-    return `<button class="un ${ns.maxed ? 'maxed' : ''} ${ns.locked ? 'locked' : ''} ${ns.canAfford ? 'afford' : ''} ${n.id === unitNode ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}px;--dna:${col}" data-action="unode" data-arg="${n.id}">
-      <span class="un-icon"><img class="px" src="${icon}" alt=""></span><span class="un-name">${n.id.startsWith('ab') ? `${c.ability.name} ${n.id.slice(2) === '1' ? 'I' : n.id.slice(2) === '2' ? 'II' : 'III'}` : n.name}</span><span class="un-lv">${label}</span></button>`;
+    const name = n.id.startsWith('ab') ? `${c.ability.name} ${['I', 'II', 'III'][Number(n.id.slice(2)) - 1]}` : n.name;
+    const lv = n.kind === 'unlock' ? '' : n.kind === 'capped' ? `${ns.level}/${n.max}` : `Lv ${ns.level}`;
+    const now = nodeEffect(u, n.id, ns.level), next = ns.maxed ? '' : nodeEffect(u, n.id, ns.level + 1);
+    const effect = n.kind === 'unlock' ? esc(next || now) : next ? `${now} → <b class="good">${next}</b>` : `${now}`;
+    const right = ns.maxed ? '<span class="pstate good">✓ Max</span>'
+      : ns.locked ? `<span class="pstate sub small">🔒 ${esc(ns.locked)}</span>`
+      : `<div class="ubtns"><button class="btn sbtn" data-action="buy-node" data-cls="${cls}" data-arg="${n.id}" ${costAttr(ns.colour, ns.lnCost)}><span>${n.kind === 'unlock' ? 'Unlock' : 'Upgrade'}</span>${cost(ns.colour, ns.lnCost)}</button>${
+        n.kind === 'unlock' ? '' : `<button class="btn ghost sbtn max" data-action="buy-node" data-cls="${cls}" data-arg="${n.id}" data-n="1000" ${costAttr(ns.colour, ns.lnCost)}>Max</button>`}</div>`;
+    return `<div class="urow ${ns.maxed ? 'maxed' : ''} ${ns.locked ? 'locked' : ''} ${ns.canAfford ? 'afford' : ''}" style="--dna:${col}">
+      <span class="un-icon"><img class="px" src="${icon}" alt=""></span>
+      <div class="uinfo"><b>${name}</b> <span class="lv">${lv}</span><span class="sub small">${effect}</span></div>${right}</div>`;
   }).join('');
-  const ns = game.node(cls, unitNode), def = ns.def;
-  const now = nodeEffect(u, unitNode, ns.level), next = ns.maxed ? '' : nodeEffect(u, unitNode, ns.level + 1);
-  const sheet = `<div class="tree-sheet" style="--c:${M.strainById(ns.colour).color}">
-    <div><b>${def.id.startsWith('ab') ? `${c.ability.name} · stage ${def.id.slice(2)}` : def.name}</b> <small class="sub">${def.kind === 'ranked' ? 'endless' : def.kind === 'capped' ? `up to ${def.max}` : 'one-time'} · paid in ${vial(ns.colour)} ${M.strainById(ns.colour).dna} DNA</small></div>
-    ${def.kind === 'unlock' ? `<p class="sub">${esc(next || now)}</p>` : `<p class="sub">Now: <b>${now}</b>${next ? ` → Next: <b class="good">${next}</b>` : ' · <span class="good">Maxed</span>'}</p>`}
-    ${ns.maxed ? '<p class="good">✓ Done</p>' : ns.locked ? `<p class="sub">🔒 ${esc(ns.locked)}</p>` : `<div class="row">
-      <button class="btn grow" data-action="buy-node" data-cls="${cls}" data-arg="${unitNode}" ${costAttr(ns.colour, ns.lnCost)}>${def.kind === 'unlock' ? 'Unlock' : 'Upgrade'} · ${cost(ns.colour, ns.lnCost)}</button>
-      ${def.kind === 'unlock' ? '' : `<button class="btn ghost" data-action="buy-node" data-cls="${cls}" data-arg="${unitNode}" data-n="1000" ${costAttr(ns.colour, ns.lnCost)}>Max</button>`}</div>`}
-  </div>`;
-  return `<div class="unit-tree">
-      <h3>${c.name} upgrades <small>tap a node</small></h3>
-      ${sheet}
-      <div class="utree" style="height:${4 * ROW}px"><svg class="utree-lines" width="100%" height="${4 * ROW}">${lines}</svg>${nodes}</div>
-    </div>`;
+  return `<div class="unit-tree"><h3>${c.name} upgrades <small>top half ${vial(c.primary)} · bottom half ${vial(c.secondary)}</small></h3><div class="urows">${rows}</div></div>`;
 }
 function unitScreenHtml(cls: ClassId) {
   const c = M.classById(cls), u = game.unit(cls);
@@ -458,12 +452,53 @@ function treeTabsHtml() {
 }
 function treeTabHtml() {
   if (treeView !== 'global' && !game.classUnlocked(treeView)) treeView = 'global';
-  if (treeView === 'global') return treeTabsHtml() + treeHtml();
+  if (treeView === 'global') return treeTabsHtml() + (treeMode === 'web' ? treeHtml() : treeListHtml());
   const cls = treeView, c = M.classById(cls), u = game.unit(cls);
   return `${treeTabsHtml()}
   <div class="tree-unit-head"><img class="px portrait" src="${classIcon(cls)}" alt=""><div><b>${c.plural} ×${u.count}</b><span class="sub small">${u.count ? `Lv ${M.nlv(u, 'dmg')} · ${fmtLn(game.unitDps(u))} DPS · ${c.ability.name} ${abilityPips(u)}` : 'Not hired yet: hire one on the Squad tab'}</span></div>
     <button class="btn ghost sm" data-action="goto-unit" data-cls="${cls}">Gear ›</button></div>
   ${unitTreeBlock(cls)}`;
+}
+
+const modeToggle = () => `<div class="seg2"><button class="${treeMode === 'list' ? 'on' : ''}" data-action="tree-mode" data-arg="list">List</button><button class="${treeMode === 'web' ? 'on' : ''}" data-action="tree-mode" data-arg="web">Web</button></div>`;
+let treeDist: Map<string, number> | null = null;
+/** Steps from the Command Post, to list each region's passives in the order you'd reach them. */
+function distFromStart() {
+  if (treeDist) return treeDist;
+  treeDist = new Map([['start', 0]]);
+  const q = ['start'];
+  while (q.length) { const id = q.shift()!; for (const l of treeNode(id).links) if (!treeDist.has(l)) { treeDist.set(l, treeDist.get(id)! + 1); q.push(l); } }
+  return treeDist;
+}
+function passiveRow(n: (typeof TREE)[number]) {
+  const has = game.s.alloc.includes(n.id), can = game.canAllocate(n.id), open = game.regionOpen(n.region);
+  const col = game.treeColour(n.id), ln = game.treeCost();
+  const state = has ? 'on' : can ? 'can' : open ? 'off' : 'locked';
+  const right = has ? '<span class="pstate good">✓</span>'
+    : can ? `<button class="btn sbtn" data-action="allocate" data-arg="${n.id}" ${costAttr(col, ln)}><span>Allocate</span>${cost(col, ln)}</button>`
+    : `<span class="pstate sub small">${open ? 'Connect first' : '🔒'}</span>`;
+  return `<div class="prow ${state} ${n.size}" style="--c:${REGIONS[n.region].color}">
+    <span class="pdot"></span><div class="pinfo"><b>${esc(n.name)}</b><span class="sub small">${esc(n.desc)}</span></div>${right}</div>`;
+}
+function treeListHtml() {
+  const dist = distFromStart();
+  const avail = TREE.filter((n) => game.canAllocate(n.id));
+  const col0 = avail[0] ? game.treeColour(avail[0].id) : 'shambler';
+  const regions = REGIONS.map((reg, i) => {
+    const nodes = TREE.filter((n) => n.region === i).sort((a, b) => (dist.get(a.id) ?? 99) - (dist.get(b.id) ?? 99));
+    const got = nodes.filter((n) => game.s.alloc.includes(n.id)).length;
+    const open = game.regionOpen(i), shown = openRegions.has(i);
+    return `<div class="preg" style="--c:${reg.color}">
+      <button class="preg-head" data-action="region" data-arg="${i}"><span class="pdot"></span><b>${reg.name}</b>
+        <span class="sub small">${open ? `${got}/${nodes.length} · paid in ${vial(reg.dna)}` : `🔒 Beat Horde ${reg.horde}`}</span><span class="chev">${shown ? '▾' : '▸'}</span></button>
+      ${shown ? `<div class="prows">${nodes.map(passiveRow).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="tree-top">${modeToggle()}<span class="sub small"><b>${game.s.alloc.length}</b> passives · next costs ${cost(col0, game.treeCost())}</span></div>
+  <h3>Available now <small>${avail.length ? 'connected to what you own' : 'nothing to allocate yet'}</small></h3>
+  <div class="prows">${avail.map(passiveRow).join('') || '<p class="sub">Beat the next horde to open a new region.</p>'}</div>
+  <h3>Regions <small>tap to expand</small></h3>
+  ${regions}`;
 }
 
 // ---------- Tree tab (POE-style web with pan / pinch zoom) ----------
@@ -500,7 +535,7 @@ function treeHtml() {
   const col = game.treeColour(sel.id);
   const selState = sel.id === 'start' || alloc.has(sel.id) ? 'Allocated' : !game.regionOpen(sel.region) ? `Locked: beat Horde ${REGIONS[sel.region].horde} (${M.hordeDef(REGIONS[sel.region].horde).name}) to open ${REGIONS[sel.region].name}.` : !game.s.strains[col].unlocked ? `Paid in ${M.strainById(col).dna} DNA: release ${M.strainById(col).plural} first.` : game.canAllocate(sel.id) ? '' : 'Allocate a connected passive first.';
   return `
-  <div class="tree-top"><span><b>${game.s.alloc.length}</b> passives · each region is paid in its own DNA colour</span>
+  <div class="tree-top">${modeToggle()}<span class="sub small"><b>${game.s.alloc.length}</b> passives</span>
     <span class="tree-ctl"><button class="icon-btn" data-action="zoom" data-arg="out" aria-label="Zoom out">−</button><button class="icon-btn" data-action="zoom" data-arg="in" aria-label="Zoom in">+</button><button class="icon-btn" data-action="center" aria-label="Recenter">◎</button></span></div>
   <div class="tree-view" id="tree-view"><svg id="tree-svg" width="100%" height="100%"><g id="tree-g">${edges.join('')}${nodes}${labels}</g></svg></div>
   <div class="tree-sheet" style="--c:${sel.region < 0 ? '#c8b070' : REGIONS[sel.region].color}">
@@ -594,7 +629,7 @@ let overrunHintAt = 0;
 function offerRollBack() {
   if (performance.now() < overrunHintAt) return;
   overrunHintAt = performance.now() + 120000;
-  toast('<b>Overrun!</b><span>Zombies are piling up at the shredder, and shredded zombies drop no DNA. Upgrade your squad.</span>', '#ff6767');
+  toast('<b>Overrun!</b><span>Zombies are piling up at the shredder, which pays only a little DNA. Upgrade your squad.</span>', '#ff6767');
 }
 function openSettings() {
   const snd = sfx.soundPrefs();

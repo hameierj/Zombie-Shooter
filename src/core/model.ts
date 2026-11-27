@@ -236,8 +236,10 @@ export const CONFIG = {
    * If the boss reaches the shredder, or too many horde zombies break through, the horde is lost. */
   bossHpMult: 10, bossSpeed: 0.45, breachLimit: 10,
   /** The shredder grinds every zombie that reaches it by 1% of its HP per second, so the road always clears.
-   * Shredded zombies drop no DNA (only the squad's kills pay), so overrunning yourself can't be farmed. */
+   * Shredded zombies pay `shredDna` of their DNA, times keep-up² (when the squad is hopelessly overrun on purpose
+   * they pay almost nothing, so pushing tiers sky-high and letting the shredder grind can't be farmed). No combo. */
   shredFrac: 0.01,
+  shredDna: 0.25,
   /** Odds at which a horde card says "should win" and War Drums starts it by itself. */
   hordeWinOdds: 1.1,
   /** Combo: every live kill adds 1; DNA earned is multiplied by up to ×1.5 at 300. It drops to 0 after 3 s

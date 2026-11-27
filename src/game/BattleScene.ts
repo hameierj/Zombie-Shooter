@@ -51,6 +51,8 @@ export class BattleScene extends Phaser.Scene {
   private overrun = 0;
   private stuckT = 0;
   private atWallCount = 0;
+  private keepCache = 1;
+  private keepT = 0;
   private capTop!: Phaser.GameObjects.Image;
   private capBot!: Phaser.GameObjects.Image;
   private fx!: Phaser.GameObjects.Graphics;
@@ -182,6 +184,7 @@ export class BattleScene extends Phaser.Scene {
     // overrun cue: the shredder glows red while zombies are grinding at it
     const atWall = this.zombies.filter((z) => z.alive && z.p >= 1 && !z.horde).length;
     this.atWallCount = atWall;
+    if ((this.keepT -= dt) <= 0) { this.keepT = 1; this.keepCache = game.keepUp(); }
     // stuck detection: the shredder swamped for a long time outside a horde → ask the player to roll back
     if (this.phase === 'stream' && atWall >= 3) this.stuckT += dt; else this.stuckT = Math.max(0, this.stuckT - dt * 3);
     if (this.stuckT >= STUCK_SEC) { this.stuckT = 0; game.emit('stuck'); }
@@ -440,7 +443,7 @@ export class BattleScene extends Phaser.Scene {
       }
     }
     const vm = M.VARIETIES[z.variety].dna;
-    const loot = game.zombieKilled(z.strain, z.tier, { mult: z.shredded ? 0 : (sp?.dna ?? 1) * vm, lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
+    const loot = game.zombieKilled(z.strain, z.tier, { shredded: !!z.shredded, mult: (sp?.dna ?? 1) * vm * (z.shredded ? C.shredDna * Math.min(1, this.keepCache) ** 2 : 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
     if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 
