@@ -67,8 +67,16 @@ initUI();
 // ---------- persistence & app lifecycle ----------
 // iOS can kill a backgrounded web app without warning, so save on every hide, not just on unload.
 setInterval(() => game.save(), AUTOSAVE_MS);
+// Save right after anything you do (buying, hiring, releasing, a horde won or lost), not just every 10 s:
+// iOS often skips the save on close, and an older save would undo recent purchases and hand their DNA back.
+let saveSoon = 0;
+game.on((evt) => {
+  if (evt === 'horde-won' || evt === 'horde-lost') { game.save(); return; }
+  if (evt === 'change' && !saveSoon) saveSoon = window.setTimeout(() => { saveSoon = 0; game.save(); }, 400);
+});
 // When the app is hidden the game simply pauses (no offline earnings); save so nothing is lost.
 document.addEventListener('visibilitychange', () => { if (document.hidden) game.save(); });
+window.addEventListener('blur', () => game.save());
 window.addEventListener('pagehide', () => game.save());
 
 // Block pinch/double-tap zoom on iOS (Safari ignores user-scalable=no).

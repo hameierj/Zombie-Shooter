@@ -154,6 +154,10 @@ Audio, more recruit classes and strains, gun perks, a prestige layer for the ver
 and App Store builds.
 
 ## 9. Saves across updates
+The game saves within half a second of anything you do (buying, hiring, releasing, a horde won or lost), every 10 s,
+and when the app is hidden or loses focus. iOS often skips the save when an app is closed, so relying on that alone
+could undo recent purchases and hand their DNA back on reload.
+
 Saves upgrade automatically (v4 → v5 → v6) under the same storage key, with the old save copied to a backup first.
 Upgrading to v0.8: all old DNA becomes Green DNA, the old tier and spawn level go to Shamblers, zombie types that were
 already in the stream are released (at tier 1, free to raise back to the old best), unit training levels become
