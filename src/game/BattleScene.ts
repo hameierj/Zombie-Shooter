@@ -46,6 +46,7 @@ export class BattleScene extends Phaser.Scene {
   private groundKey = '';
   private housing!: Phaser.GameObjects.TileSprite;
   private teeth!: Phaser.GameObjects.TileSprite;
+  private overrun = 0;
   private capTop!: Phaser.GameObjects.Image;
   private capBot!: Phaser.GameObjects.Image;
   private fx!: Phaser.GameObjects.Graphics;
@@ -174,6 +175,15 @@ export class BattleScene extends Phaser.Scene {
     const dt = Math.min(0.1, deltaMs / 1000);
     this.phaseT += dt;
     this.teeth.tilePositionY -= dt * 30 * RES;
+    // overrun cue: the shredder glows red while zombies are grinding at it
+    const atWall = this.zombies.filter((z) => z.alive && z.p >= 1).length;
+    this.overrun += ((atWall > 0 ? Math.min(1, 0.35 + atWall * 0.12) : 0) - this.overrun) * Math.min(1, dt * 4);
+    if (this.overrun > 0.02) {
+      const pulse = 0.6 + 0.4 * Math.sin(this.time.now / 140);
+      const r = 255, gb = Math.round(255 - 200 * this.overrun * pulse);
+      const tint = (r << 16) | (gb << 8) | gb;
+      this.teeth.setTint(tint); this.housing.setTint(tint);
+    } else { this.teeth.clearTint(); this.housing.clearTint(); }
     this.autoT += dt;
     // War Drums: start the next horde automatically when the squad should win (never spends DNA)
     if (this.autoT >= 3) { this.autoT = 0; if (this.phase === 'stream' && game.autoHorde && game.hordeOdds() >= game.autoHordeNeeds) game.startHorde(); }
@@ -610,6 +620,11 @@ export class BattleScene extends Phaser.Scene {
     const g = this.fx, px = this.px;
     g.clear();
     this.drawRanges(g);
+    if (this.overrun > 0.02) {
+      const pulse = 0.6 + 0.4 * Math.sin(this.time.now / 140);
+      const x0 = (this.lay.shredX + 26) * px;
+      for (let i = 0; i < 6; i++) g.fillStyle(0xff2a2a, 0.18 * this.overrun * pulse * (1 - i / 6)).fillRect(x0 + i * 4 * px, this.lay.roadTop * px, 4 * px, (this.lay.roadBot - this.lay.roadTop) * px);
+    }
     for (const c of this.crates) g.fillStyle(c.color, 0.35 + 0.25 * Math.sin(c.t * 10)).fillRect(c.img.x - 2 * px, c.img.y - 44 * px, 4 * px, 40 * px);
     // special zombies: a pulsing ring at their feet in their colour
     const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 160);

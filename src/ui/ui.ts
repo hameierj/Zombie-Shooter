@@ -19,6 +19,11 @@ const cost = (c: StrainId, ln: number) => `<span class="cost">${vial(c)}${fmtLn(
 const costAttr = (c: StrainId, ln: number) => `data-col="${c}" data-cost="${ln}"`;
 const keepWord = (k: number) => (k >= 1.1 ? '<span class="good">keeping up</span>' : k >= 0.9 ? '<span class="warn">barely keeping up</span>' : '<span class="bad">overrun</span>');
 
+/** Player option: show the keep-up meter and hints (off by default, so players read the battlefield instead). */
+const KEEP_PREF = 'zombie-idle-show-keepup';
+function showKeep(): boolean { try { return localStorage.getItem(KEEP_PREF) === '1'; } catch { return false; } }
+function setShowKeep(on: boolean) { try { localStorage.setItem(KEEP_PREF, on ? '1' : '0'); } catch { /* storage blocked */ } }
+
 /** The open menu, or null when the full-screen zombie map is showing. */
 let tab: Tab | null = null;
 const TITLES: Record<Tab, string> = { zombies: 'Zombies', squad: 'Squad', tree: 'Passive Tree', hordes: 'Hordes' };
@@ -129,6 +134,7 @@ function act(d: ActionData): boolean {
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
     case 'sound-sfx': sfx.setSfx(!sfx.soundPrefs().sfx); openSettings(); break;
     case 'sound-music': sfx.setMusic(!sfx.soundPrefs().music); openSettings(); break;
+    case 'keep-pref': setShowKeep(!showKeep()); openSettings(); render(); break;
   }
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
   const after = M.STRAIN_IDS.reduce((x, c) => x + Math.exp(Math.min(700, game.dna(c))), 0);
@@ -164,6 +170,7 @@ function refresh() {
   }
   const k = game.keepUp();
   const pill = $('#hud-keep');
+  pill.hidden = !showKeep();
   pill.className = `keep-pill ${k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad'}`;
   pill.textContent = k >= 1.1 ? 'keeping up' : k >= 0.9 ? 'barely' : 'overrun';
   for (const b of document.querySelectorAll<HTMLElement>('#tabs [data-action="tab"]')) {
@@ -197,6 +204,7 @@ function render() {
 // ---------- Zombies tab: one card per zombie type ----------
 /** The keep-up meter, pinned to the top of the Zombies menu while you scroll (refresh() keeps it live). */
 function keepCardHtml(k: number) {
+  if (!showKeep()) return '';
   const cls = k >= 1.1 ? 'ok' : k >= 0.9 ? 'warn' : 'bad';
   return `<div class="keep sticky slim ${cls}" title="${fmtNum(game.totalSpawnRate)} zombies/s arriving · the squad can handle ${fmtMult(k)} of that">
     <b>${k >= 1.1 ? 'Keeping up' : k >= 0.9 ? 'Barely' : 'Overrun'}</b>
@@ -213,7 +221,7 @@ function zombiesHtml() {
   const k = game.keepUp();
   const rates = game.lnDnaPerSec();
   const f = Math.min(1, k);
-  const word = (k: number) => (k >= 1.1 ? '<i class="good">keeps up</i>' : k >= 0.9 ? '<i class="warn">barely</i>' : '<i class="bad">overrun</i>');
+  const word = (k: number) => !showKeep() ? '' : (k >= 1.1 ? '<i class="good">keeps up</i>' : k >= 0.9 ? '<i class="warn">barely</i>' : '<i class="bad">overrun</i>');
   const traits = (st: M.StrainDef) => `${st.hp}× HP · ${st.dnaMult}× DNA${st.speed > 1.2 ? ' · fast' : st.speed < 0.8 ? ' · slow' : ''}`;
   const row = (st: M.StrainDef) => {
     const x = game.s.strains[st.id], col = st.family;
@@ -263,7 +271,7 @@ function zombiesHtml() {
   <h3>Special zombies</h3>
   <p class="sub small">About ${Math.round(M.SPECIAL_CHANCE * 100)}% of zombies in the stream are special. They glow in their colour.</p>
   <div class="specials">${M.SPECIALS.map((sp) => `<div class="sp"><i style="--c:#${sp.tint.toString(16).padStart(6, '0')}"></i><b>${sp.name}</b><span class="sub small">${sp.desc}</span></div>`).join('')}</div>
-  <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. The word under each price is how your squad would cope after buying.</p>`;
+  <p class="sub small">DNA + raises that type's tier: ×${C.R} DNA and ×${C.R} HP. Spawn + brings 12% more of them, each level +3% HP. ${showKeep() ? 'The word under each price is how your squad would cope after buying.' : 'Watch the shredder: when it flashes red, zombies are getting through.'}</p>`;
 }
 
 // ---------- Squad tab: overview of unit types, plus the item stash ----------
@@ -557,6 +565,8 @@ function openSettings() {
   openModal(`<h3>Settings</h3>
     <div class="row"><button class="btn ${snd.sfx ? '' : 'ghost'} grow" data-action="sound-sfx">Sound effects: ${snd.sfx ? 'On' : 'Off'}</button>
       <button class="btn ${snd.music ? '' : 'ghost'} grow" data-action="sound-music">Music: ${snd.music ? 'On' : 'Off'}</button></div>
+    <div class="row"><button class="btn ${showKeep() ? '' : 'ghost'} grow" data-action="keep-pref">Keep-up meter: ${showKeep() ? 'On' : 'Off'}</button></div>
+    <p class="sub small">Shows whether your squad keeps up with the zombies, and a hint under every zombie upgrade. Off by default: watch the shredder instead (it flashes red when zombies reach it).</p>
     <p class="sub">The game saves on this device automatically. Export a code to move your save between devices.</p>
     <div class="row"><button class="btn" data-action="export">Export save</button><button class="btn" data-action="import">Import save</button></div>
     <div class="row"><button class="btn danger" data-action="reset">Erase progress</button><button class="btn ghost" data-action="modal-close">Close</button></div>

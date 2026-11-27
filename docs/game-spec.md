@@ -41,7 +41,8 @@ Every released type has **its own two dials**, paid in its own colour:
 | **DNA Count** (tier) | 1 → ∞ | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
 
-A **keep-up meter** compares the squad's kill capacity with all arrivals combined, and every dial button previews
+The **keep-up meter** is an option in Settings, **off by default**: players read the battlefield instead, and the
+shredder glows and pulses red while zombies are reaching it. With the option on, a keep-up meter compares the squad's kill capacity with all arrivals combined, and every dial button previews
 whether the squad would still keep up. If the squad falls behind, zombies pile up at the shredder, which grinds them
 slowly. You never lose.
 
