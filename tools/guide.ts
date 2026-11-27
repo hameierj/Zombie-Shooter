@@ -292,8 +292,8 @@ function prestige() {
             and hordes reset. Perks, leftover points and play time are kept; your old run is copied to the <b>Backup</b> save slot first.</div></div>
           <div class="step"><div><b>Go again.</b> Spend leftover points any time from Hordes → <b>Perks</b>. Every run is faster, so you clear more hordes and earn more points.</div></div>
         </div>
-        <div class="card hl" style="margin-top:10px"><h4>What a prestige keeps</h4><span class="small sub">Perks, leftover points, play time and your lifetime kill
-          counters. Everything else, including ultimate forms, masteries, global upgrades and auto-buy (re-earned at Horde ${10}), starts over.</span></div>
+        <div class="card hl" style="margin-top:10px"><h4>What a prestige keeps</h4><span class="small sub">Perks, leftover points, play time, your commander name and your
+          lifetime kill counters. Everything else, including ultimate forms, masteries, global upgrades and auto-buy (re-earned at Horde ${10}), starts over.</span></div>
       </div>
     </div>
     <h3 style="margin-top:8px">The perks</h3>
@@ -334,8 +334,9 @@ function lateGame() {
       <div class="card hl"><h4>Auto-buy (free after Horde 10)</h4><span class="small sub">Three <b>AUTO</b> switches in the top-left of the map, each on its own:
         <b>Zombies</b> (tiers and spawn while your squad keeps up ×1.3, evolutions, zombie ultimates), <b>Troops</b> (hires and upgrades; unit ultimate forms
         stay your choice) and <b>Globals</b>. Once a second each buys the cheapest thing it can in every colour.</span></div>
-      <div class="card"><h4>Masteries &amp; counters</h4><span class="small sub">Each fully taken tree region grants a mastery perk (Chapter 6). The Hordes tab
-        counts zombies killed, bosses killed, hordes beaten and your best combo.</span></div>
+      <div class="card"><h4>Commander &amp; leaderboard</h4><span class="small sub">After Horde 1, HQ radios in and names you leader: pick a commander name
+        (you can change it once, in Settings). The Hordes tab ranks commanders by hordes beaten, then best tier, and counts zombies killed, bosses
+        killed and your best combo. Masteries for fully taken tree regions are in Chapter 6.</span></div>
     </div>`);
 }
 
@@ -361,8 +362,8 @@ function tips() {
       <div class="card"><h4>Do I earn while the app is closed?</h4><span class="small sub">No. Only active play counts. The game saves right after every purchase.</span></div>
       <div class="card"><h4>Can I lose progress?</h4><span class="small sub">No. Hordes cost nothing to lose and the shredder always clears the road. Use Save slots to keep backups.</span></div>
       <div class="card"><h4>Why can't I buy an upgrade?</h4><span class="small sub">It is grey: you need more of the DNA colour on its price vial, or that colour isn't released yet (🔒).</span></div>
-      <div class="card"><h4>What are the lines on the road?</h4><span class="small sub">Range lines, one per unit type. Turn them on or off in Settings (off by default).</span></div>
-      <div class="card"><h4>How do I move my save?</h4><span class="small sub">Settings → Export code, then Import code on the other device.</span></div>
+      <div class="card"><h4>How do I move my save?</h4><span class="small sub">Settings → Copy save code, then Paste save code on the other device.</span></div>
+      <div class="card"><h4>Do Sniper headshots work on hordes?</h4><span class="small sub">Yes: every zombie but a boss can be headshot, and each kill pops a skull. Bosses take the full average damage instead.</span></div>
       <div class="card"><h4>How many soldiers can I have?</h4><span class="small sub">${C.unitsBase} per type at first, +1 every ${C.tiersPerUnit} tiers of your best zombie type, up to ${C.maxPerType}.</span></div>
     </div>`);
 }
