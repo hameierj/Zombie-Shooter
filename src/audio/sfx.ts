@@ -2,6 +2,9 @@
 // Browsers (iOS especially) only allow audio after a tap, so the context is unlocked on the first touch/click.
 // Frequent sounds (gunfire, deaths) are rate-limited so a big horde stays pleasant instead of deafening.
 import type { ClassId, RarityId } from '../core/model.ts';
+import startUrl from '../assets/audio/start.wav?url';
+import battleUrl from '../assets/audio/battle.wav?url';
+import hordeUrl from '../assets/audio/horde.wav?url';
 
 const PREFS_KEY = 'zombie-idle-sound';
 type Prefs = { sfx: boolean; music: boolean };
@@ -36,7 +39,52 @@ export function unlockAudio() {
   init();
   if (!ctx) return;
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-  startMusic();
+  if (!tracksTried) loadTracks(); else if (!tracks) startMusic();
+}
+
+// ---------- music tracks (the teaser's chiptune): start sting, battle loop, horde loop ----------
+type TrackId = 'battle' | 'horde';
+let tracks: Record<'start' | TrackId, AudioBuffer> | null = null;
+let tracksTried = false;
+let playing: { id: TrackId; src: AudioBufferSourceNode; gain: GainNode } | null = null;
+let wantTrack: TrackId = 'battle';
+async function loadTracks() {
+  tracksTried = true;
+  try {
+    const get = async (u: string) => ctx!.decodeAudioData(await (await fetch(u)).arrayBuffer());
+    const [start, battle, horde] = await Promise.all([get(startUrl), get(battleUrl), get(hordeUrl)]);
+    tracks = { start, battle, horde };
+    if (wantSting) playSting(); else playTrack(wantTrack);
+  } catch { startMusic(); }   // couldn't load the files: fall back to the built-in synth groove
+}
+let wantSting = false;
+function playSting() {
+  if (!tracks || !ctx) return;
+  wantSting = false;
+  const src = ctx.createBufferSource(); src.buffer = tracks.start; src.connect(sfxBus); src.start();
+  window.setTimeout(() => playTrack(wantTrack), 2600);
+}
+/** Switch the background music (crossfades). Before the tracks load, remembers what to play. */
+export function music(id: TrackId) {
+  wantTrack = id;
+  if (tracks && ctx && playing?.id !== id) playTrack(id);
+}
+function playTrack(id: TrackId) {
+  if (!ctx || !tracks) return;
+  const t = ctx.currentTime;
+  if (playing) { const old = playing; old.gain.gain.setTargetAtTime(0, t, 0.25); old.src.stop(t + 1.5); }
+  const src = ctx.createBufferSource(); src.buffer = tracks[id]; src.loop = true;
+  const gain = ctx.createGain(); gain.gain.value = 0; gain.gain.setTargetAtTime(1, t, 0.3);
+  src.connect(gain).connect(musicBus); src.start(t + 0.05);
+  playing = { id, src, gain };
+}
+/** The start-screen sting (coin, sweep, title hit), then the battle loop. */
+export function startSting() {
+  init();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  wantSting = true;
+  if (tracks) playSting(); else if (!tracksTried) loadTracks();
 }
 export const soundPrefs = () => ({ ...prefs });
 export function setSfx(on: boolean) { prefs.sfx = on; savePrefs(); if (ctx) sfxBus.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.02); }

@@ -209,3 +209,19 @@ a slot. **Danger zone**: *Erase progress* (asks first) also keeps the current ga
 A session timer at the top right of the screen shows how long you've been playing since opening the app (it pauses
 while the app is in the background).
 `docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).
+
+## 12. Title screen, music and look
+- **Title screen** (every launch): the screen switches on like an old TV, INSERT COIN blinks, the logo slams in, then
+  PRESS START with a summary of the save (tier, hordes, time played) or NEW GAME. The battle is paused behind it and
+  play time doesn't count. Tapping plays the start sting and the battle music starts.
+- **Music** is the teaser's chiptune (120 BPM, A minor), made by `tools/make-music.py`: a 32 s battle loop and a
+  16 s double-time horde loop (WAV, so they loop without a gap), crossfading when a horde starts and ends. If the
+  files can't load, the old built-in synth groove plays instead.
+- **Banners** pop in arcade-style (scale 1.7 → 1), sized to the field: a red WARNING · HORDE INCOMING with hazard
+  stripes and a pulsing red wash when a horde starts, then the horde's name; the boss's name in red when it arrives;
+  VICTORY! with a gold flash; the new battleground's name after each win.
+- **Units** each have their own look: Pistoleer (white tank top, ripped jeans), Hunter (camo, blaze-orange vest and
+  cap), Shotgunner (red flannel, trucker cap, beard), Rifleman (army camo, plate carrier, helmet), Sniper (ghillie
+  suit), Pyro (firefighter coat, gas mask, fuel tank), Grenadier (beret, grenade bandolier), Machine Gunner
+  (sleeveless, bandana, shades, ammo belt), Drone Operator (hoodie, glowing visor), Mortar Team (desert tan, boonie,
+  ear defenders), Tesla Trooper (rubber suit, copper coils, brass goggles), Railgunner (white power armour).

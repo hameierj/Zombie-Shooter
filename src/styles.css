@@ -832,3 +832,35 @@ button.tc-head { cursor: pointer; }
 .h-boss span { display: block; font-size: 12px; color: var(--muted); }
 .horde.locked .h-boss, .horde.beaten .h-boss { opacity: .7; }
 .h-boss .h-place { color: #c9b98a; margin-top: 2px; }
+
+/* ---------- title screen (like the teaser): CRT switch-on, INSERT COIN, logo slam, PRESS START ---------- */
+#title { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(4,5,8,.82); color: #fff; cursor: pointer; overflow: hidden;
+  font-family: Silkscreen, "Lilita One", monospace; -webkit-tap-highlight-color: transparent; outline: none; }
+#title .t-scan { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
+  box-shadow: inset 0 0 120px 40px rgba(0,0,0,.75); }
+#title .t-crt { position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; background: #dff4ff; box-shadow: 0 0 30px #9fdcff; animation: t-crt .45s ease-in forwards; }
+@keyframes t-crt { 0% { transform: scaleX(0); opacity: 1; } 55% { transform: scaleX(1); height: 3px; opacity: 1; } 100% { transform: scaleX(1) scaleY(60); opacity: 0; } }
+#title .t-boot { position: absolute; display: grid; place-items: center; gap: 22px; opacity: 0; animation: t-in .01s .45s forwards; }
+#title .t-boot b { font-weight: 700; font-size: clamp(22px, 6vw, 40px); color: #ffd34d; text-shadow: -2px 0 rgba(255,40,80,.6), 2px 0 rgba(40,220,255,.6), 0 3px 0 #140c1c; animation: t-blink .62s steps(1) .45s infinite; }
+#title .t-boot span { font-size: 13px; color: #aab4c0; letter-spacing: .2em; }
+#title.t-logo .t-boot { display: none; }
+#title .t-main { display: none; text-align: center; padding: 0 16px; }
+#title.t-logo .t-main { display: block; animation: t-shake .35s .05s; }
+#title h1 { margin: 0; font: 400 clamp(64px, 19vw, 150px)/.92 "Lilita One", system-ui, sans-serif; letter-spacing: .01em; }
+#title h1 span { display: block; text-shadow: -3px 0 rgba(255,40,80,.55), 3px 0 rgba(40,220,255,.55), 0 6px 0 #2a1d05, 0 12px 36px rgba(0,0,0,.7); }
+#title.t-logo .t-z { animation: t-slam .22s cubic-bezier(.2,1.5,.4,1) both; }
+#title.t-logo .t-i { color: #ffd34d; animation: t-slam .22s .09s cubic-bezier(.2,1.5,.4,1) both; }
+#title.t-logo::after { content: ""; position: absolute; inset: 0; background: #fff; pointer-events: none; animation: t-flash .28s forwards; }
+#title .t-tag { margin: 18px 0 0; font-size: clamp(14px, 3.6vw, 22px); letter-spacing: .14em; color: #fff; opacity: 0; animation: t-in .2s .45s forwards; }
+#title .t-start { margin: 44px 0 0; font-weight: 700; font-size: clamp(20px, 5.4vw, 32px); color: #fff; letter-spacing: .08em; visibility: hidden; text-shadow: 0 3px 0 #140c1c; }
+#title.t-ready .t-start { visibility: visible; animation: t-blink .8s steps(1) infinite; }
+#title .t-save { margin: 16px 0 0; font-size: clamp(11px, 2.9vw, 14px); color: #6fdc7a; letter-spacing: .06em; opacity: 0; }
+#title.t-ready .t-save { animation: t-in .3s forwards; }
+#title.t-go { animation: t-out .45s forwards; pointer-events: none; }
+@keyframes t-slam { 0% { transform: scale(2.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes t-flash { 0% { opacity: .9; } 100% { opacity: 0; } }
+@keyframes t-shake { 0%, 100% { transform: none; } 20% { transform: translate(-6px, 4px); } 40% { transform: translate(5px, -5px); } 60% { transform: translate(-4px, 3px); } 80% { transform: translate(3px, -2px); } }
+@keyframes t-blink { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes t-in { to { opacity: 1; } }
+@keyframes t-out { 0% { opacity: 1; filter: brightness(1); } 30% { filter: brightness(2.2); } 100% { opacity: 0; transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { #title *, #title, #title::after { animation-duration: .01s !important; animation-iteration-count: 1 !important; } }

@@ -5,7 +5,8 @@ import { BattleScene } from './game/BattleScene.ts';
 import { game } from './core/state.ts';
 import { TREE } from './core/tree.ts';
 import { initUI } from './ui/ui.ts';
-import { pauseAudio, unlockAudio } from './audio/sfx.ts';
+import { music, pauseAudio, unlockAudio } from './audio/sfx.ts';
+import { showTitle, titleUp } from './ui/title.ts';
 
 const app = document.getElementById('app')!;
 const field = document.getElementById('field')!;
@@ -63,6 +64,9 @@ phaser.events.once(Phaser.Core.Events.READY, () => setTimeout(fitCanvas, 0));
 
 // ---------- UI ----------
 initUI();
+showTitle();
+// music follows the battle: the horde track from the WARNING until the horde ends
+game.on((evt, data) => { if (evt === 'phase') music(data === 'intro' || data === 'horde' ? 'horde' : 'battle'); });
 
 // ---------- play timer (top right): TOTAL time played on this save; counts only while the app is open and visible ----------
 const timeEl = document.getElementById('hud-time')!;
@@ -73,7 +77,7 @@ const fmtTime = (sec: number) => {
 };
 setInterval(() => {
   const now = performance.now();
-  if (!document.hidden) game.s.playSec = (game.s.playSec ?? 0) + Math.min(now - lastTick, 2000) / 1000;   // a long gap = the app was asleep
+  if (!document.hidden && !titleUp()) game.s.playSec = (game.s.playSec ?? 0) + Math.min(now - lastTick, 2000) / 1000;   // a long gap = the app was asleep
   lastTick = now;
   timeEl.textContent = fmtTime(game.s.playSec ?? 0);
 }, 250);

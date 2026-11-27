@@ -6,6 +6,7 @@
 // stream pauses, 60 zombies of the horde's tier rush in and a boss follows. Kill them all before the timer runs out;
 // if the boss reaches the shredder, or 10 horde zombies break through, the horde is lost.
 import { showRanges } from '../core/prefs';
+import { titleUp } from '../ui/title.ts';
 import Phaser from 'phaser';
 import * as M from '../core/model.ts';
 import type { ClassId, Gun, SpecialId, VarietyId, ZombieId } from '../core/model.ts';
@@ -144,7 +145,7 @@ export class BattleScene extends Phaser.Scene {
     this.capBot.setPosition(sx - 2 * px, this.H).setScale(S, S * 2);
     for (const s of this.shooters.values()) { s.body.setScale(S); s.gun.setScale(S); s.flash.setScale(S); }
     this.gibs.setParticleScale(S * 1.4);
-    this.banner.setFontSize(px * 12).setStroke('#140c1c', px * 2);
+    this.banner.setFontSize(Math.min(px * 20, this.W / 9)).setStroke('#140c1c', px * 2.6);
     this.sub.setFontSize(px * 7).setStroke('#140c1c', px * 1.5);
   }
 
@@ -194,20 +195,32 @@ export class BattleScene extends Phaser.Scene {
     if (h.boss === 'brood') boss.spawnT = 2.5;
     queue.push(boss);
     this.horde = { k, t: 0, spawnT: 0, queue, breaches: 0, bossThrough: false, kind: h.kind, spawned: 0 };
-    this.showBanner(h.name.toUpperCase(), `${kd.name.toUpperCase()} · BOSS: ${bd.name.toUpperCase()}`);
+    this.showBanner('WARNING', 'HORDE INCOMING', 'warn', INTRO_SEC * 1000 - 300);
+    this.cameras.main.flash(250, 255, 40, 40);
     sfx.hordeStart();
     this.setPhase('intro');
   }
 
-  private showBanner(text: string, sub = '') {
+  /** Big arcade-style banner: pops in (scale 1.7 → 1), coloured by mood, then fades. */
+  private showBanner(text: string, sub = '', mood: 'info' | 'warn' | 'win' | 'lose' = 'info', hold = 1300) {
     const y = Math.round(this.lay.roadTop * this.px + 26 * this.px);
-    this.banner.setText(text).setPosition(Math.round(this.W * 0.6), y).setAlpha(1);
-    this.sub.setText(sub).setPosition(Math.round(this.W * 0.6), y + 13 * this.px).setAlpha(sub ? 1 : 0);
+    const col = mood === 'warn' || mood === 'lose' ? '#ff5a5a' : mood === 'win' ? '#ffd34d' : '#ffffff';
+    // big but always fits: ~1/8 of the field wide per line, shrunk for long names
+    const room = (this.W - this.lay.shredX * this.px) * 0.9, base = Math.max(this.px * 12, this.W / 8);
+    this.banner.setFontSize(base).setText(text);
+    if (this.banner.width > room) this.banner.setFontSize(Math.floor(base * room / this.banner.width));
+    this.sub.setFontSize(Math.max(this.px * 7, base * 0.3)).setText(sub);
+    if (this.sub.width > room) this.sub.setFontSize(Math.floor(Math.max(this.px * 7, base * 0.3) * room / this.sub.width));
+    const cx = Math.round((this.lay.shredX * this.px + this.W) / 2);
+    this.banner.setText(text).setColor(col).setShadow(0, Math.round(this.px * 1.6), '#2a0a14', 0, true, true).setPosition(cx, y + this.banner.height * 0.2).setAlpha(1).setScale(1.7);
+    this.sub.setText(sub).setColor('#ffffff').setPosition(cx, y + this.banner.height * 0.75 + this.sub.height * 0.5).setAlpha(sub ? 1 : 0).setScale(1);
     this.tweens.killTweensOf([this.banner, this.sub]);
-    this.tweens.add({ targets: [this.banner, this.sub], alpha: 0, delay: 1300, duration: 400 });
+    this.tweens.add({ targets: this.banner, scale: 1, duration: 170, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: [this.banner, this.sub], alpha: 0, delay: hold, duration: 400 });
   }
 
   update(_t: number, deltaMs: number) {
+    if (titleUp()) { this.tickShooters(0); return; }   // paused behind the start screen (soldiers placed, nothing moves)
     const dt = Math.min(0.1, deltaMs / 1000);
     this.phaseT += dt;
     this.teeth.tilePositionY -= dt * 30 * RES;
@@ -247,11 +260,15 @@ export class BattleScene extends Phaser.Scene {
           this.newGround = false; this.relayout();
           const bd = M.BOSSES[M.hordeDef(game.nextHorde).boss];
           this.cameras.main.flash(500, 255, 255, 255);
-          this.showBanner(`NEW BATTLEGROUND: ${bd.place.toUpperCase()}`, `NEXT BOSS: ${bd.name.toUpperCase()}`);
+          this.showBanner(bd.place.toUpperCase(), `NEW BATTLEGROUND · NEXT BOSS: ${bd.name.toUpperCase()}`, 'info', 2000);
         }
       }
     } else if (this.phase === 'intro') {
-      if (this.phaseT >= INTRO_SEC) this.setPhase('horde');
+      if (this.phaseT >= INTRO_SEC) {
+        this.setPhase('horde');
+        const h = M.hordeDef(this.horde.k);
+        this.showBanner(h.name.toUpperCase(), `${M.HORDE_KINDS[h.kind].name.toUpperCase()} · BOSS: ${M.BOSSES[h.boss].name.toUpperCase()}`);
+      }
     } else if (this.phase === 'horde') {
       const h = this.horde;
       h.t += dt;
@@ -263,18 +280,20 @@ export class BattleScene extends Phaser.Scene {
         h.spawned++;
         // Waves: a breather after each wave
         if (kd.waves && !z.boss && h.spawned % Math.ceil(kd.count / kd.waves) === 0 && h.spawned < kd.count) { h.spawnT += kd.gap ?? 0; this.showBanner(`WAVE ${Math.round(h.spawned / Math.ceil(kd.count / kd.waves)) + 1} INCOMING`, ''); }
-        if (z.boss) { const bd = M.BOSSES[z.bossKind!]; this.showBanner(bd.name.toUpperCase(), bd.desc.toUpperCase()); sfx.hordeStart(); if (z.bossKind === 'titan') this.cameras.main.shake(400, 0.006); }
+        if (z.boss) { const bd = M.BOSSES[z.bossKind!]; this.showBanner(bd.name.toUpperCase(), bd.desc.toUpperCase(), 'warn', 1800); this.cameras.main.flash(200, 255, 60, 60); sfx.hordeStart(); if (z.bossKind === 'titan') this.cameras.main.shake(400, 0.006); }
         this.zombies.push(z);
       }
       // you lose if the boss reaches the shredder, or if 10 horde zombies get to it
       const lost = h.bossThrough ? 'THE BOSS REACHED THE SHREDDER' : h.breaches >= C.breachLimit ? `${C.breachLimit} ZOMBIES REACHED THE SHREDDER` : '';
       if (!lost && !h.queue.length && !this.zombies.some((z) => z.alive && z.horde)) {
-        this.showBanner('HORDE BEATEN!', M.hordeDef(h.k).unlocks.toUpperCase());
+        this.showBanner('VICTORY!', M.hordeDef(h.k).unlocks.toUpperCase(), 'win', 1600);
+        this.cameras.main.flash(350, 255, 220, 90); this.cameras.main.shake(250, 0.006);
         sfx.hordeWon();
         game.hordeWon(h.k);
         this.setPhase('end');
       } else if (lost) {
-        this.showBanner('HORDE LOST', lost);
+        this.showBanner('HORDE LOST', lost, 'lose', 1600);
+        this.cameras.main.shake(300, 0.008);
         sfx.hordeLost();
         this.clearZombies(true);
         h.queue = [];
@@ -778,6 +797,17 @@ export class BattleScene extends Phaser.Scene {
     const g = this.fx, px = this.px;
     g.clear();
     this.drawRanges(g);
+    if (this.phase === 'intro') {
+      // horde warning: a pulsing red wash and scrolling hazard stripes at the top and bottom of the road
+      const pulse = 0.5 + 0.5 * Math.sin(this.phaseT * Math.PI * 6);
+      g.fillStyle(0xc81020, 0.1 + 0.12 * pulse).fillRect(0, 0, this.W, this.H);
+      const band = 7 * px, shift = (this.phaseT * 60 * px) % (14 * px);
+      for (const y of [this.lay.roadTop * px, this.lay.roadBot * px - band]) {
+        g.fillStyle(0x18160f, 0.9).fillRect(0, y, this.W, band);
+        g.fillStyle(0xffd34d, 1);
+        for (let x = -14 * px + (y > this.H / 2 ? -shift : shift); x < this.W + 14 * px; x += 14 * px) g.fillTriangle(x, y + band, x + 7 * px, y + band, x + 7 * px + band, y).fillTriangle(x, y + band, x + band, y, x + 7 * px + band, y);
+      }
+    }
     // Fog March: a bank of fog over the far half of the road
     if ((this.phase === 'horde' || this.phase === 'intro') && this.horde.kind === 'fog') {
       const [fx0] = this.toScreen(0.5, 0), top = this.lay.roadTop * px, h = (this.lay.roadBot - this.lay.roadTop) * px;
