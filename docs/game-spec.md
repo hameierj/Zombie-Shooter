@@ -232,9 +232,9 @@ and **Global upgrades** (the five colour upgrades and Scavenger). Once a second 
 colour it can afford, repeatedly. Its evolutions and ultimates show a small notice instead of a pausing card.
 
 ### Commander name and leaderboard
-After **Horde 1** is beaten (and its unlock cards are closed) HQ radios in: a short typewriter cutscene ("Guess that makes
-you the leader. What do they call you?") asks for a **commander name** (2-16 letters, digits, spaces, _ or -). Players
-already past Horde 1 see it on their next visit. The name and a random id are kept on the device and in the save (and
+After **60 seconds of play** (once nothing else is on screen) HQ radios in: a short typewriter cutscene ("Guess that makes
+you the leader. What do they call you?") asks for a **commander name** (2-16 letters, digits, spaces, _ or -). Players who
+already played see it on their next visit. The name and a random id are kept on the device and in the save (and
 through prestige); the ✎ button on the leaderboard changes it. The **Leaderboard** card on the Hordes tab ranks commanders
 by hordes beaten (lifetime), then best tier, then kills, and shows bosses killed and prestige runs. The name can be changed **once per lifetime** from Settings → Commander (the leaderboard only shows it). After the
 first naming the player closes HQ's sign-off themselves, then a faint line drifts over the map: "You feel an eerie,

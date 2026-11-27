@@ -1268,3 +1268,7 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .lbp-empty { display: flex; flex-direction: column; gap: 4px; padding: 14px; }
 .lbp-empty span { color: var(--muted); font-size: 13px; }
 @media (max-width: 380px) { #tabs button { font-size: 11.5px; } #tabs .ti { width: 38px; } }
+/* unlock cards: time left before the card moves on by itself */
+.uk-timer { position: absolute; left: 22px; right: 22px; bottom: 7px; height: 3px; border-radius: 2px; background: var(--c, #ffd34d); opacity: .7; transform-origin: left; animation: uk-timer linear forwards; }
+@keyframes uk-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .uk-timer { animation-timing-function: steps(10); } }

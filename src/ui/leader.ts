@@ -73,10 +73,13 @@ export function myEntry(): Entry | null {
 const SUPA_URL = 'https://yeigxhkozedgymktunkj.supabase.co';
 const SUPA_KEY = 'sb_publishable_LYuhi1OSn4qsiUNAQ_4znw_L1zKTwdp';
 const supa = (path: string, init: RequestInit = {}) => fetch(`${SUPA_URL}/rest/v1/${path}`, { ...init, headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
+/** Only the published game submits scores (never a local test or dev server). */
+const LIVE_SITE = typeof location !== 'undefined' && location.hostname.endsWith('github.io');
 const LEGACY = ['hordes', 'tier', 'kills', 'bosses', 'runs'];
 let v2 = true;   // false if the database hasn't had the stats upgrade yet (then only the original columns exist)
 export const BOARD = SUPA_URL && SUPA_KEY ? {
   async submit(e: Entry) {
+    if (!LIVE_SITE) return;   // test and development copies of the game never write to the real board
     const p = getPlayer(); if (!p?.secret) return;
     if (v2) {
       const r = await supa('rpc/submit_stats', { method: 'POST', body: JSON.stringify({ p_id: e.id, p_secret: p.secret, p_name: e.name, p_stats: e.s }) });
@@ -118,7 +121,7 @@ export function leaderboardHtml() { return ''; }
 export function leaderboardPageHtml(key: string) {
   const me = myEntry(), d = sortDef(key);
   const chips = `<div class="lbp-sorts" role="tablist" aria-label="Rank by">${SORTS.map((x) => `<button class="lbp-chip ${x.key === d.key ? 'on' : ''}" data-action="rank-sort" data-arg="${x.key}" role="tab" aria-selected="${x.key === d.key}" ${x.colour ? `style="--cc:${x.colour}"` : ''}>${x.icon ? `<img class="px" src="${x.icon}" alt="">` : ''}${esc(x.label)}</button>`).join('')}</div>`;
-  if (!me) return `${chips}<div class="lbp-empty card"><b>Beat Horde 1 to take command</b><span>HQ will ask your name, and you'll join the board.</span></div>`;
+  if (!me) return `${chips}<div class="lbp-empty card"><b>Hold the wall for a minute to take command</b><span>HQ will ask your name, and you'll join the board.</span></div>`;
   const list = BOARD ? cache.get(d.key) : undefined;
   let rows = list ? list.filter((e) => e.s[d.key] !== undefined) : [];
   if (!BOARD || !list) rows = [me];
@@ -140,9 +143,9 @@ export function leaderboardPageHtml(key: string) {
 // ---------- the cutscene ----------
 let up = false;
 export const cutsceneUp = () => up;
-/** Show the "you're the leader" cutscene once: after Horde 1, if no name has been chosen yet. */
+/** Show the "you're the leader" cutscene once: after a minute of play, if no name has been chosen yet. */
 export function maybeCommanderScene(blocked: boolean) {
-  if (up || blocked || getPlayer() || game.s.hordes < 1) return;
+  if (up || blocked || getPlayer() || (game.s.playSec ?? 0) < 60) return;
   commanderScene();
 }
 export function commanderScene(rename = false) {
@@ -150,7 +153,7 @@ export function commanderScene(rename = false) {
   up = true;
   const lines = rename
     ? ['HQ here. Changing your call sign, Commander? You only get to do this once, so choose well.']
-    : ['*kssht* ...this is HQ. Do you read me, rooftop?', 'That horde should have broken the wall. It didn\'t. Good work out there.',
+    : ['*kssht* ...this is HQ. Do you read me, rooftop?', 'A whole minute and the wall is still standing. Good work out there.',
       'The squad\'s been asking who\'s calling the shots. Guess that makes you the leader.', 'So, Commander. What do they call you?'];
   const el = document.createElement('div');
   el.id = 'cutscene';

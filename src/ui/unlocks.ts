@@ -17,6 +17,9 @@ export function biohazard(cls = 'bio') {
     pts.map(([x, y]) => `<circle cx="${(x * 7.6).toFixed(2)}" cy="${(y * 7.6).toFixed(2)}" r="4.7" fill="#000"/>`).join('')}<circle r="2.3" fill="#000"/></mask></defs><g mask="url(#${id})">${
     pts.map(([x, y]) => `<circle cx="${(x * 5).toFixed(2)}" cy="${(y * 5).toFixed(2)}" r="7.2" fill="currentColor"/>`).join('')}</g><circle r="4.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`;
 }
+/** Unlock cards advance by themselves after this long without a tap. */
+const AUTO_MS = 10_000;
+let autoT = 0;
 let up = false;
 export const overlayUp = () => up || cutsceneUp();
 const queue: Card[] = [];
@@ -108,6 +111,11 @@ function show() {
     </div>`;
   renderDots();
   landed = performance.now() + 650;   // ignore stray taps until the card has landed
+  // left alone, a card moves on by itself after AUTO_MS (a bar along its bottom shows the time left)
+  window.clearTimeout(autoT);
+  autoT = window.setTimeout(() => { if (el) next(); }, AUTO_MS);
+  const card = el.querySelector<HTMLElement>('.uk-card');
+  if (card) { const bar = document.createElement('i'); bar.className = 'uk-timer'; bar.style.animationDuration = `${AUTO_MS}ms`; card.appendChild(bar); }
   sfx.unlock(idx - 1);
   (el.querySelector('.uk-next') as HTMLButtonElement | null)?.focus({ preventScroll: true });
 }
@@ -117,6 +125,7 @@ function renderDots() {
 }
 function next() {
   if (!el) return;
+  window.clearTimeout(autoT);
   queue.shift();
   if (queue.length) { sfx.nextCard(); el.querySelector('.uk-card')?.classList.add('uk-out'); window.setTimeout(show, 160); return; }
   el.classList.add('uk-bye');
