@@ -42,9 +42,9 @@ export function myEntry(): Entry | null {
 }
 /** The online board: a Supabase project set up with docs/leaderboard.sql. The anon key is public by design (the database
  * only allows reading the board and submitting your own row through submit_score). Empty = local-only board. */
-const SUPA_URL = '';
-const SUPA_KEY = '';
-const supa = (path: string, init: RequestInit = {}) => fetch(`${SUPA_URL}/rest/v1/${path}`, { ...init, headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
+const SUPA_URL = 'https://yeigxhkozedgymktunkj.supabase.co';
+const SUPA_KEY = 'sb_publishable_LYuhi1OSn4qsiUNAQ_4znw_L1zKTwdp';
+const supa = (path: string, init: RequestInit = {}) => fetch(`${SUPA_URL}/rest/v1/${path}`, { ...init, headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
 export const BOARD: { submit(e: Entry): Promise<void>; top(n: number): Promise<Entry[]> } | null = SUPA_URL && SUPA_KEY ? {
   async submit(e) {
     const p = getPlayer(); if (!p?.secret) return;

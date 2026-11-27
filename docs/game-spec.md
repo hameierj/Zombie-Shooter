@@ -238,8 +238,9 @@ already past Horde 1 see it on their next visit. The name and a random id are ke
 through prestige); the ✎ button on the leaderboard changes it. The **Leaderboard** card on the Hordes tab ranks commanders
 by hordes beaten (lifetime), then best tier, then kills, and shows bosses killed and prestige runs. The name can be changed **once per lifetime** from Settings → Commander (the leaderboard only shows it). After the
 first naming the player closes HQ's sign-off themselves, then a faint line drifts over the map: "You feel an eerie,
-unknown presence watching you… watching… always watching…". Until an online board
-is connected (`BOARD` in `src/ui/leader.ts`) it shows only the player's own row.
+unknown presence watching you… watching… always watching…". The board is online (Supabase, set up with `docs/leaderboard.sql`): stats are submitted at most once a minute through the
+`submit_score` function (own row only, via a per-device secret; sanity-checked; 20 s rate limit) and the top 50 are read
+whenever the Hordes tab opens.
 
 ## 6. Automation and time away
 **Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are
