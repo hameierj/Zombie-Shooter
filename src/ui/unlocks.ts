@@ -6,6 +6,7 @@ import type { ClassId, ZombieId } from '../core/model.ts';
 import { REGIONS, treeNode } from '../core/tree.ts';
 import { classIcon, crateIcon, gunIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import * as sfx from '../audio/sfx.ts';
+import { cutsceneUp } from './leader.ts';
 
 export interface Card { eyebrow: string; title: string; body: string; icon: string; color: string; extra?: string; bio?: boolean }
 /** An animated biohazard symbol (inline SVG, coloured by currentColor). */
@@ -17,7 +18,7 @@ export function biohazard(cls = 'bio') {
     pts.map(([x, y]) => `<circle cx="${(x * 5).toFixed(2)}" cy="${(y * 5).toFixed(2)}" r="7.2" fill="currentColor"/>`).join('')}</g><circle r="4.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`;
 }
 let up = false;
-export const overlayUp = () => up;
+export const overlayUp = () => up || cutsceneUp();
 const queue: Card[] = [];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);

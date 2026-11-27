@@ -4,6 +4,7 @@
 import { showTitle } from './title.ts';
 import { biohazard, evolveCard, hordeCards, overlayUp, showCards, ultCard, zombieUltCard } from './unlocks.ts';
 import { coachUp } from './tutorial.ts';
+import { commanderScene, leaderboardHtml, maybeCommanderScene, syncBoard } from './leader.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps } from '../core/prefs';
 import * as M from '../core/model.ts';
@@ -186,6 +187,8 @@ export function initUI() {
   setInterval(refresh, 300);
   setInterval(tickNudge, 500);
   setInterval(tickCombo, 100);
+  setInterval(() => maybeCommanderScene(!!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !$('#modal').hidden), 1000);
+  setInterval(() => void syncBoard(), 60_000);
   setInterval(() => { if (!titleUp() && !overlayUp() && !coachUp() && !document.hidden && game.autoBuyTick()) { soft(); } autoChip(); }, 1000);
   fpsMeter();
 }
@@ -319,6 +322,7 @@ function act(d: ActionData): boolean {
     case 'zombie-ult': game.zombieUlt(sid); break;
     case 'global': game.buyGlobal(arg as M.ColourId, 1); break;
     case 'scavenger': game.buyScavenger(); break;
+    case 'rename': commanderScene(true); break;
     case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals'; const cfg = game.autoCfg; cfg[k] = !cfg[k]; game.save(); autoChip(); if (!$('#modal').hidden) openSettings();
       break; }
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
@@ -881,7 +885,7 @@ function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()];
-  return `${killsHtml()}${prestigeCard()}<p class="sub">Hordes are optional fights: each has its own style, and ends with a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
+  return `${killsHtml()}${leaderboardHtml()}${prestigeCard()}<p class="sub">Hordes are optional fights: each has its own style, and ends with a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
   ${warDrumsHtml()}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);

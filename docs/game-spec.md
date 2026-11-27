@@ -231,6 +231,14 @@ the squad would still keep up ×1.3), **Troops** (hires and every upgrade; unit 
 and **Global upgrades** (the five colour upgrades and Scavenger). Once a second it buys the cheapest allowed thing in each
 colour it can afford, repeatedly. Its evolutions and ultimates show a small notice instead of a pausing card.
 
+### Commander name and leaderboard
+After **Horde 1** is beaten (and its unlock cards are closed) HQ radios in: a short typewriter cutscene ("Guess that makes
+you the leader. What do they call you?") asks for a **commander name** (2-16 letters, digits, spaces, _ or -). Players
+already past Horde 1 see it on their next visit. The name and a random id are kept on the device and in the save (and
+through prestige); the ✎ button on the leaderboard changes it. The **Leaderboard** card on the Hordes tab ranks commanders
+by hordes beaten (lifetime), then best tier, then kills, and shows bosses killed and prestige runs. Until an online board
+is connected (`BOARD` in `src/ui/leader.ts`) it shows only the player's own row.
+
 ## 6. Automation and time away
 **Automations never spend DNA**, so they can't take DNA away from the choices you want to make. The only ones are
 free actions: **gear is always auto-equipped** (every unit type carries its best gun, attachment and charm; it

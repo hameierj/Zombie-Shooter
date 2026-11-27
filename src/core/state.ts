@@ -23,6 +23,8 @@ export interface SaveData {
   nextUid: number;
   kills: number;
   bossKills?: number;
+  /** The commander's name for the leaderboard (chosen in the cutscene after Horde 1). */
+  player?: { id: string; name: string };
   /** Auto-buy (free after Horde 10): each category is switched on or off on its own, from the map. */
   auto?: { on?: boolean; zombies: boolean; units: boolean; globals: boolean };                 // bosses killed (kept through prestige, like kills)
   newItems: number[];
@@ -707,9 +709,9 @@ export class Game {
       const d = M.perkById(id);
       for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
     }
-    const playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills;
+    const playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, player = this.s.player;
     this.s = freshSave();
-    this.s.prestige = p; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills;
+    this.s.prestige = p; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.player = player;
     this.applyHeadStart();
     this.fxCache = null; this.syncLive();
     this.save();
