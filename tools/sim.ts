@@ -79,7 +79,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
       }
       if (profile.tree) {
         const fr = TREE.filter((n) => n.id !== 'start' && !s.alloc.includes(n.id) && REGIONS[n.region].horde <= s.hordes && n.links.some((l) => l === 'start' || s.alloc.includes(l)));
-        for (const n of fr.slice(0, 3)) opts.push({ col: REGIONS[n.region].dna, ln: M.lnTreeCost(s.alloc.length), go: () => { s.alloc.push(n.id); } });
+        for (const n of fr) opts.push({ col: REGIONS[n.region].dna, ln: M.lnTreeCost(s.alloc.filter((a) => TREE.find((t) => t.id === a)?.region === n.region).length, REGIONS[n.region]), go: () => { s.alloc.push(n.id); treeAt.push(`${n.region}@${Math.round(s.t / 60)}`); } });
       }
       let bought = false;
       // cheapest option per colour
@@ -95,6 +95,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
   const hordeAt = [];
   const hordeBest = [];
   const tierAt = [];
+  const treeAt = [];
   const capAt = [];
   let ci = 0;
   while (s.t < hours * 3600) {
@@ -123,7 +124,7 @@ export function simulate(profile, hours = HOURS, seed = SEED) {
     }
     s.t += DT;
   }
-  out.hordeAt = hordeAt; out.hordeBest = hordeBest; out.tierAt = tierAt; out.capAt = capAt;
+  out.hordeAt = hordeAt; out.hordeBest = hordeBest; out.tierAt = tierAt; out.treeAt = treeAt; out.capAt = capAt;
   return out;
 }
 
@@ -132,6 +133,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`\n=== ${p.label} ===`);
     const res = simulate(p);
     if (process.env.TIERS) { console.log('best tier by minute: ' + res.tierAt.map((t, i) => i % 5 === 0 ? `${i}:${t}` : '').filter(Boolean).join(' ')); console.log('best tier at each win: ' + res.hordeBest.map((t, i) => `${i + 1}:${t}/${M.hordeDef(i + 1).tier}`).join(' ')); }
+    if (process.env.TREE) console.log('passives (region@min): ' + res.treeAt.join(' '));
     if (process.env.CAP) console.log('beatable horde tier: ' + res.capAt.join(' '));
     if (res.hordeAt.length) console.log('hordes at (min): ' + res.hordeAt.map((m, i) => `${i + 1}:${m.toFixed(0)}`).join(' ') + '\n  gaps (min): ' + res.hordeAt.map((m, i) => (m - (res.hordeAt[i - 1] ?? 0)).toFixed(0)).join(' '));
     for (const r of res) console.log(`${String(r.h).padStart(6)}h  tiers ${r.tiers.padEnd(34)} hordes ${String(r.hordes).padStart(2)}  passives ${String(r.nodes).padStart(2)}  drops ${String(r.drops).padStart(3)}  keep ${r.keep.toFixed(2)}  ${r.squad}`);

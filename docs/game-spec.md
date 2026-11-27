@@ -104,7 +104,7 @@ slowly. You never lose.
 One **checklist per region**, one region open at a time. Each region shows a progress ring (n/10), how many passives
 are ready, the DNA colour it's paid in, and its keystone up front as the **goal**. Inside: steps 1–3, then **Path A and
 Path B** side by side (3 steps each), then the keystone, which opens once either path is done. Each passive raises the
-price of the next one (×1.9). Locked regions say which horde opens them. Unit upgrades live on the Squad page.
+price of that region's next one (×3.5). Locked regions say which horde opens them. Unit upgrades live on the Squad page.
 
 Each region is a straight path from the Command Post: there are no links between regions (older saves keep any
 passive they took through the old cross-region links).
@@ -120,7 +120,7 @@ passive they took through the old cross-region links).
 | Demolition | Horde 6 | drop chance, splash; Grenadiers ×2 |
 | Command | Horde 7 | hiring −25%, +10% attack speed, cheaper training; whole squad ×1.5 |
 
-Allocate a node next to one you own. Each region is paid in its own DNA colour (Basic Training Green, Marksman and Suppression Yellow, Breacher and Deadeye Red, Inferno Teal, Demolition and Command Purple); each allocation costs ×1.9 more than the last. Tap a node to see what it does.
+Allocate a node next to one you own. Each region is paid in its own DNA colour (Basic Training Green, Marksman and Suppression Yellow, Breacher and Deadeye Red, Inferno Teal, Demolition and Command Purple); **each region has its own price ladder**: its first passive costs 15 of its colour, scaled up by the tiers that colour has gained between the horde that brought it and the horde that opens the region (so a late region isn't an instant buy), and each passive taken in that region makes its next one ×3.5. Sim: Basic Training lasts ~48 min, Marksman starts at ~7 min (when yellow arrives) and runs to ~70 min. Tap a node to see what it does.
 
 ## 5. Hordes (Hordes tab)
 Optional fights. The stream pauses while you fight. Every horde has a **type** and ends with a **boss** (×10 HP, plus

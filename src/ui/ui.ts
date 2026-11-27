@@ -597,7 +597,7 @@ let treeFresh = '';   // the passive just taken (pops in)
 function treeStep(ri: number, k: string, num: number, first = false) {
   const id = `r${ri}.${k}`, n = treeNode(id);
   const has = game.s.alloc.includes(id), can = game.canAllocate(id);
-  const col = game.treeColour(id), ln = game.treeCost();
+  const col = game.treeColour(id), ln = game.treeCost(id);
   const kind = n.size === 'notable' ? 'notable' : n.size === 'keystone' ? 'key' : '';
   const state = has ? 'owned' : can ? 'avail' : 'locked';
   const act = has ? '<span class="tc-own">✓ Owned</span>'
@@ -633,7 +633,7 @@ function treeChecklistHtml() {
     </div>`;
   }).join('');
   treeFresh = '';
-  return `<div class="tc-summary"><span><b>${game.s.alloc.length}</b> passives${totalReady ? ` · <span class="tc-ready">${totalReady} ready</span>` : ''}</span><span>Each one raises the next price ×${C.treeCostGrowth} · next <b>${fmtLn(game.treeCost())}</b></span></div>
+  return `<div class="tc-summary"><span><b>${game.s.alloc.length}</b> passives${totalReady ? ` · <span class="tc-ready">${totalReady} ready</span>` : ''}</span><span>Each region has its own prices: every passive taken there makes its next one ×${C.treeCostGrowth}</span></div>
   <div class="tc-list">${regions}</div>`;
 }
 

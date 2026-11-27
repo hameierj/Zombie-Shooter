@@ -482,7 +482,9 @@ export class Game {
   get autoHordeNeeds() { return Math.max(M.CONFIG.hordeWinOdds, this.hordeFailOdds * 1.15); }
 
   // ---------- passive tree ----------
-  treeCost() { return M.lnTreeCost(this.s.alloc.length); }
+  /** Passives already taken in a region (each region prices its own passives). */
+  regionAlloc(region: number) { return this.s.alloc.filter((a) => treeNode(a)?.region === region).length; }
+  treeCost(id: string) { const n = treeNode(id); return n && n.region >= 0 ? M.lnTreeCost(this.regionAlloc(n.region), REGIONS[n.region]) : M.lnTreeCost(0); }
   treeColour(id: string): StrainId { const n = treeNode(id); return n && n.region >= 0 ? REGIONS[n.region].dna : 'shambler'; }
   regionOpen(region: number) { return region < 0 || REGIONS[region].horde <= this.s.hordes; }
   canAllocate(id: string) {
@@ -491,9 +493,9 @@ export class Game {
     if (!this.s.strains[this.treeColour(id)].unlocked) return false;   // paid in a colour you haven't released yet
     return n.links.some((l) => l === 'start' || this.s.alloc.includes(l));
   }
-  canAffordNode(id: string) { return this.canAllocate(id) && this.canAfford(this.treeColour(id), this.treeCost()); }
+  canAffordNode(id: string) { return this.canAllocate(id) && this.canAfford(this.treeColour(id), this.treeCost(id)); }
   allocate(id: string) {
-    if (!this.canAllocate(id) || !this.pay(this.treeColour(id), this.treeCost())) return;
+    if (!this.canAllocate(id) || !this.pay(this.treeColour(id), this.treeCost(id))) return;
     this.s.alloc.push(id);
     this.emit('allocate', id);
     this.emit('change');

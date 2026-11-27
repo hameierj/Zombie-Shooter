@@ -244,8 +244,8 @@ export const CONFIG = {
   baseCritDmg: 2,
   dropChance: 0.002,        // item drop chance per zombie at 1 zombie/s; it shrinks as the stream gets busier, so drops
   dropRateExp: 0.75,         // stay minutes apart: ~1 per 8 min early, ~1 per 3 min with every type at full spawn rate
-  treeCost0: 15,
-  treeCostGrowth: 1.9,
+  treeCost0: 15,            // each passive-tree REGION has its own price ladder, in its own colour: the first passive
+  treeCostGrowth: 3.5,      // costs 15 and each one taken in that region makes the next ×3.5
   walkSec: 16,
   hordeZombies: 60,
   hordeTimerSec: 66,
@@ -394,7 +394,17 @@ export const lnUnitNodeCost = (cls: ClassId, n: UnitNodeDef, level: number, fx: 
 export const unitNodeMaxed = (n: UnitNodeDef, level: number) => (n.kind === 'unlock' ? level >= 1 : n.kind === 'capped' ? level >= (n.max ?? 1) : false);
 export const lnHireCost = (cls: ClassId, owned: number, fx?: Fx) =>
   Math.log(classById(cls).hire0 * (1 - (fx?.hireDiscount ?? 0))) + owned * Math.log(C.hireGrowth);
-export const lnTreeCost = (allocated: number) => Math.log(C.treeCost0) + allocated * Math.log(C.treeCostGrowth);
+/** Price of the next passive in a region. Each region starts at 15 of its colour, scaled up by how far that colour has
+ * come by the time the region opens (the tiers between the horde that brought the colour and the horde that opens the
+ * region), so a late region isn't an instant buy; then every passive taken there makes the next ×treeCostGrowth. */
+export const lnTreeCost = (allocated: number, region?: { horde: number; dna: ColourId }) => {
+  let lead = 0;
+  if (region && region.horde > 0) {
+    const ch = COLOUR_HORDE[region.dna as ZombieId] ?? 0;
+    lead = Math.max(0, hordeDef(region.horde).tier - (ch ? hordeDef(ch).tier : 1));
+  }
+  return Math.log(C.treeCost0) + lead * lnR + allocated * Math.log(C.treeCostGrowth);
+};
 export const abilityStage = (u: Unit) => (nlv(u, 'ab3') ? 3 : nlv(u, 'ab2') ? 2 : nlv(u, 'ab1') ? 1 : 0);
 
 /** What a unit type's ability does at its current stage (used by the maths and by the battlefield). */
