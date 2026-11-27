@@ -34,7 +34,7 @@ are converted on load: a colour's best tier T becomes forms at 50, 50, … with 
 | Purple (very tanky) | Bloater, Chef, Sumo, Mutant, Abomination |
 
 Later types in a family have more HP and drop proportionally more DNA. Hordes use the five family leaders.
-Horde zombies pay DNA at **your** best tier (never the horde's higher tier), so a horde is never a DNA jackpot.
+**Hordes pay no lump of DNA.** Horde kills pay nothing; instead, from the horde's start until the restarted stream lands its first kill, you keep earning your normal stream income (with combo) every second (`earnSteady`). Income is a straight line through every horde: no burst to max out the squad or zombies with, and no gap while the stream walks back in. (Measured in the browser: ~140–280 green per 20 s before, during and after Horde 1, where it used to be 2–3× during it.)
 
 **Varieties:** every zombie type also comes as **Feral** (×2.5 HP and DNA, reddish, a bit bigger) and **Alpha**
 (×6 HP and DNA, bigger, dark aura). They join a type's stream as you raise its DNA Count: Ferals from tier 20
@@ -236,6 +236,11 @@ while the app is in the background).
 `docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).
 
 ## 12. Title screen, music and look
+- **Unlock cards**: after a horde is won (once the VICTORY banner has shown) the battle and the play-time clock pause
+  and each unlock gets its own card: the horde and its reward item, a new recruit (gun, range, targets, ability, where to
+  hire), a new zombie colour (its DNA), and a new passive-tree region (its colour and goal). Evolving a zombie type gets a
+  card too. Each card pops in with spinning light rays, a sparkle burst and a rising fanfare (each card a step higher);
+  Next (or a tap anywhere once it has landed, or Enter) moves on, and the last says "Back to the fight". (`src/ui/unlocks.ts`)
 - **Battle look ("rooftop siege")**: the squad stands on a rooftop on the left, its wall facing the street; a sidewalk of
   spike barricades in front of it is the shredder; the horde comes down a city street at dusk with buildings, wrecks,
   lamps and props (`src/game/city.ts`). Each boss's battleground gives the street its own mood (toxic puddles, mud,

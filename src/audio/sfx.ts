@@ -250,3 +250,14 @@ function startMusic() {
     }
   }, 50);
 }
+
+/** Unlock fanfare for the reward overlay: a rising arpeggio plus a sparkle, pitched per card so a run of cards climbs. */
+export function unlock(step = 0) {
+  if (!gate('unlock', 0.2)) return;
+  const k = Math.pow(2, Math.min(step, 4) / 12 * 2);   // each card a whole tone higher
+  [523, 659, 784, 1047].forEach((f, i) => tone(f * k, i === 3 ? 0.45 : 0.12, { type: 'square', gain: 0.07, at: i * 0.07 }));
+  [1568, 2093, 2637].forEach((f, i) => tone(f * k, 0.18, { type: 'triangle', gain: 0.035, at: 0.3 + i * 0.05 }));
+  hiss(0.35, { type: 'highpass', freq: 6000, gain: 0.05, at: 0.28 });
+}
+/** Soft click for turning to the next card. */
+export function nextCard() { if (gate('ncard', 0.08)) { tone(880, 0.05, { type: 'triangle', gain: 0.06 }); tone(1320, 0.07, { type: 'triangle', gain: 0.05, at: 0.04 }); } }

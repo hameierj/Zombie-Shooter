@@ -2,6 +2,7 @@
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import { showTitle } from './title.ts';
+import { evolveCard, hordeCards, showCards } from './unlocks.ts';
 import { showRanges, setShowRanges } from '../core/prefs';
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
@@ -182,10 +183,16 @@ export function initUI() {
   document.addEventListener('pointercancel', release, { passive: true });
   game.on((evt, data) => {
     if (evt === 'loot') toastLoot(data as Loot, 'Found:');
-    if (evt === 'horde-won') { const d = data as { k: number; loot: Loot }; toast(`<b>Horde ${d.k} beaten!</b><span>${esc(M.hordeDef(d.k).unlocks)}</span>`, '#ffd34d'); toastLoot(d.loot, 'Reward:'); }
+    if (evt === 'horde-won') {
+      // pause and show a card for each unlock, after the VICTORY banner has had a moment
+      const d = data as { k: number; loot: Loot }, l = d.loot;
+      const reward = l.type === 'gun' ? { title: gunName(l.gun), sub: `Tier ${fmtInt(l.gun.ilvl)} · for ${M.classById(l.gun.cls).plural}`, icon: crateIcon(l.gun.rarity), color: RARITY_COLOR[l.gun.rarity] }
+        : { title: gearName(l.gear), sub: gearDesc(l.gear), icon: crateIcon(l.gear.rarity), color: RARITY_COLOR[l.gear.rarity] };
+      showCards(hordeCards(d.k, reward), 1500);
+    }
     if (evt === 'stuck') offerRollBack();
     if (evt === 'horde-lost') toast('<b>The horde was too strong</b><span>Upgrade your units and try again.</span>', '#ff6b6b');
-    if (evt === 'release') { const st = M.strainById(data as StrainId); toast(M.COLOUR_HORDE[st.id as M.ZombieId] ? `<b>New colour: ${st.plural}!</b><span>They drop ${st.dna} DNA.</span>` : `<b>${st.plural} evolved!</b><span>A tougher ${st.dna.toLowerCase()} form that pays far more DNA.</span>`, st.color, zombieIcon(st.id)); }
+    if (evt === 'release' && !M.COLOUR_HORDE[data as M.ZombieId]) showCards([evolveCard(data as M.ZombieId)]);   // new colours get their card with the horde's
     if (evt === 'phase') battlePhase = data as string;
     if (evt === 'horde-start') battlePhase = 'intro';
     if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase', 'horde-start'].includes(evt)) soft();

@@ -456,6 +456,12 @@ export class Game {
     if (!opts.silent) this.emit('loot', loot);
     return loot;
   }
+  /** During a horde the stream pauses, and horde kills pay no DNA. Instead you keep earning your normal stream income
+   * (with your combo) every second, so income stays a straight line through hordes instead of a lump at the end. */
+  earnSteady(dt: number) {
+    const rate = this.lnDnaPerSec(), lm = Math.log(dt * this.comboMult);
+    for (const c of M.STRAIN_IDS) if (Number.isFinite(rate[c])) this.setDna(c, M.logAdd(this.dna(c), rate[c] + lm));
+  }
   get autoHorde() { return this.fx.autoHorde && this.s.autoHordeOn; }
 
   // ---------- hordes ----------

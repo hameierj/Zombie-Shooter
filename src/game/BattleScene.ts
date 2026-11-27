@@ -7,6 +7,7 @@
 // if the boss reaches the shredder, or 10 horde zombies break through, the horde is lost.
 import { showRanges } from '../core/prefs';
 import { titleUp } from '../ui/title.ts';
+import { overlayUp } from '../ui/unlocks.ts';
 import Phaser from 'phaser';
 import * as M from '../core/model.ts';
 import type { ClassId, Gun, SpecialId, VarietyId, ZombieId } from '../core/model.ts';
@@ -83,6 +84,8 @@ export class BattleScene extends Phaser.Scene {
   private crates: Crate[] = [];
   private pools = new Map<string, Phaser.GameObjects.Image[]>();
   private textCd = 0;
+  /** True from a horde's start until the stream (paused for the horde) gets its first kill again. */
+  private awaitStream = false;
   private autoT = 0;
   // the rooftop-siege look: decals that stay on the ground, a dusk grade, live lights, particles, tracers, shadows
   private decals?: Phaser.GameObjects.RenderTexture;
@@ -252,7 +255,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   update(_t: number, deltaMs: number) {
-    if (titleUp()) { this.tickShooters(0); return; }   // paused behind the start screen (soldiers placed, nothing moves)
+    if (titleUp() || overlayUp()) { this.tickShooters(0); return; }   // paused behind the start screen or the unlock cards   // paused behind the start screen (soldiers placed, nothing moves)
     const dt = Math.min(0.1, deltaMs / 1000);
     this.phaseT += dt;
     this.teeth.tilePositionY -= dt * 30 * RES;
@@ -334,6 +337,9 @@ export class BattleScene extends Phaser.Scene {
       }
     }
     game.comboTick(dt);
+    // steady income through the horde and until the restarted stream lands its first kill (no lump, no gap)
+    if (this.phase !== 'stream') this.awaitStream = true;
+    if (this.awaitStream) game.earnSteady(dt);
     this.tickZombies(dt);
     this.tickShooters(dt);
     this.tickEffects(dt);
@@ -603,9 +609,11 @@ export class BattleScene extends Phaser.Scene {
       this.floatText('IT BURST!', x, y - 30 * this.px, true);
       this.broodSpawn(z, 10, 0.3, 1.7);
     }
+    if (!z.horde && this.phase === 'stream' && !z.shredded) this.awaitStream = false;
     const vm = M.VARIETIES[z.variety].dna;
     // horde zombies pay DNA at YOUR tier, not the horde's (a tier-30 horde shouldn't hand a tier-10 player a fortune)
-    const loot = game.zombieKilled(z.strain, z.horde ? Math.min(z.tier, game.best) : z.tier, { shredded: !!z.shredded, mult: (sp?.dna ?? 1) * vm * (z.shredded ? C.shredDna * Math.min(1, this.keepCache) ** 2 : 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
+    // horde kills pay no DNA: during a horde you earn your steady stream income instead (game.earnSteady), so no lump
+    const loot = game.zombieKilled(z.strain, z.tier, { shredded: !!z.shredded, mult: z.horde ? 0 : (sp?.dna ?? 1) * vm * (z.shredded ? C.shredDna * Math.min(1, this.keepCache) ** 2 : 1), lootMult: (sp?.loot ?? 1) * (z.variety ? 1.5 * z.variety : 1) });
     if (loot) this.dropCrate(loot.type === 'gun' ? loot.gun.rarity : loot.gear.rarity, x, y);
   }
 
