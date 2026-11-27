@@ -432,6 +432,6 @@ export function hordeOdds(squad: SquadEntry[], fx: Fx, k: number) {
   // the boss comes last: you have the time it takes to arrive (after the rest of the horde) plus its slow walk,
   // and in that time the squad must get through the horde and the boss
   const time = C.hordeZombies / C.hordeSpawnPerSec + C.walkSec / C.bossSpeed;
-  // ×1.35: zombies that slip past don't have to be killed, only the boss does (calibrated in browser play tests)
-  return (1.35 * (time - C.walkSec)) / (C.hordeZombies * secPerZombie + bossSec);
+  // ×1.28: a few zombies may slip past (up to 10 breaches); calibrated in browser play tests so ~1.0 is a coin flip
+  return (1.28 * (time - C.walkSec)) / (C.hordeZombies * secPerZombie + bossSec);
 }

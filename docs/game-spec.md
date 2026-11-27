@@ -41,7 +41,7 @@ Every released type has **its own two dials**, paid in its own colour:
 | **DNA Count** (tier) | 1 → ∞ | Each tier: ×1.15 DNA and ×1.15 HP for that type. Tiers only go up |
 | **Spawn Rate** | 30 levels | +12% of that type per level; each level also +3% HP for that type |
 
-The **keep-up meter** is an option in Settings, **off by default**: players read the battlefield instead, and the
+The **keep-up meter** (Settings → Difficulty meters, which also shows horde odds) is **off by default**: players read the battlefield instead, and the
 shredder glows and pulses red while zombies are reaching it. The **shredder** grinds every zombie that reaches it by
 1% of its HP per second (no upgrades), so the road always clears and you can't get permanently stuck. Shredded
 zombies pay **25% of their DNA × keep-up²** and don't count for the combo: a little help when slightly behind,
@@ -109,10 +109,10 @@ Allocate a node next to one you own. Each region is paid in its own DNA colour (
 
 ## 5. Hordes (Hordes tab)
 Optional fights: **60 zombies, then a boss**. The stream pauses while you fight. The boss is a giant version of the
-toughest zombie type in the horde (×10 HP) and comes last, walking slowly. **The only way to lose is the boss reaching
-the shredder** (no timer, no breach limit); ordinary horde zombies that slip through just break the combo. The field
-shows zombies left, the boss's distance from the shredder, and a distance bar along the bottom. Each card shows your
-odds (calibrated in play tests: about 1.05+ wins, 0.85 or less loses). Hordes 1–7 are at tiers 6, 20, 40, 70, 110,
+toughest zombie type in the horde (×10 HP) and comes last, walking slowly. **You lose if the boss reaches the shredder
+or 10 horde zombies reach it** (no timer). The field shows zombies left, breaches, the boss's distance from the
+shredder, and a distance bar along the bottom. With **Difficulty meters** on (Settings), each card shows your odds
+(calibrated in play tests: 1.15 wins, 0.95 loses; War Drums starts at 1.10); off by default. Hordes 1–7 are at tiers 6, 20, 40, 70, 110,
 160 and 220, and unlock the unit types and regions above. After that come endless **Elite hordes** every 30 tiers
 (some unlock the newer recruits, the rest give an epic+ item). Losing costs nothing; try again when stronger.
 

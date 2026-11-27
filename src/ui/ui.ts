@@ -236,7 +236,7 @@ function refresh() {
     const badge = b.dataset.arg === 'tree' ? game.allocatableCount() > 0 || game.owned.some((u) => game.treeItemsAffordable(u.cls) > 0)
       : b.dataset.arg === 'squad' ? game.canHireAny || game.s.newItems.length > 0
       : b.dataset.arg === 'zombies' ? game.canReleaseAny
-      : b.dataset.arg === 'hordes' ? game.hordeOdds() >= 1 : false;
+      : b.dataset.arg === 'hordes' ? showKeep() && game.hordeOdds() >= C.hordeWinOdds : false;
     b.classList.toggle('badge', badge);
   }
   for (const el of document.querySelectorAll<HTMLButtonElement>('[data-cost]')) el.disabled = !game.canAfford(el.dataset.col as StrainId, Number(el.dataset.cost));
@@ -599,14 +599,15 @@ function warDrumsHtml() {
   const odds = game.hordeOdds(), need = game.autoHordeNeeds;
   const status = hordeRunning() ? `<span class="good">Fighting Horde ${game.nextHorde} now…</span>` : !game.s.autoHordeOn ? 'Off.'
     : odds >= need ? `<span class="good">Starting Horde ${game.nextHorde} within a few seconds…</span>`
-    : `Waiting: Horde ${game.nextHorde} starts by itself at ${fmtMult(need)} odds (now ${fmtMult(odds)})${game.hordeFailOdds ? ', a bit higher than when it was last lost' : ''}.`;
+    : showKeep() ? `Waiting: Horde ${game.nextHorde} starts by itself at ${fmtMult(need)} odds (now ${fmtMult(odds)})${game.hordeFailOdds ? ', a bit higher than when it was last lost' : ''}.`
+    : `Waiting: Horde ${game.nextHorde} starts by itself once your squad should win${game.hordeFailOdds ? ' (a bit stronger than when it was last lost)' : ''}.`;
   return `<div class="card drums"><label class="switch"><input type="checkbox" data-action="toggle" ${game.s.autoHordeOn ? 'checked' : ''}> <b>War Drums</b>: start the next horde automatically when your squad should win</label><p class="sub small">${status}</p></div>`;
 }
 function hordesHtml() {
   const next = game.nextHorde;
   const all = Array.from({ length: Math.max(8, next + 2) }, (_, i) => i + 1).filter((k) => k <= 7 || k <= next + 1);
   const list = [...all.filter((k) => k >= next), ...all.filter((k) => k < next).reverse()];
-  return `<p class="sub">Hordes are optional fights: ${C.hordeZombies} zombies, then a <b>boss</b>. The stream pauses while you fight. <b>Kill the boss before it reaches the shredder</b>; that's the only way to lose. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
+  return `<p class="sub">Hordes are optional fights: ${C.hordeZombies} zombies, then a <b>boss</b>. The stream pauses while you fight. You lose if <b>the boss reaches the shredder</b> or <b>${C.breachLimit} horde zombies</b> get to it. Losing costs nothing; winning unlocks a new unit type and tree region.</p>
   ${warDrumsHtml()}
   <div class="grid2">${list.map((k) => {
     const h = M.hordeDef(k);
@@ -619,8 +620,8 @@ function hordesHtml() {
       <p class="sub small">Boss: a giant ${M.strainById(M.hordeBoss(k)).name} with ×${C.bossHpMult} HP</p>
       <p class="sub">Reward: <b>${esc(h.unlocks)}</b>${h.cls ? ` · a rare+ ${M.classById(h.cls).gun}` : ''}</p>
       ${beaten ? '<p class="good">✓ Beaten</p>' : isNext ? `
-        <div class="meter small"><i style="width:${Math.min(100, (odds / 2) * 100)}%"></i><span class="mark"></span></div>
-        <p class="sub small">${odds >= C.hordeWinOdds ? '<span class="good">Your squad should win.</span>' : odds >= 0.9 ? '<span class="warn">It will be close.</span>' : `<span class="bad">Too strong: you need ${fmtMult(1 / Math.max(odds, 1e-9))} more firepower.</span>`}</p>
+        ${showKeep() ? `<div class="meter small"><i style="width:${Math.min(100, (odds / 2) * 100)}%"></i><span class="mark"></span></div>
+        <p class="sub small">${odds >= C.hordeWinOdds ? '<span class="good">Your squad should win.</span>' : odds >= 0.9 ? '<span class="warn">It will be close.</span>' : `<span class="bad">Too strong: you need ${fmtMult(1 / Math.max(odds, 1e-9))} more firepower.</span>`}</p>` : ''}
         ${hordeRunning() ? `<p class="good">⚔ Horde ${k} in progress… watch the map</p><button class="btn wide call" disabled>In progress</button>` : `<button class="btn wide call" data-action="horde">Start Horde ${k}</button>`}` : '<p class="sub small">🔒 Beat the previous horde first.</p>'}
     </div>`;
   }).join('')}</div>`;
@@ -684,8 +685,8 @@ function openSettings() {
   openModal(`<h3>Settings</h3>
     <div class="row"><button class="btn ${snd.sfx ? '' : 'ghost'} grow" data-action="sound-sfx">Sound effects: ${snd.sfx ? 'On' : 'Off'}</button>
       <button class="btn ${snd.music ? '' : 'ghost'} grow" data-action="sound-music">Music: ${snd.music ? 'On' : 'Off'}</button></div>
-    <div class="row"><button class="btn ${showKeep() ? '' : 'ghost'} grow" data-action="keep-pref">Keep-up meter: ${showKeep() ? 'On' : 'Off'}</button></div>
-    <p class="sub small">Shows whether your squad keeps up with the zombies, and a hint under every zombie upgrade. Off by default: watch the shredder instead (it flashes red when zombies reach it).</p>
+    <div class="row"><button class="btn ${showKeep() ? '' : 'ghost'} grow" data-action="keep-pref">Difficulty meters: ${showKeep() ? 'On' : 'Off'}</button></div>
+    <p class="sub small">Shows whether your squad keeps up with the zombies, a hint under every zombie upgrade, and each horde's difficulty. Off by default: watch the shredder instead (it flashes red when zombies reach it).</p>
     <p class="sub">The game saves on this device automatically. Use save slots to keep copies, swap between saves, or move a save to another device with a code.</p>
     <div class="row"><button class="btn grow" data-action="saves">Save slots</button><button class="btn ghost" data-action="export">Export code</button><button class="btn ghost" data-action="import">Import code</button></div>
     <div class="row"><button class="btn danger" data-action="reset">Erase progress</button><button class="btn ghost" data-action="modal-close">Close</button></div>
