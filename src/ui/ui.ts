@@ -262,8 +262,11 @@ function act(d: ActionData): boolean {
     case 'horde': game.startHorde(); tab = null; render(); break;
     case 'prestige': openPrestige(); break;
     case 'perk': game.buyPerk(arg as M.PerkId); openPrestige(); break;
-    case 'prestige-go': confirmBox(`Prestige for +${game.prestigeGain} point${game.prestigeGain === 1 ? '' : 's'}?`, `Your run starts over: zombie tiers and types, units, gear, DNA, the passive tree and hordes reset. You keep your perks, points and play time. Your current game is copied to the Backup save slot first.`, 'Prestige', 'prestige-yes', '', true); break;
-    case 'prestige-yes': { const gain = game.prestigeGain; slotWrite('backup', game.exportSave()); closeModal(); game.prestige(); tab = null; render(); toast(`<b>Prestige! +${gain} point${gain === 1 ? '' : 's'}</b><span>Spend them on perks in the Hordes tab</span>`, '#ffd34d'); break; }
+    case 'prestige-go': picks = {}; openPicker(); break;
+    case 'pick': { const d = M.perkById(arg as M.PerkId), lv = M.plv(game.s.prestige, d.id) + (picks[d.id] ?? 0); if (lv < d.max && pickPoints() >= d.cost) picks[d.id] = (picks[d.id] ?? 0) + 1; openPicker(); break; }
+    case 'pick-undo': picks = {}; openPicker(); break;
+    case 'prestige-yes': { const gain = game.prestigeGain, n = Object.values(picks).reduce((a, b) => a + (b ?? 0), 0); slotWrite('backup', game.exportSave()); closeModal(); game.prestige(picks); picks = {}; tab = null; render();
+      toast(`<b>Prestige! Run ${game.s.prestige.runs + 1}</b><span>+${gain} point${gain === 1 ? '' : 's'}${n ? ` · ${n} perk level${n === 1 ? '' : 's'} taken` : ''}${game.s.prestige.points ? ` · ${game.s.prestige.points} saved for later` : ''}</span>`, '#ffd34d'); break; }
     case 'toggle': game.s.autoHordeOn = !game.s.autoHordeOn; render(); break;
     case 'settings': openSettings(); break;
     case 'modal-close': closeModal(); break;
@@ -562,6 +565,25 @@ function prestigeCard() {
   return `<div class="card pcard"><div class="pc-head"><b>Prestige</b><span class="pc-pts">◆ ${p.points} point${p.points === 1 ? '' : 's'}</span></div>
     <p class="sub small">${p.runs ? `Run ${p.runs + 1} · ${p.earned} points earned in total. ` : ''}Reset your run for <b>1 point per horde cleared</b>, then spend points on permanent perks that stack every time.</p>
     <div class="row"><button class="btn grow" data-action="prestige">Perks</button><button class="btn ghost grow" data-action="prestige-go" ${gain ? '' : 'disabled'}>${gain ? `Prestige now · +${gain}` : 'Clear a horde first'}</button></div></div>`;
+}
+// The prestige screen: pick perks with your unspent points plus this run's points, THEN reset.
+let picks: Partial<Record<M.PerkId, number>> = {};
+const pickPoints = () => game.s.prestige.points + game.prestigeGain - Object.entries(picks).reduce((a, [id, n]) => a + (n ?? 0) * M.perkById(id as M.PerkId).cost, 0);
+function openPicker() {
+  const p = game.s.prestige, gain = game.prestigeGain, left = pickPoints(), taken = Object.values(picks).reduce((a, b) => a + (b ?? 0), 0);
+  const rows = M.PERKS.map((d) => {
+    const base = M.plv(p, d.id), add = picks[d.id] ?? 0, lv = base + add, maxed = lv >= d.max, can = !maxed && left >= d.cost;
+    return `<div class="perk ${maxed ? 'maxed' : ''} ${add ? 'picked' : ''}"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div class="pk-main"><b>${d.name} <small>${lv}/${d.max}${add ? ` <i>+${add}</i>` : ''}</small></b>
+      <span>${lv ? d.desc(lv) : 'Not taken yet'}${maxed ? '' : `<em> → ${d.desc(lv + 1)}</em>`}</span></div>
+      ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'}" data-action="pick" data-arg="${d.id}" ${can ? '' : 'disabled'}>◆ ${d.cost}</button>`}</div>`;
+  }).join('');
+  openModal(`<div class="set-head"><h3>Prestige: choose your perks</h3><button class="xbtn" data-action="modal-close" aria-label="Cancel">✕</button></div>
+    <div class="pk-top"><span class="pc-pts big">◆ ${left}</span><span class="sub small">to spend: ${p.points ? `${p.points} saved + ` : ''}${gain} from this run (${game.s.hordes} horde${game.s.hordes === 1 ? '' : 's'})</span></div>
+    <p class="sub small">Pick perks first, then reset. Perks are permanent and stack across every run; points you don't spend are kept.</p>
+    <div class="perks">${rows}</div>
+    <div class="set-sec danger-zone"><h4>Reset</h4>
+      <p class="sub small">Zombie tiers and types, units, gear, DNA, the passive tree and hordes reset. You keep your perks, points and play time; this run is copied to the Backup save slot first.</p>
+      <div class="row"><button class="btn ghost grow" data-action="modal-close">Cancel</button>${taken ? '<button class="btn ghost" data-action="pick-undo">Undo picks</button>' : ''}<button class="btn danger grow" data-action="prestige-yes">Reset &amp; start run ${p.runs + 2}${taken ? ` · ${taken} perk${taken === 1 ? '' : 's'}` : ''}</button></div></div>`);
 }
 function openPrestige() {
   const p = game.s.prestige, gain = game.prestigeGain;

@@ -539,11 +539,16 @@ export class Game {
   // ---------- prestige ----------
   get prestigeGain() { return M.prestigeGain(this.s.hordes, this.s.prestige); }
   /** Reset the run for points. Keeps perks, points, play time. Head Start gives DNA of every colour. */
-  prestige() {
+  /** Prestige with the perks picked on the way out (levels to add per perk); unspent points are kept. */
+  prestige(picks: Partial<Record<M.PerkId, number>> = {}) {
     const gain = this.prestigeGain;
     if (gain < 1) return;
     const p: M.Prestige = { ...this.s.prestige, perks: { ...this.s.prestige.perks } };
     p.runs++; p.points += gain; p.earned += gain;
+    for (const [id, n] of Object.entries(picks) as [M.PerkId, number][]) {
+      const d = M.perkById(id);
+      for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
+    }
     const playSec = this.s.playSec;
     this.s = freshSave();
     this.s.prestige = p; this.s.playSec = playSec;

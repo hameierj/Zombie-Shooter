@@ -238,8 +238,12 @@ while the app is in the background).
 ## 13. Prestige
 On the **Hordes tab**: once you've cleared at least one horde in a run you can **prestige**: the run starts over (zombie
 tiers and types, units, gear, DNA, passive tree and hordes reset) for **1 point per horde cleared this run**. Perks,
-points and total play time are kept, and the current game is copied to the Backup save slot first. Points are spent on
-**permanent perks that stack across every run** (Hordes tab → Perks):
+points and total play time are kept, and the current game is copied to the Backup save slot first.
+
+**Perks are chosen before the reset.** "Prestige now" opens *Choose your perks*: the pool is your unspent points plus this
+run's points. Each tap drafts one level (Undo picks clears the draft); nothing changes until **Reset & start run N**,
+which applies the picks and then resets. Cancel / ✕ leaves the run untouched. Points you don't spend are kept, and can
+still be spent any time from Hordes tab → Perks. Perks are **permanent and stack across every run**:
 
 | Perk | Per level | Max | Cost |
 |---|---|---|---|
