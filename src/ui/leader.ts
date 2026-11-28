@@ -230,6 +230,63 @@ export function commanderScene(rename = false) {
   show();
 }
 
+/** Soundtracks HQ hands over (once each, mandatory) as the hordes fall. */
+const TRACK_SCENES: { id: sfx.SoundtrackId; horde: number; tape: string; lines: (name: string) => string[] }[] = [
+  { id: 'iron', horde: 3, tape: 'IRON MANDIBLE', lines: (name) => ['*kssht* HQ again. Three hordes down, Commander ' + name + '. Impressive. But I have to ask you something.',
+    'Have you been doing all of this... in SILENCE? Mowing down the undead with no soundtrack?',
+    'That\'s not soldiering. That\'s psychopath behaviour. The squad has filed a formal complaint. Kevin is crying.',
+    'Rule one of the apocalypse: every massacre needs a banger. So I pulled this off a dead DJ\'s van. Don\'t ask what was left of the DJ.',
+    'It\'s called Iron Mandible. It slaps. Play it loud and never let me catch you killing in silence again. HQ out.'] },
+  { id: 'bell', horde: 5, tape: 'NO ONE RINGS THE BELL', lines: (name) => ['*kssht* HQ. Horde five, ' + name + '. FIVE. And I can hear the music from here. Now THAT\'s a rooftop.',
+    'Honestly? I\'ve never seen the squad this happy. Kevin stopped crying. Kevin is headbanging. Kevin has lost an ear doing it.',
+    'But a true psychopath needs range. You can\'t rock out to one song forever. That\'s how they get you.',
+    'So I raided the old church on 5th Street. The bell tower\'s empty. The choir is... busy. Undead busy. But they left this behind.',
+    'No One Rings the Bell. Put it on, Commander, and let\'s see who\'s still standing when it ends. HQ out.'] },
+];
+/** Once the matching horde is beaten (and the player has a name), HQ's next mixtape scene plays. */
+export function maybeSoundtrackScene(blocked: boolean) {
+  if (up || blocked || !getPlayer()) return;
+  const reached = Math.max(game.s.hordes, game.s.bestHorde ?? 0);
+  const t = TRACK_SCENES.find((x) => reached >= x.horde && !game.s.tracks?.includes(x.id));
+  if (t) soundtrackScene(t);
+}
+function soundtrackScene(t: typeof TRACK_SCENES[number]) {
+  up = true;
+  const lines = t.lines(getPlayer()?.name ?? 'Commander');
+  const el = document.createElement('div');
+  el.id = 'cutscene';
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'A message from HQ');
+  el.innerHTML = `<div class="cs-card">
+      <div class="cs-who"><div class="cs-face"><img class="px" src="${classIcon('rifle')}" alt=""><i class="cs-wave"></i></div><div><b>HQ · Radio</b><span>Channel 1 · encrypted</span></div></div>
+      <p class="cs-line" aria-live="polite"></p>
+      <div class="cs-tape" hidden><div class="tape"><i></i><i></i><b>${t.tape}</b></div>
+        <p><b>New soundtrack collected</b><span>Switch soundtracks any time in Settings → Sound &amp; display.</span></p></div>
+      <button class="btn ghost cs-next" type="button">Next ›</button>
+    </div>`;
+  document.body.appendChild(el);
+  const lineEl = el.querySelector<HTMLElement>('.cs-line')!, next = el.querySelector<HTMLButtonElement>('.cs-next')!, tape = el.querySelector<HTMLElement>('.cs-tape')!;
+  let i = 0, typing = 0, full = '', stage = 0;
+  const type = (text: string) => {
+    full = text; let k = 0; lineEl.textContent = '';
+    window.clearInterval(typing);
+    typing = window.setInterval(() => { k++; lineEl.textContent = text.slice(0, k); if (k >= text.length) window.clearInterval(typing); }, 26);
+  };
+  next.addEventListener('click', () => {
+    if (lineEl.textContent !== full) { window.clearInterval(typing); lineEl.textContent = full; return; }   // first tap finishes the line
+    sfx.nextCard();
+    if (stage === 0 && i < lines.length - 1) { i++; type(lines[i]); if (i === lines.length - 1) next.textContent = 'Take the tape ›'; return; }
+    if (stage === 0) {   // the tape: collected
+      stage = 1; game.s.tracks = [...new Set([...(game.s.tracks ?? []), t.id])]; game.save();
+      tape.hidden = false; next.textContent = 'Crank it up 🔊'; sfx.unlock(1); return;
+    }
+    if (!sfx.soundPrefs().music) sfx.setMusic(true);
+    sfx.setSoundtrack(t.id);
+    el.classList.add('cs-bye'); window.setTimeout(() => { el.remove(); up = false; game.emit('change'); }, 250);
+  });
+  sfx.nextCard();
+  type(lines[0]);
+}
+
 /** After the first naming: a faint, unsettling line drifts over the battlefield, then fades away. */
 function eerie() {
   const el = document.createElement('div');

@@ -5,6 +5,37 @@ import type { ClassId, RarityId } from '../core/model.ts';
 import startUrl from '../assets/audio/start.wav?url';
 import battleUrl from '../assets/audio/battle.wav?url';
 import hordeUrl from '../assets/audio/horde.wav?url';
+import ironUrl from '../assets/audio/iron-mandible.m4a?url';
+import bellUrl from '../assets/audio/no-one-rings-the-bell.m4a?url';
+
+// ---------- soundtracks: the original chiptune, plus tracks collected in the game (each downloaded only once needed) ----------
+export type SoundtrackId = 'classic' | 'iron' | 'bell';
+export const SOUNDTRACKS: { id: SoundtrackId; name: string; by: string; url?: string }[] = [
+  { id: 'classic', name: 'Rooftop Siege', by: 'The original chiptune' },
+  { id: 'iron', name: 'Iron Mandible', by: 'Pulled from a dead DJ\'s van · Horde 3', url: ironUrl },
+  { id: 'bell', name: 'No One Rings the Bell', by: 'From the church on 5th Street · Horde 5', url: bellUrl },
+];
+const TRACK_KEY = 'zombie-idle-soundtrack';
+let soundtrack: SoundtrackId = (() => { try { const v = localStorage.getItem(TRACK_KEY); return SOUNDTRACKS.some((t) => t.id === v) ? v as SoundtrackId : 'classic'; } catch { return 'classic'; } })();
+const extra = new Map<SoundtrackId, AudioBuffer>(), extraLoading = new Set<SoundtrackId>();
+export const currentSoundtrack = () => soundtrack;
+async function loadExtra(id: SoundtrackId) {
+  const url = SOUNDTRACKS.find((t) => t.id === id)?.url;
+  if (!url || extra.has(id) || extraLoading.has(id) || !ctx) return;
+  extraLoading.add(id);
+  try { extra.set(id, await ctx.decodeAudioData(await (await fetch(url)).arrayBuffer())); if (soundtrack === id && tracks) playTrack(wantTrack, true); }
+  catch { /* offline: keep the chiptune */ } finally { extraLoading.delete(id); }
+}
+/** The buffer to play now: the chosen collected track (once loaded) or the chiptune's battle/horde loop. */
+const chosen = () => (soundtrack !== 'classic' ? extra.get(soundtrack) : undefined);
+/** Pick the background soundtrack (saved on this device). */
+export function setSoundtrack(id: SoundtrackId) {
+  soundtrack = id;
+  try { localStorage.setItem(TRACK_KEY, id); } catch { /* storage blocked */ }
+  init();
+  if (id !== 'classic' && !extra.has(id)) { void loadExtra(id); return; }
+  if (tracks && ctx) playTrack(wantTrack, true);
+}
 
 const PREFS_KEY = 'zombie-idle-sound';
 type Prefs = { sfx: boolean; music: boolean };
@@ -46,7 +77,7 @@ export function unlockAudio() {
 type TrackId = 'battle' | 'horde';
 let tracks: Record<'start' | TrackId, AudioBuffer> | null = null;
 let tracksTried = false;
-let playing: { id: TrackId; src: AudioBufferSourceNode; gain: GainNode } | null = null;
+let playing: { id: TrackId; src: AudioBufferSourceNode; gain: GainNode; buf: AudioBuffer } | null = null;
 let wantTrack: TrackId = 'battle';
 // The music files start downloading the moment the page loads, not on the first tap.
 const trackBytes = Promise.all([startUrl, battleUrl, hordeUrl].map(async (u) => (await fetch(u)).arrayBuffer()));
@@ -80,16 +111,20 @@ export function titleMusic() {
 /** Switch the background music (crossfades). Before the tracks load, remembers what to play. */
 export function music(id: TrackId) {
   wantTrack = id;
+  const c = chosen(); if (c && playing?.buf === c) return;   // a collected soundtrack plays straight through hordes
   if (tracks && ctx && playing?.id !== id) playTrack(id);
 }
-function playTrack(id: TrackId) {
+function playTrack(id: TrackId, force = false) {
   if (!ctx || !tracks) return;
+  if (soundtrack !== 'classic' && !extra.has(soundtrack)) void loadExtra(soundtrack);
+  const buf = chosen() ?? tracks[id];
+  if (!force && playing?.buf === buf) return;
   const t = ctx.currentTime;
   if (playing) { const old = playing; old.gain.gain.setTargetAtTime(0, t, 0.25); old.src.stop(t + 1.5); }
-  const src = ctx.createBufferSource(); src.buffer = tracks[id]; src.loop = true;
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
   const gain = ctx.createGain(); gain.gain.value = 0; gain.gain.setTargetAtTime(1, t, 0.3);
   src.connect(gain).connect(musicBus); src.start(t + 0.05);
-  playing = { id, src, gain };
+  playing = { id, src, gain, buf };
 }
 /** The start-screen sting (coin, sweep, title hit), then the battle loop. */
 export function startSting() {

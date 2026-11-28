@@ -5,7 +5,7 @@ import { showTitle } from './title.ts';
 import { biohazard, hordeCards, overlayUp, setCardNotice, showCards } from './unlocks.ts';
 import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
-import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, syncBoard } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, syncBoard } from './leader.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps, skipAnims, setSkipAnims } from '../core/prefs';
 import * as M from '../core/model.ts';
@@ -190,7 +190,7 @@ export function initUI() {
   setInterval(refresh, 300);
   setInterval(tickNudge, 500);
   setInterval(tickCombo, 100);
-  setInterval(() => maybeCommanderScene(!!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !$('#modal').hidden), 1000);
+  setInterval(() => { const blocked = !!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !$('#modal').hidden || evoUp(); maybeCommanderScene(blocked); maybeSoundtrackScene(blocked || overlayUp()); }, 1000);
   seedBests();
   setInterval(() => void syncBoard(), 60_000);
   setInterval(forceEvolutions, 1000);
@@ -395,6 +395,7 @@ function act(d: ActionData): boolean {
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
     case 'sound-sfx': sfx.setSfx(!sfx.soundPrefs().sfx); openSettings(); break;
     case 'sound-music': sfx.setMusic(!sfx.soundPrefs().music); openSettings(); break;
+    case 'soundtrack': sfx.setSoundtrack(arg as sfx.SoundtrackId); if (!sfx.soundPrefs().music) sfx.setMusic(true); openSettings(); break;
     case 'ranges-pref': setShowRanges(!showRanges()); openSettings(); break;
     case 'keep-pref': setShowKeep(!showKeep()); openSettings(); render(); break;
     case 'fps-pref': setShowFps(!showFps()); fpsMeter(); openSettings(); break;
@@ -967,6 +968,9 @@ function openSettings() {
     <section class="set-sec"><h4>Sound &amp; display</h4>
       ${sw('sound-sfx', 'Sound effects', 'Shots, hits and alerts', snd.sfx)}
       ${sw('sound-music', 'Music', 'Background soundtrack', snd.music)}
+      ${(() => { const have = sfx.SOUNDTRACKS.filter((t) => t.id === 'classic' || game.s.tracks?.includes(t.id)); const cur = sfx.currentSoundtrack();
+        return have.length > 1 ? `<h5>Soundtrack</h5><div class="st-pick">${have.map((t) => `<button class="trow ${t.id === cur ? 'on' : ''}" data-action="soundtrack" data-arg="${t.id}"><div><b>${esc(t.name)}</b><span>${esc(t.by)}</span></div><i class="st-dot"></i></button>`).join('')}</div>`
+          : '<p class="sub small">🔒 More soundtracks are out there. Keep beating hordes.</p>'; })()}
       ${sw('ranges-pref', 'Range lines', 'How far each unit type can shoot', showRanges())}
       ${sw('keep-pref', 'Difficulty meters', 'Keep-up meter, upgrade hints and horde odds', showKeep())}
       ${sw('fps-pref', 'FPS counter', 'Frames per second and the slowest frame, over the battlefield', showFps())}
