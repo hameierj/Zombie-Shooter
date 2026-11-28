@@ -43,8 +43,8 @@ export function throwParty(records: { title: string; sub: string; from?: string 
   const confetti = Array.from({ length: 46 }, () => `<i style="--l:${Math.random() * 100}%;--t:${(1.8 + Math.random() * 2.2).toFixed(2)}s;--dl:${(Math.random() * 3).toFixed(2)}s;--h:${Math.floor(Math.random() * 360)};--r:${Math.floor(Math.random() * 720 - 360)}deg"></i>`).join('');
   el.innerHTML = `<div class="pt-lights"><b></b><b></b><b></b></div><div class="pt-confetti">${confetti}</div>
     <div class="pt-stage">
-      <p class="pt-eyebrow">🏆 New leaderboard record 🏆</p>
-      <h2 class="pt-title">BLOCK PARTY!</h2>
+      <p class="pt-eyebrow">🏆 Leaderboard · block party 🏆</p>
+      <h2 class="pt-title">NEW RECORD!</h2>
       <ul class="pt-recs">${records.slice(0, 6).map((r) => `<li><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></li>`).join('')}${records.length > 6 ? `<li>+${records.length - 6} more</li>` : ''}</ul>
       <div class="pt-dj">
         <div class="pt-bubble">${SHOUTS[Math.floor(Math.random() * SHOUTS.length)]}<br><b>COMMANDER ${esc(name.toUpperCase())}!!!</b></div>
