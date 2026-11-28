@@ -326,12 +326,14 @@ export class Game {
         if (M.zombieUltReady(this.s.strains[z])) held.add(M.familyOf(z));
         const u = M.strainById(z).unlock; if (u && this.releaseReady(z) && !this.s.strains[z].unlocked) held.add(M.familyOf(u.from));
       }
+      const zombiesOnly = a.zombies && !a.units && !a.globals;
       let any = false;
       for (const col of M.COLOURS) {
         if (held.has(col)) continue;
         // Keep-up is checked per purchase (an earlier colour's buy this pass may have changed it).
         const k = this.keepUp();
-        const zs = opts.filter((x) => x.col === col && x.z && k > Game.AUTO_HI && this.keepUp(x.z()) >= Game.AUTO_LO).sort((p, q) => p.ln - q.ln);
+        // Zombies alone (Troops and Globals off) is the player's call: no keep-up limit, the cheapest zombie buy each time.
+        const zs = opts.filter((x) => x.col === col && x.z && (zombiesOnly || (k > Game.AUTO_HI && this.keepUp(x.z()) >= Game.AUTO_LO))).sort((p, q) => p.ln - q.ln);
         let o: Opt | undefined;
         if (zs.length) o = zs[0];   // too easy: zombies first; if the cheapest isn't affordable yet, this colour saves up for it
         else o = opts.filter((x) => x.col === col && !x.z).sort((p, q) => p.ln - q.ln)[0];   // in the band (or below): troops and globals
