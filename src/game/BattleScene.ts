@@ -878,7 +878,7 @@ export class BattleScene extends Phaser.Scene {
   // ---------- rooftop-siege effects ----------
   /** The decal layer (blood, bodies, scorch marks) at the field's size. Re-made rather than resized. */
   private newDecals() {
-    this.decals?.destroy();
+    if (this.decals) { this.tweens.killTweensOf(this.decals); this.decals.destroy(); }   // a running fade must not touch the old layer
     this.decals = this.add.renderTexture(0, 0, this.W, this.H).setOrigin(0, 0).setDepth(1);
     this.stamps = 0; this.stampQ.length = 0;
   }
@@ -897,7 +897,7 @@ export class BattleScene extends Phaser.Scene {
     if (++this.stamps > 2600) {   // keep the street readable: old gore fades out and the slate is wiped
       this.stamps = 0;
       const d = this.decals;
-      if (d) this.tweens.add({ targets: d, alpha: 0, duration: 1400, onComplete: () => { d.clear(); d.setAlpha(1); } });
+      if (d) this.tweens.add({ targets: d, alpha: 0, duration: 1400, onComplete: () => { if (d !== this.decals || !d.active) return; d.clear(); d.setAlpha(1); } });   // the layer may have been re-made (screen resized) meanwhile
     }
   }
   private bloodSpray(x: number, y: number, n: number, dir = 1) {

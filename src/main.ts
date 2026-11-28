@@ -60,6 +60,21 @@ phaser.events.once(Phaser.Core.Events.READY, () => {
   const c = phaser.canvas;
   c?.addEventListener('webglcontextlost', () => log('error', 'WebGL context lost (graphics reset by the phone)'));
   c?.addEventListener('webglcontextrestored', () => log('warn', 'WebGL context restored'));
+  // Safety net: an error thrown during a frame would stop Phaser from scheduling the next one, freezing the battle for
+  // good. Log it and carry on instead.
+  let logged = 0;
+  const guard = (step: (t: number) => void) => (t: number) => {
+    try { step(t); } catch (e) {
+      if (logged++ < 5) log('error', `Battle frame error (recovered): ${e instanceof Error ? `${e.message}\n${(e.stack ?? '').split('\n').slice(0, 5).join('\n')}` : String(e)}`);
+    }
+  };
+  // the loop starts right after this event (and again after the phone wakes it), so wrap whatever it's started with
+  const raf = (phaser.loop as unknown as { raf?: { start: (cb: (t: number) => void, ...a: unknown[]) => void; callback?: (t: number) => void } }).raf;
+  if (raf) {
+    const start = raf.start.bind(raf);
+    raf.start = (cb, ...a) => start(guard(cb), ...a);
+    if (raf.callback) raf.callback = guard(raf.callback);
+  }
 });
 
 // The canvas is rendered at device-pixel resolution so it's crisp on Retina screens, then shown at CSS size.
