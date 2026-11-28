@@ -1358,3 +1358,6 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .st-pick .trow.on { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
 .st-pick .st-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
 .st-pick .trow.on .st-dot { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 45%, transparent 50%); }
+.cs-choose { display: grid; gap: 8px; }
+.cs-choose .row { gap: 8px; }
+.cs-prev { width: 100%; }

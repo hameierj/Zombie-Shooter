@@ -19,6 +19,8 @@ const TRACK_KEY = 'zombie-idle-soundtrack';
 let soundtrack: SoundtrackId = (() => { try { const v = localStorage.getItem(TRACK_KEY); return SOUNDTRACKS.some((t) => t.id === v) ? v as SoundtrackId : 'classic'; } catch { return 'classic'; } })();
 const extra = new Map<SoundtrackId, AudioBuffer>(), extraLoading = new Set<SoundtrackId>();
 export const currentSoundtrack = () => soundtrack;
+/** The soundtrack saved in Settings (what a preview goes back to). */
+export const savedSoundtrack = (): SoundtrackId => { try { const v = localStorage.getItem(TRACK_KEY); return SOUNDTRACKS.some((t) => t.id === v) ? v as SoundtrackId : 'classic'; } catch { return 'classic'; } };
 async function loadExtra(id: SoundtrackId) {
   const url = SOUNDTRACKS.find((t) => t.id === id)?.url;
   if (!url || extra.has(id) || extraLoading.has(id) || !ctx) return;
@@ -29,9 +31,9 @@ async function loadExtra(id: SoundtrackId) {
 /** The buffer to play now: the chosen collected track (once loaded) or the chiptune's battle/horde loop. */
 const chosen = () => (soundtrack !== 'classic' ? extra.get(soundtrack) : undefined);
 /** Pick the background soundtrack (saved on this device). */
-export function setSoundtrack(id: SoundtrackId) {
+export function setSoundtrack(id: SoundtrackId, save = true) {
   soundtrack = id;
-  try { localStorage.setItem(TRACK_KEY, id); } catch { /* storage blocked */ }
+  if (save) try { localStorage.setItem(TRACK_KEY, id); } catch { /* storage blocked */ }
   init();
   if (id !== 'classic' && !extra.has(id)) { void loadExtra(id); return; }
   if (tracks && ctx) playTrack(wantTrack, true);
