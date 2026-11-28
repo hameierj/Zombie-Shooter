@@ -42,7 +42,7 @@ export interface SortDef { key: string; label: string; fmt: (v: number) => strin
 const time = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
 export const SORTS: SortDef[] = [
   { key: 'best_horde', label: 'Best horde', fmt: (v) => `Horde ${fmtInt(v)}` },
-  { key: 't_h', label: 'Fastest hordes', fmt: fmtInt },
+  { key: 'speed', label: 'Fastest hordes', fmt: fmtInt },
   { key: 'hordes', label: 'Total hordes', fmt: fmtInt },
   { key: 'kills', label: 'Kills', fmt: fmtInt },
   { key: 'headshots', label: 'Headshots', fmt: fmtInt },
@@ -59,7 +59,7 @@ export const SORTS: SortDef[] = [
 /** Horde times: play time from the start of a run to beating that horde (seconds), shown to the second. */
 const dur = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.round(sec % 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : m ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`; };
 const hordeKey = (k: string) => /^t_h\d+$/.test(k);
-export const sortDef = (k: string): SortDef => hordeKey(k) ? { key: k, label: `Horde ${k.slice(3)} time`, fmt: dur, asc: true } : SORTS.find((x) => x.key === k && x.key !== 't_h') ?? SORTS[0];
+export const sortDef = (k: string): SortDef => (k === 'speed' || hordeKey(k)) ? { key: 'speed', label: 'Fastest hordes', fmt: dur, asc: true } : SORTS.find((x) => x.key === k) ?? SORTS[0];
 const BEST_KEY = 'zombie-idle-board-best';
 export function myEntry(): Entry | null {
   const p = getPlayer();
@@ -129,23 +129,43 @@ export async function syncBoard(force = false, key = 'hordes') {
   try {
     if (force || Date.now() - lastSubmit > 60_000) { lastSubmit = Date.now(); await BOARD.submit(me); }
     loading.add(key);
-    cache.set(key, await BOARD.top(key, 50));
-    if (hordeKey(key) && !cache.has('best_horde')) cache.set('best_horde', await BOARD.top('best_horde', 50));   // how far the horde picker goes
+    // Fastest hordes needs everyone's horde times: the whole board, furthest first
+    cache.set(key, await BOARD.top(key === 'speed' || hordeKey(key) ? 'best_horde' : key, key === 'speed' || hordeKey(key) ? 200 : 50));
   } catch { /* offline: keep the last list */ } finally { loading.delete(key); }
+}
+/** Fastest hordes: one record per horde, the furthest horde anyone has beaten at the top. Each row: the horde, the
+ * commander who beat it fastest (from a run's start) and the time, plus your own time when someone else holds it. */
+function recordsHtml(me: Entry, list: Entry[] | undefined) {
+  const all = new Map<string, Entry>((list ?? []).map((e) => [e.id, e]));
+  all.set(me.id, me);   // your freshest times
+  const recs = new Map<number, { e: Entry; t: number }>();
+  for (const e of all.values()) for (const [k, t] of Object.entries(e.s)) {
+    if (!hordeKey(k) || !(t > 0)) continue;
+    const h = Number(k.slice(3)), cur = recs.get(h);
+    if (!cur || t < cur.t) recs.set(h, { e, t });
+  }
+  const hs = [...recs.keys()].sort((a, b) => b - a);
+  const note = BOARD && !list ? (loading.has('speed') ? '<p class="sub small">Loading the board…</p>' : '') : !BOARD ? '<p class="sub small">Showing your own record.</p>' : '';
+  if (!hs.length) return `${note}<div class="lbp-empty card"><b>No horde times yet</b><span>Times count from the start of a run (or your last prestige) to beating each horde.</span></div>`;
+  return `<div class="lbp-head"><span>Fastest time to beat each horde</span><span>from a run's start</span></div>${note}<div class="lbp-list">${hs.map((h) => {
+    const { e, t } = recs.get(h)!, mineT = me.s[`t_h${h}`], isMe = e.id === me.id;
+    return `<div class="lbp-r rec ${isMe ? 'me' : ''}"><span class="rk">${h}</span>
+      <div class="who"><b>${esc(M.hordeDef(h).name)}</b><span>${esc(e.name)}${isMe ? ' (you)' : ''}${!isMe && mineT ? ` · you: ${dur(mineT)}` : ''}</span></div>
+      <span class="val">${dur(t)}</span></div>`;
+  }).join('')}</div>`;
 }
 /** Small leaderboard teaser on the Hordes tab. */
 export function leaderboardHtml() { return ''; }
 /** The Leaderboard tab: sort chips, then the top 50 for that stat (your own row always shown and highlighted). */
 export function leaderboardPageHtml(key: string) {
   const me = myEntry(), d = sortDef(key);
-  const isOn = (x: SortDef) => x.key === d.key || (x.key === 't_h' && hordeKey(d.key));
-  const arg = (x: SortDef) => (x.key === 't_h' ? (hordeKey(d.key) ? d.key : 't_h1') : x.key);
-  // Fastest hordes: a second row picks the horde (up to the furthest anyone on the board has reached)
-  const far = Math.min(60, Math.max(10, game.s.bestHorde ?? 0, ...(cache.get('best_horde') ?? []).map((e) => e.s.best_horde ?? 0)));
-  const picker = hordeKey(d.key) ? `<div class="lbp-sorts lbp-hordes" aria-label="Horde">${Array.from({ length: far }, (_, i) => `<button class="lbp-chip ${d.key === `t_h${i + 1}` ? 'on' : ''}" data-action="rank-sort" data-arg="t_h${i + 1}">${i + 1}</button>`).join('')}</div>` : '';
+  const isOn = (x: SortDef) => x.key === d.key;
+  const arg = (x: SortDef) => x.key;
+  const picker = '';
   const chips = `<div class="lbp-sorts" role="tablist" aria-label="Rank by">${SORTS.map((x) => `<button class="lbp-chip ${isOn(x) ? 'on' : ''}" data-action="rank-sort" data-arg="${arg(x)}" role="tab" aria-selected="${isOn(x)}" ${x.colour ? `style="--cc:${x.colour}"` : ''}>${x.icon ? `<img class="px" src="${x.icon}" alt="">` : ''}${esc(x.label)}</button>`).join('')}</div>${picker}`;
   if (!me) return `${chips}<div class="lbp-empty card"><b>Hold the wall for a minute to take command</b><span>HQ will ask your name, and you'll join the board.</span></div>`;
   const list = BOARD ? cache.get(d.key) : undefined;
+  if (d.key === 'speed') return chips + recordsHtml(me, list);
   let rows = list ? list.filter((e) => e.s[d.key] !== undefined) : [];
   if (!BOARD || !list) rows = [me];
   const mine = rows.findIndex((e) => e.id === me.id);

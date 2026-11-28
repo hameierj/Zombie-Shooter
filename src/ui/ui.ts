@@ -148,7 +148,7 @@ const hordeRunning = () => battlePhase === 'intro' || battlePhase === 'horde';
 let tab: Tab | null = null;
 const TITLES: Record<Tab, string> = { zombies: 'Zombies', squad: 'Squad', tree: 'Passive Tree', hordes: 'Hordes', ranks: 'Leaderboard' };
 /** The Leaderboard tab's current ranking. */
-let rankSort = (() => { try { return localStorage.getItem('zombie-idle-rank-sort') ?? 'best_horde'; } catch { return 'best_horde'; } })();
+let rankSort = (() => { try { const v = localStorage.getItem('zombie-idle-rank-sort') ?? 'best_horde'; return v.startsWith('t_h') ? 'speed' : v; } catch { return 'best_horde'; } })();
 
 let unitNode: UnitNodeId = 'dmg';
 /** Which tree the Tree tab shows: the global passive web or one unit type's own tree. */
