@@ -127,7 +127,7 @@ is up), a full-screen **evolution scene** takes over and the game pauses (battle
 pick one of their two tracks (there is no close button), then the old weapon charges up, shakes, flashes white and bursts
 into the new one with rays, sparks and a charge-and-blast sound. Zombies evolve on their own (a new form joining the
 stream, or the ultimate form) with the same transformation scene. Auto-buy saves any DNA colour a ready evolution is
-waiting on, so it can't be starved. **Settings → Skip animations** (off by default, per device) replaces the evolution scenes,
+waiting on, so it can't be starved. Soldiers keep firing through a horde's warning (only the regular stream pauses for the horde itself). **Settings → Skip animations** (off by default, per device) replaces the evolution scenes,
 the horde reward cards and the battleground fade with short notices; a unit's weapon choice still opens (only its
 transformation is skipped), and the commander name scene always plays. After a unit evolves, its soldiers flare up, carry the new gun art and glow in the
 track's colour.
@@ -416,6 +416,7 @@ still be spent any time from Hordes tab → Perks. Perks are **permanent and sta
 | Gold Rush | special zombies +50% as common | 4 | 2 |
 | Combo Master | +0.1 to the combo's top multiplier | 5 | 2 |
 | Bounty Hunter | +1 extra point per 5 hordes cleared in a run | 3 | 3 |
+| Frenzy | zombies +5% faster and ×1.1 DNA from every kill, per level (stacks; a challenge you can keep raising) | 100 | 1 |
 
 Balance sim (`PERKS='{"dmg":3,"dna":3,"warchest":1}' node tools/sim.ts 3`): a first run reaches Horde 7 at ~109 min and
 8 hordes in 3 h; after 7 points, Horde 7 at ~68 min and 17 hordes in 3 h; after 30 points, 26 hordes in ~90 min.

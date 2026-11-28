@@ -361,11 +361,12 @@ function act(d: ActionData): boolean {
     case 'nudge-hire': game.hire(cls); tickNudge(); break;
     case 'nudge-horde': game.startHorde(); tickNudge(); break;
     case 'nudge-x': nudgeOff.set(arg, arg.startsWith('horde') ? performance.now() + 120000 : Infinity); tickNudge(); break;
-    case 'prestige': openPrestige(); break;
+    case 'prestige': closeModal(); openPrestige(); break;
     case 'perk': game.buyPerk(arg as M.PerkId); openPrestige(); break;
-    case 'prestige-go': if (!game.canPrestige) break; picks = {}; openPicker(); break;
+    case 'prestige-go': if (!game.canPrestige) break; closeModal(); picks = {}; openPicker(); break;
     case 'pick': { const d = M.perkById(arg as M.PerkId), lv = M.plv(game.s.prestige, d.id) + (picks[d.id] ?? 0); if (lv < d.max && pickPoints() >= d.cost) picks[d.id] = (picks[d.id] ?? 0) + 1; openPicker(); break; }
     case 'pick-undo': picks = {}; openPicker(); break;
+    case 'pick-minus': { const n = picks[arg as M.PerkId] ?? 0; if (n > 1) picks[arg as M.PerkId] = n - 1; else delete picks[arg as M.PerkId]; openPicker(); break; }
     case 'prestige-yes': { const gain = game.prestigeGain, n = Object.values(picks).reduce((a, b) => a + (b ?? 0), 0); slotWrite('backup', game.exportSave()); closeModal(); game.prestige(picks); picks = {}; tab = null; render();
       toast(`<b>Prestige! Run ${game.s.prestige.runs + 1}</b><span>+${gain} point${gain === 1 ? '' : 's'}${n ? ` · ${n} perk level${n === 1 ? '' : 's'} taken` : ''}${game.s.prestige.points ? ` · ${game.s.prestige.points} saved for later` : ''}</span>`, '#ffd34d'); break; }
     case 'toggle': game.s.autoHordeOn = !game.s.autoHordeOn; render(); break;
@@ -873,9 +874,10 @@ function openPicker() {
     const base = M.plv(p, d.id), add = picks[d.id] ?? 0, lv = base + add, maxed = lv >= d.max, can = !maxed && left >= d.cost;
     return `<div class="perk ${maxed ? 'maxed' : ''} ${add ? 'picked' : ''}"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div class="pk-main"><b>${d.name} <small>${lv}/${d.max}${add ? ` <i>+${add}</i>` : ''}</small></b>
       <span>${lv ? d.desc(lv) : 'Not taken yet'}${maxed ? '' : `<em> → ${d.desc(lv + 1)}</em>`}</span></div>
-      ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'}" data-action="pick" data-arg="${d.id}" ${can ? '' : 'disabled'}>◆ ${d.cost}</button>`}</div>`;
+      <div class="pk-step"><button class="btn sm ghost pk-minus" data-action="pick-minus" data-arg="${d.id}" ${add ? '' : 'disabled'} aria-label="Remove a point from ${d.name}">−</button>
+        ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'} pk-plus" data-action="pick" data-arg="${d.id}" ${can ? '' : 'disabled'} aria-label="Add a point to ${d.name}">+ <small>◆${d.cost}</small></button>`}</div></div>`;
   }).join('');
-  openModal(`<div class="set-head"><h3>Prestige: choose your perks</h3><button class="xbtn" data-action="modal-close" aria-label="Cancel">✕</button></div>
+  openModalKeepScroll(`<div class="set-head"><h3>Prestige: choose your perks</h3><button class="xbtn" data-action="modal-close" aria-label="Cancel">✕</button></div>
     <div class="pk-top"><span class="pc-pts big">◆ ${left}</span><span class="sub small">to spend: ${p.points ? `${p.points} saved + ` : ''}${gain} from this run (${game.s.hordes} horde${game.s.hordes === 1 ? '' : 's'})</span></div>
     <p class="sub small">Pick perks first, then reset. Perks are permanent and stack across every run; points you don't spend are kept.</p>
     <div class="perks">${rows}</div>
@@ -891,7 +893,7 @@ function openPrestige() {
       <span>${lv ? d.desc(lv) : 'Not taken yet'}${maxed ? '' : `<em> → ${d.desc(lv + 1)}</em>`}</span></div>
       ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'}" data-action="perk" data-arg="${d.id}" ${can ? '' : 'disabled'}>◆ ${d.cost}</button>`}</div>`;
   }).join('');
-  openModal(`<div class="set-head"><h3>Prestige</h3><button class="xbtn" data-action="modal-close" aria-label="Close">✕</button></div>
+  openModalKeepScroll(`<div class="set-head"><h3>Prestige</h3><button class="xbtn" data-action="modal-close" aria-label="Close">✕</button></div>
     <div class="pk-top"><span class="pc-pts big">◆ ${p.points}</span><span class="sub small">points to spend · ${p.earned} earned over ${p.runs} prestige${p.runs === 1 ? '' : 's'}</span></div>
     <p class="sub small">Perks are permanent and stack across every run.</p>
     <div class="perks">${rows}</div>
@@ -943,6 +945,12 @@ function hordesHtml() {
 
 function openModal(html: string) { const m = $('#modal'); m.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true">${html}</div>`; m.hidden = false; }
 function closeModal() { $('#modal').hidden = true; }
+/** Re-open a dialog that's already up (after a tap inside it) without jumping back to its top. */
+function openModalKeepScroll(html: string) {
+  const m = $('#modal'), was = !m.hidden ? m.querySelector<HTMLElement>('.modal-card')?.scrollTop ?? 0 : 0;
+  openModal(html);
+  const card = m.querySelector<HTMLElement>('.modal-card'); if (card && was) card.scrollTop = was;
+}
 let overrunHintAt = 0;
 /** The squad has been swamped for a while: point the player at the Shredder (no pop-up, nothing is taken away). */
 function offerRollBack() {

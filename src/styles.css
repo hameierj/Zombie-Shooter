@@ -1340,3 +1340,8 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 /* Fastest hordes: the horde picker under the ranking chips */
 .lbp-hordes { margin-top: -4px; }
 .lbp-hordes .lbp-chip { min-width: 38px; justify-content: center; padding-inline: 8px; }
+/* Prestige perk picker: − and + on the right */
+.pk-step { display: flex; align-items: center; gap: 6px; flex: none; }
+.pk-step .btn.sm { min-width: 40px; justify-content: center; }
+.pk-minus { font-size: 18px; }
+.pk-plus small { font-size: 11px; opacity: .85; margin-left: 2px; }

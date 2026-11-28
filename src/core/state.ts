@@ -165,6 +165,7 @@ export class Game {
   /** Perk effects that aren't part of the squad's modifiers: spawn rate and special-zombie chance. */
   syncLive() {
     M.live.spawnMult = 1 + 0.1 * M.plv(this.s.prestige, 'spawn');
+    M.live.speedMult = 1 + 0.05 * M.plv(this.s.prestige, 'frenzy');
     M.live.specialMult = 1 + 0.5 * M.plv(this.s.prestige, 'gold');
   }
   dna(c: StrainId) { return this.s.dna[c] ?? -Infinity; }

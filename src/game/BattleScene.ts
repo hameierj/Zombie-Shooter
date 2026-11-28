@@ -229,7 +229,7 @@ export class BattleScene extends Phaser.Scene {
     return {
       strain, variety, special, announced: false, tier, horde, boss, atWall: false, lnHp: M.lnZombieHp(strain, tier, spawnLv) + (boss ? Math.log(C.bossHpMult) : 0) + (sp ? Math.log(sp.hp) : 0) + Math.log(M.VARIETIES[variety].hp), hp: 1, slow: 0, burn: 0,
       p: -0.02 - Math.random() * 0.05, l: boss ? 0 : Math.random() * 2 - 1,
-      speed: (boss ? C.bossSpeed : M.strainById(strain).speed * (sp?.speed ?? 1) * (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1)) / C.walkSec,   // every boss walks at the same pace
+      speed: (boss ? C.bossSpeed : M.strainById(strain).speed * (sp?.speed ?? 1) * (0.85 + Math.random() * 0.3) * (horde ? 1.3 : 1)) * M.live.speedMult / C.walkSec,   // every boss walks at the same pace
       flash: -1, phase: Math.random() * 4, alive: true,
     };
   }
@@ -527,7 +527,7 @@ export class BattleScene extends Phaser.Scene {
         s.flash.setVisible(s.flashT > 0);
         if (s.flashT > 0) { const [mx, my] = this.muzzle(s); s.flash.setPosition(mx, my).setDepth(fy + 2); }
         if (u.cls === 'drone') this.tickDrone(s, fx, fy, dt, arriving || !gun);
-        if (gun && this.phase !== 'intro' && !arriving) this.fire(u, gun, s, visible, dt);
+        if (gun && !arriving) this.fire(u, gun, s, visible, dt);
       }
     }
   }

@@ -148,7 +148,7 @@ export const specialById = (id: SpecialId) => SPECIALS.find((x) => x.id === id)!
 /** Chance that a zombie in the endless stream is special. */
 export const SPECIAL_CHANCE = 0.03;
 /** Live multipliers set from prestige perks (spawn rate of every zombie type, special-zombie chance). */
-export const live = { spawnMult: 1, specialMult: 1 };
+export const live = { spawnMult: 1, specialMult: 1, speedMult: 1 };
 export function rollSpecial(rng: () => number): SpecialId | null {
   if (rng() >= SPECIAL_CHANCE * live.specialMult) return null;
   let x = rng() * SPECIALS.reduce((a, d) => a + d.weight, 0);
@@ -641,7 +641,7 @@ export const hordeBoss = (k: number) => hordeMix(k).reduce((a, b) => (strainById
 export const comboMult = (n: number, extraBonus = 0) => 1 + (C.combo.bonus + extraBonus) * Math.min(n, C.combo.max) / C.combo.max;
 
 // ---------- Prestige: reset a run for points (1 per horde cleared), spend them on permanent perks that stack ----------
-export type PerkId = 'dna' | 'dmg' | 'spd' | 'range' | 'crit' | 'critx' | 'spawn' | 'headstart' | 'warchest' | 'barracks' | 'lucky' | 'gold' | 'combo' | 'bounty';
+export type PerkId = 'dna' | 'dmg' | 'spd' | 'range' | 'crit' | 'critx' | 'spawn' | 'headstart' | 'warchest' | 'barracks' | 'lucky' | 'gold' | 'combo' | 'bounty' | 'frenzy';
 export interface PerkDef { id: PerkId; name: string; icon: string; max: number; cost: number; desc: (lv: number) => string; apply?: (fx: Fx, lv: number) => void }
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const mult = (x: number) => (x >= 100 ? `×${Math.round(x)}` : `×${x.toFixed(x < 10 ? 2 : 1)}`);
@@ -659,6 +659,7 @@ export const PERKS: PerkDef[] = [
   { id: 'lucky', name: 'Lucky Finds', icon: 'luck', max: 10, cost: 1, desc: (l) => `+${pct(0.15 * l)} item drop chance`, apply: (f, l) => { f.drop += 0.15 * l; } },
   { id: 'gold', name: 'Gold Rush', icon: 'loot', max: 4, cost: 2, desc: (l) => `special zombies ${mult(1 + 0.5 * l)} as common` },
   { id: 'combo', name: 'Combo Master', icon: 'fast', max: 5, cost: 2, desc: (l) => `combo bonus up to ×${(1 + C.combo.bonus + 0.1 * l).toFixed(1)} (from ×${1 + C.combo.bonus})` },
+  { id: 'frenzy', name: 'Frenzy', icon: 'fast', max: 100, cost: 1, desc: (l) => `zombies ${pct(0.05 * l)} faster, ${mult(1.1 ** l)} DNA from every kill`, apply: (f, l) => { f.dnaMore = (f.dnaMore ?? 1) * 1.1 ** l; } },
   { id: 'bounty', name: 'Bounty Hunter', icon: 'auto', max: 3, cost: 3, desc: (l) => `+${l} extra point${l === 1 ? '' : 's'} for every 5 hordes cleared in a run` },
 ];
 export const perkById = (id: PerkId) => PERKS.find((p) => p.id === id)!;
