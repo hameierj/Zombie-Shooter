@@ -131,6 +131,8 @@ waiting on, so it can't be starved. Soldiers keep firing through a horde's warni
 the horde reward cards and the battleground fade with short notices; a unit's weapon choice still opens (only its
 transformation is skipped), and the commander name scene always plays.
 
+**HQ radio scenes can't be skipped:** each line types out in full before Next wakes up (taps while he's talking do nothing), and the naming scene's name box only appears once HQ has finished asking.
+
 **Soundtracks.** After **Horde 3** and again after **Horde 5** (once each, kept through prestige), HQ radios in with a
 mandatory scene (same radio card as the naming scene; tap through every line, no close button, never skipped): first
 he's horrified you've been killing to the default track ("elevator music", "that's psychopath behaviour") and hands over **Iron Mandible** ("pulled from a dead DJ's van"), then,

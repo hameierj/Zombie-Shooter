@@ -225,20 +225,21 @@ export function commanderScene(rename = false) {
   const lineEl = el.querySelector<HTMLElement>('.cs-line')!, next = el.querySelector<HTMLButtonElement>('.cs-next')!, form = el.querySelector<HTMLFormElement>('.cs-form')!;
   const input = el.querySelector<HTMLInputElement>('#cs-name')!, err = el.querySelector<HTMLElement>('.cs-err')!;
   let i = 0, typing = 0, full = '';
-  const type = (text: string) => {
+  const type = (text: string, then?: () => void) => {
     full = text; let k = 0; lineEl.textContent = '';
     window.clearInterval(typing);
-    typing = window.setInterval(() => { k++; lineEl.textContent = text.slice(0, k); if (k >= text.length) window.clearInterval(typing); }, 26);
+    next.disabled = true;   // no skipping: the button wakes up once the whole line is on screen
+    typing = window.setInterval(() => { k++; lineEl.textContent = text.slice(0, k); if (k >= text.length) { window.clearInterval(typing); next.disabled = false; then?.(); } }, 26);
   };
   const show = () => {
-    type(lines[i]);
     const last = i === lines.length - 1;
-    next.hidden = last; form.hidden = !last;
-    if (last) window.setTimeout(() => input.focus({ preventScroll: true }), 300);
+    next.hidden = last; form.hidden = true;
+    // the name box only appears once HQ has finished asking
+    type(lines[i], last ? () => { form.hidden = false; window.setTimeout(() => input.focus({ preventScroll: true }), 50); } : undefined);
   };
   let done = false;
   next.addEventListener('click', () => {
-    if (lineEl.textContent !== full) { window.clearInterval(typing); lineEl.textContent = full; return; }   // first tap finishes the line
+    if (lineEl.textContent !== full) return;   // still typing
     if (done) { sfx.nextCard(); el.classList.add('cs-bye'); window.setTimeout(() => { el.remove(); up = false; game.emit('change'); if (!rename) window.setTimeout(eerie, 900); }, 250); return; }
     i++; sfx.nextCard(); show();
   });
@@ -342,10 +343,11 @@ function soundtrackScene(t: typeof TRACK_SCENES[number]) {
   const type = (text: string) => {
     full = text; let k = 0; lineEl.textContent = '';
     window.clearInterval(typing);
-    typing = window.setInterval(() => { k++; lineEl.textContent = text.slice(0, k); if (k >= text.length) window.clearInterval(typing); }, 26);
+    next.disabled = true;   // no skipping: the button wakes up once the whole line is on screen
+    typing = window.setInterval(() => { k++; lineEl.textContent = text.slice(0, k); if (k >= text.length) { window.clearInterval(typing); next.disabled = false; } }, 26);
   };
   next.addEventListener('click', () => {
-    if (lineEl.textContent !== full) { window.clearInterval(typing); lineEl.textContent = full; return; }   // first tap finishes the line
+    if (lineEl.textContent !== full) return;   // still typing
     sfx.nextCard();
     if (stage === 0 && i < lines.length - 1) { i++; type(lines[i]); if (i === lines.length - 1) next.textContent = t.talk ?? 'Take the tape ›'; return; }
     if (t.talk) { finish(false); return; }

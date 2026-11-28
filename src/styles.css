@@ -1382,3 +1382,5 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .rec-r .val { font: 400 15px var(--display); color: #ffd34d; font-variant-numeric: tabular-nums; }
 .rec-r.top1 .rk { color: #ffd34d; } .rec-r.top2 .rk { color: #cfd6df; } .rec-r.top3 .rk { color: #d79a62; }
 .rec-r.me { background: color-mix(in srgb, var(--accent) 12%, transparent); outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+/* cutscene Next while HQ is still talking */
+#cutscene .cs-next:disabled { opacity: .35; cursor: default; }
