@@ -16,6 +16,10 @@ const ROASTS = [(x: string) => `${x} has been demoted to zombie. Respectfully.`,
   (x: string) => `${x} will be remembered. Briefly.`, (x: string) => `Sorry ${x}. The top spot only seats one.`, (x: string) => `${x} stood still for one second too long. Classic ${x}.`,
   (x: string) => `${x} has left the leaderboard. And the land of the living.`];
 
+// beating your own record: your future self steps out of a portal to warn you, and doesn't get to finish
+const SELF_ROASTS = [() => 'Time paradox resolved. Violently.', () => 'You can\'t be beaten. Not even by you.', () => 'History is written by the faster.',
+  () => 'Whatever the warning was, it\'s probably fine.', () => 'The timeline is safe. Your future self is less so.'];
+
 export function throwParty(records: { title: string; sub: string; from?: string }[], name: string, shooter: M.ClassId = 'pistol', onDone?: () => void) {
   if (el || !records.length) return;
   el = document.createElement('div');
@@ -24,6 +28,7 @@ export function throwParty(records: { title: string; sub: string; from?: string 
   // the dethroned leader (the one you took the most from) gets a cameo: as a zombie, with a name tag, briefly
   const tally = new Map<string, number>(); for (const r of records) if (r.from) tally.set(r.from, (tally.get(r.from) ?? 0) + 1);
   const victim = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const self = !!victim && victim.startsWith('Past ');   // you beat your own record
   const crowd = ['shambler', 'runner', 'brute', 'spitter', 'bloater', 'crawler', 'jogger', 'office', 'farmer']
     .filter((z) => M.ZOMBIE_IDS.includes(z as M.ZombieId)).slice(0, 7)
     .map((z, i) => `<img class="px pz" src="${zombieIcon(z as M.ZombieId)}" alt="" style="--d:${(i * 0.13).toFixed(2)}s;--x:${i}">`).join('');
@@ -33,12 +38,14 @@ export function throwParty(records: { title: string; sub: string; from?: string 
       <p class="pt-eyebrow">🏆 New leaderboard record 🏆</p>
       <h2 class="pt-title">BLOCK PARTY!</h2>
       <ul class="pt-recs">${records.slice(0, 6).map((r) => `<li><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></li>`).join('')}${records.length > 6 ? `<li>+${records.length - 6} more</li>` : ''}</ul>
-      ${victim ? `<div class="pt-duel" style="--sx:0">
+      ${victim ? `<div class="pt-duel ${self ? 'self' : ''}">
         <div class="pt-shooter"><span class="pt-tag me">${esc(name)}</span><img class="px" src="${classIcon(shooter)}" alt=""><i class="pt-flash"></i></div>
         <i class="pt-tracer"></i>
-        <div class="pt-victim"><span class="pt-tag">${esc(victim)}</span><img class="px" src="${zombieIcon('shambler')}" alt=""><i class="pt-xx">✕✕</i></div>
+        ${self ? '<i class="pt-portal"></i>' : ''}
+        <div class="pt-victim">${self ? `<span class="pt-say"><span>Wait! I'm you from the futu—</span></span>` : ''}<span class="pt-tag">${esc(self ? `${name}?` : victim)}</span><img class="px ${self ? 'pt-twin' : ''}" src="${self ? classIcon(shooter) : zombieIcon('shambler')}" alt=""><i class="pt-xx">✕✕</i></div>
+        ${self ? '<b class="pt-boom">BOOM!</b>' : ''}
       </div>
-      <p class="pt-roast">${esc(ROASTS[Math.floor(Math.random() * ROASTS.length)](victim))}</p>` : ''}
+      <p class="pt-roast">${esc(self ? SELF_ROASTS[Math.floor(Math.random() * SELF_ROASTS.length)]() : ROASTS[Math.floor(Math.random() * ROASTS.length)](victim))}</p>` : ''}
       <div class="pt-dj">
         <div class="pt-bubble">${SHOUTS[Math.floor(Math.random() * SHOUTS.length)]}<br><b>COMMANDER ${esc(name.toUpperCase())}!!!</b></div>
         <div class="pt-booth"><span class="pt-deck"></span><img class="px pt-djz" src="${zombieIcon('brute')}" alt=""><i class="pt-phones"></i><span class="pt-deck"></span></div>
@@ -51,7 +58,7 @@ export function throwParty(records: { title: string; sub: string; from?: string 
   for (const b of behind) b.inert = true;   // nothing behind the party can be reached, not even by keyboard
   const app = { set inert(v: boolean) { for (const b of behind) b.inert = v; } };
   sfx.partyStart();
-  if (victim) { window.setTimeout(() => { if (el) sfx.shot(shooter); }, 2600); window.setTimeout(() => { if (el) sfx.groan(); }, 2750); }
+  if (victim) { if (self) sfx.portal(); window.setTimeout(() => { if (el) { sfx.shot(shooter); if (self) sfx.boom(); } }, self ? 3000 : 2600); window.setTimeout(() => { if (el && !self) sfx.groan(); }, 2750); }
   const done = el.querySelector<HTMLButtonElement>('.pt-done')!, wait = el.querySelector<HTMLElement>('.pt-wait')!;
   // it plays out in full: only time with the party on screen counts (leave the app and it waits, animations frozen)
   let shown = 0, last = performance.now();

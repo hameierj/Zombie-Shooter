@@ -382,3 +382,10 @@ export function partyStop() {
   if (playing) playing.gain.gain.setTargetAtTime(1, t + 0.3, 0.4);
   if (musicBus) musicBus.gain.setTargetAtTime(musicGain(), t, 0.4);
 }
+/** A time portal whooshing open (the self-record duel). */
+export function portal() {
+  if (!gate('portal', 1)) return;
+  hiss(1.6, { type: 'bandpass', freq: 300, sweepTo: 3000, q: 3, gain: 0.12 });
+  tone(90, 1.4, { type: 'sine', to: 420, gain: 0.12 });
+  tone(1200, 0.9, { type: 'triangle', to: 300, gain: 0.04, at: 0.3 });
+}
