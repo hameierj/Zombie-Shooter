@@ -16,7 +16,7 @@ const ROASTS = [(x: string) => `${x} has been demoted to zombie. Respectfully.`,
   (x: string) => `${x} will be remembered. Briefly.`, (x: string) => `Sorry ${x}. The top spot only seats one.`, (x: string) => `${x} stood still for one second too long. Classic ${x}.`,
   (x: string) => `${x} has left the leaderboard. And the land of the living.`];
 
-export function throwParty(records: { title: string; sub: string; from?: string }[], name: string, shooter: M.ClassId = 'pistol') {
+export function throwParty(records: { title: string; sub: string; from?: string }[], name: string, shooter: M.ClassId = 'pistol', onDone?: () => void) {
   if (el || !records.length) return;
   el = document.createElement('div');
   el.id = 'party';
@@ -47,12 +47,24 @@ export function throwParty(records: { title: string; sub: string; from?: string 
       <div class="pt-foot"><span class="pt-wait">The party's still going…</span><button class="btn pt-done" type="button" hidden>Back to the fight ›</button></div>
     </div>`;
   document.body.appendChild(el);
+  const app = document.getElementById('app'); if (app) app.inert = true;   // nothing behind the party can be reached, not even by keyboard
   sfx.partyStart();
   if (victim) { window.setTimeout(() => { if (el) sfx.shot(shooter); }, 2600); window.setTimeout(() => { if (el) sfx.groan(); }, 2750); }
   const done = el.querySelector<HTMLButtonElement>('.pt-done')!, wait = el.querySelector<HTMLElement>('.pt-wait')!;
-  window.setTimeout(() => { if (!el) return; wait.hidden = true; done.hidden = false; done.focus({ preventScroll: true }); }, PARTY_MS);
+  // it plays out in full: only time with the party on screen counts (leave the app and it waits, animations frozen)
+  let shown = 0, last = performance.now();
+  const clock = window.setInterval(() => {
+    const now = performance.now(), dt = now - last; last = now;
+    el?.classList.toggle('pt-paused', document.hidden);
+    if (document.hidden || !el) return;
+    shown += Math.min(dt, 250);
+    if (shown >= PARTY_MS) { window.clearInterval(clock); wait.hidden = true; done.hidden = false; done.focus({ preventScroll: true }); }
+  }, 100);
   done.addEventListener('click', () => {
+    if (done.hidden || shown < PARTY_MS) return;
     sfx.partyStop();
+    if (app) app.inert = false;
+    onDone?.();
     const gone = el; el = null;
     gone?.classList.add('pt-bye'); window.setTimeout(() => gone?.remove(), 300);
   });

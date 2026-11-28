@@ -1475,3 +1475,4 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 @keyframes pt-walk { from { transform: translateX(120px); opacity: 0; } 15% { opacity: 1; } to { transform: translateX(0); opacity: 1; } }
 @keyframes pt-down { 0% { transform: translateX(0); filter: none; } 15% { transform: translateX(6px); filter: brightness(2.5) sepia(1) hue-rotate(-50deg) saturate(6); }
   40% { transform: translateX(10px) rotate(-8deg); filter: none; } 100% { transform: translateX(12px) rotate(82deg); filter: grayscale(.6); } }
+#party.pt-paused, #party.pt-paused * { animation-play-state: paused !important; }

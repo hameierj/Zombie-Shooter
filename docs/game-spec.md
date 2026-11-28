@@ -140,7 +140,7 @@ ever to beat Horde N!"), an air horn and **King of the Arcade Floor**
 (from where its beat drops; ~50 s clip, looped, fetched the moment a record is detected; the soundtrack steps aside;
 with music muted, a synthesized beat plays instead). When a record was stolen, the dethroned leader gets a cameo: a
 zombie wearing their name tag shuffles in, your best unit type (name-tagged with yours) shoots it, it flashes, keels
-over with ✕✕ eyes, and a roast line follows ("Arryk has been demoted to zombie. Respectfully."). The battle, auto-buy and the play clock are paused throughout; "Back to the fight" only appears
+over with ✕✕ eyes, and a roast line follows ("Arryk has been demoted to zombie. Respectfully."). The battle, auto-buy and the play clock are paused throughout; It cannot be skipped in any way: no close button, taps and keys do nothing, everything behind it is locked (inert), only time with the party on screen counts (in the background it waits, animations and music frozen), and a party that was interrupted by a reload replays until it has played out. "Back to the fight" only appears
 after ~9 s. It waits for a running horde to end. The first check is silent (records already held don't party), and a
 record lost and retaken parties again.
 

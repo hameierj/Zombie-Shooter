@@ -5,7 +5,7 @@ import { showTitle } from './title.ts';
 import { biohazard, hordeCards, overlayUp, setCardNotice, showCards } from './unlocks.ts';
 import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
-import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, recordsPending, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, partyDone, recordsPending, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
 import { throwParty } from './party.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps, skipAnims, setSkipAnims } from '../core/prefs';
@@ -210,7 +210,8 @@ export function initUI() {
   setInterval(() => {
     if (!recordsPending() || titleUp() || overlayUp() || coachUp() || hordeRunning() || !$('#modal').hidden || evoUp() || document.hidden) return;
     const best = [...M.CLASSES].reverse().find((c) => game.s.units[c.id].count > 0)?.id ?? 'pistol';   // your best unit type does the honours
-    throwParty(takeRecords(), getPlayer()?.name ?? 'Commander', best);
+    const recs = takeRecords();
+    throwParty(recs, getPlayer()?.name ?? 'Commander', best, () => partyDone(recs));
   }, 1000);
   // the Ranks page keeps itself fresh while it's open (who's playing now, new scores)
   setInterval(() => { if (tab === 'ranks' && !document.hidden) void syncBoard(false, rankSort).then(() => { if (tab === 'ranks') soft(); }); }, 30_000);

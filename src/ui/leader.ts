@@ -170,7 +170,13 @@ function recordsHtml(me: Entry, list: Entry[] | undefined) {
 // ---------- records: #1 in any ranking, or the fastest time for a horde ----------
 const REC_KEY = 'zombie-idle-records';
 export interface RecordWin { title: string; sub: string; from?: string }
-let pending: RecordWin[] = [];
+const OWED_KEY = 'zombie-idle-party-owed';
+/** Records waiting for their party. Kept on the device until the party has played out, so a reload doesn't skip it. */
+let pending: RecordWin[] = (() => { try { const v = JSON.parse(localStorage.getItem(OWED_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
+let owed: RecordWin[] = [...pending];
+const saveOwed = () => { try { localStorage.setItem(OWED_KEY, JSON.stringify(owed)); } catch { /* storage blocked */ } };
+/** The party for these records played out in full: they're no longer owed. */
+export function partyDone(recs: RecordWin[]) { owed = owed.filter((o) => !recs.some((r) => r.title === o.title)); saveOwed(); }
 /** Fresh records waiting for their party (taken by the UI once nothing else is on screen). */
 export const takeRecords = () => { const r = pending; pending = []; return r; };
 export const recordsPending = () => pending.length > 0;
@@ -211,6 +217,7 @@ export async function syncRecords() {
   if (!before) return;   // first look: just note what you hold
   const fresh = held.filter((k) => !before!.includes(k) && !pending.some((p) => p.title === label.get(k)!.title));
   pending.push(...fresh.map((k) => label.get(k)!));
+  owed.push(...fresh.map((k) => label.get(k)!)); saveOwed();
   if (fresh.length) sfx.preloadParty();   // the party track is ready by the time the party starts
 }
 /** Small leaderboard teaser on the Hordes tab. */
