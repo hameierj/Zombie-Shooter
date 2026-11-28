@@ -1445,3 +1445,33 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .pt-bubble { margin-bottom: 52px; }
 .pt-recs li b { display: block; font: 700 15px Inter, system-ui, sans-serif; color: #ffe9a3; }
 .pt-recs li span { display: block; margin-top: 2px; font: 600 12.5px Inter, system-ui, sans-serif; color: #ff9fe6; }
+/* Record party: the dethroned leader's cameo */
+.pt-duel { position: relative; display: flex; justify-content: space-between; align-items: flex-end; height: 92px; margin: 2px 8px 0; }
+.pt-duel img { width: 64px; height: 64px; object-fit: contain; display: block; }
+.pt-shooter, .pt-victim { position: relative; display: grid; justify-items: center; }
+.pt-tag { margin-bottom: 4px; padding: 2px 8px; border-radius: 6px; background: rgba(0,0,0,.65); border: 1px solid #ff6767; color: #ffb3b3; font: 800 11px Inter, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
+.pt-tag.me { border-color: #5ee38c; color: #b9f5cd; }
+.pt-shooter { animation: pt-aim 2.6s ease-out both; }
+@keyframes pt-aim { 0%, 80% { transform: none; } 92% { transform: translateX(-4px) rotate(-4deg); } 100% { transform: none; } }
+.pt-flash { position: absolute; right: -14px; bottom: 26px; width: 22px; height: 22px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, #fff 0 25%, #ffd34d 45%, transparent 70%); animation: pt-flashk .25s ease-out 2.6s; }
+@keyframes pt-flashk { 0% { opacity: 1; transform: scale(1.6); } 100% { opacity: 0; transform: scale(.6); } }
+.pt-tracer { position: absolute; left: 70px; right: 70px; bottom: 36px; height: 3px; border-radius: 2px; opacity: 0; transform-origin: left center;
+  background: linear-gradient(90deg, rgba(255,211,77,0), #ffd34d 60%, #fff); box-shadow: 0 0 10px #ffd34d; animation: pt-shot .22s ease-out 2.6s; }
+@keyframes pt-shot { 0% { opacity: 1; transform: scaleX(0); } 60% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
+.pt-victim { animation: pt-walk 2.4s linear .3s both, pt-down .9s cubic-bezier(.5,-.3,.7,1) 2.75s forwards; transform-origin: 50% 100%; }
+@keyframes pt-walk { from { transform: translateX(160px); opacity: 0; } 10% { opacity: 1; } to { transform: translateX(0); opacity: 1; } }
+@keyframes pt-down { 0% { transform: translateX(0); filter: none; } 15% { transform: translateX(8px); filter: brightness(2.5) sepia(1) hue-rotate(-50deg) saturate(6); }
+  40% { transform: translateX(14px) rotate(-8deg); filter: none; } 100% { transform: translateX(22px) rotate(86deg); filter: grayscale(.6); } }
+.pt-victim img { animation: pt-shamble .5s ease-in-out .3s 5 alternate; }
+@keyframes pt-shamble { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+.pt-xx { position: absolute; top: 34px; left: 50%; margin-left: -12px; font: 800 12px Inter, system-ui, sans-serif; color: #fff; opacity: 0; animation: uk-fade .2s ease-out 3.2s reverse forwards; }
+@keyframes pt-xxin { to { opacity: 1; } }
+.pt-xx { animation: pt-xxin .2s ease-out 3.2s forwards; }
+.pt-roast { margin: 4px 0 10px; font: italic 600 14px Inter, system-ui, sans-serif; color: #ffd34d; opacity: 0; animation: pt-xxin .4s ease-out 3.4s forwards; }
+/* duel: the two fighters stand closer, so nobody walks or falls off a phone screen */
+.pt-duel { justify-content: center; gap: 110px; }
+.pt-tracer { left: calc(50% - 50px); right: auto; width: 100px; }
+@keyframes pt-walk { from { transform: translateX(120px); opacity: 0; } 15% { opacity: 1; } to { transform: translateX(0); opacity: 1; } }
+@keyframes pt-down { 0% { transform: translateX(0); filter: none; } 15% { transform: translateX(6px); filter: brightness(2.5) sepia(1) hue-rotate(-50deg) saturate(6); }
+  40% { transform: translateX(10px) rotate(-8deg); filter: none; } 100% { transform: translateX(12px) rotate(82deg); filter: grayscale(.6); } }

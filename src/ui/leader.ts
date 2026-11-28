@@ -169,7 +169,7 @@ function recordsHtml(me: Entry, list: Entry[] | undefined) {
 }
 // ---------- records: #1 in any ranking, or the fastest time for a horde ----------
 const REC_KEY = 'zombie-idle-records';
-export interface RecordWin { title: string; sub: string }
+export interface RecordWin { title: string; sub: string; from?: string }
 let pending: RecordWin[] = [];
 /** Fresh records waiting for their party (taken by the UI once nothing else is on screen). */
 export const takeRecords = () => { const r = pending; pending = []; return r; };
@@ -196,14 +196,14 @@ export async function syncRecords() {
     held.push(d.key);
     const dna = d.key.startsWith('dna_');   // DNA totals are logs: the gain is a multiple
     const gain = was === undefined ? '' : dna ? `×${fmtLn(v - was).replace(/^\+/, '')} more` : `+${d.fmt(v - was)} (×${(v / was).toFixed(v / was >= 10 ? 0 : 1)})`;
-    label.set(d.key, { title: `#1 in ${d.label}: ${d.fmt(v)}`, sub: h ? `Stolen from ${h.name} (${d.fmt(was!)}) · ${gain}` : 'First commander on the board to set it!' });
+    label.set(d.key, { from: h?.name, title: `#1 in ${d.label}: ${d.fmt(v)}`, sub: h ? `Stolen from ${h.name} (${d.fmt(was!)}) · ${gain}` : 'First commander on the board to set it!' });
   }
   for (const [k, t] of Object.entries(me.s)) {
     if (!hordeKey(k) || !(t > 0)) continue;
     const h = holder(k, (a, b) => a < b), was = h?.s[k];
     if (was !== undefined && t >= was) continue;
     held.push(k);
-    label.set(k, { title: `Fastest Horde ${k.slice(3)}: ${dur(t)}`, sub: h ? `Stolen from ${h.name} (${dur(was!)}) · ${dur(was! - t)} faster` : `First commander ever to beat Horde ${k.slice(3)}!` });
+    label.set(k, { from: h?.name, title: `Fastest Horde ${k.slice(3)}: ${dur(t)}`, sub: h ? `Stolen from ${h.name} (${dur(was!)}) · ${dur(was! - t)} faster` : `First commander ever to beat Horde ${k.slice(3)}!` });
   }
   let before: string[] | null = null;
   try { before = JSON.parse(localStorage.getItem(REC_KEY) ?? 'null'); } catch { /* ignore */ }
@@ -211,6 +211,7 @@ export async function syncRecords() {
   if (!before) return;   // first look: just note what you hold
   const fresh = held.filter((k) => !before!.includes(k) && !pending.some((p) => p.title === label.get(k)!.title));
   pending.push(...fresh.map((k) => label.get(k)!));
+  if (fresh.length) sfx.preloadParty();   // the party track is ready by the time the party starts
 }
 /** Small leaderboard teaser on the Hordes tab. */
 export function leaderboardHtml() { return ''; }

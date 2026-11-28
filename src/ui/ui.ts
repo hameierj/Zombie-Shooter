@@ -209,7 +209,8 @@ export function initUI() {
   setInterval(() => { if (!document.hidden) void syncRecords(); }, 60_000);
   setInterval(() => {
     if (!recordsPending() || titleUp() || overlayUp() || coachUp() || hordeRunning() || !$('#modal').hidden || evoUp() || document.hidden) return;
-    throwParty(takeRecords(), getPlayer()?.name ?? 'Commander');
+    const best = [...M.CLASSES].reverse().find((c) => game.s.units[c.id].count > 0)?.id ?? 'pistol';   // your best unit type does the honours
+    throwParty(takeRecords(), getPlayer()?.name ?? 'Commander', best);
   }, 1000);
   // the Ranks page keeps itself fresh while it's open (who's playing now, new scores)
   setInterval(() => { if (tab === 'ranks' && !document.hidden) void syncBoard(false, rankSort).then(() => { if (tab === 'ranks') soft(); }); }, 30_000);

@@ -7,6 +7,7 @@ import battleUrl from '../assets/audio/battle.wav?url';
 import hordeUrl from '../assets/audio/horde.wav?url';
 import ironUrl from '../assets/audio/iron-mandible.m4a?url';
 import bellUrl from '../assets/audio/no-one-rings-the-bell.m4a?url';
+import partyUrl from '../assets/audio/party-king-of-the-arcade-floor.m4a?url';
 
 // ---------- soundtracks: the original chiptune, plus tracks collected in the game (each downloaded only once needed) ----------
 export type SoundtrackId = 'classic' | 'iron' | 'bell';
@@ -333,12 +334,14 @@ let partyT = 0;
 function airhorn(at = 0) {
   [466, 587, 698].forEach((f) => { tone(f, 0.18, { type: 'sawtooth', gain: 0.07, at }); tone(f, 0.18, { type: 'sawtooth', gain: 0.07, at: at + 0.22 }); tone(f, 0.6, { type: 'sawtooth', gain: 0.07, at: at + 0.44 }); });
 }
-export function partyStart() {
+// The party track (King of the Arcade Floor, from where its beat drops): fetched when a record is on its way.
+let partyBuf: AudioBuffer | null = null, partyLoading: Promise<void> | null = null, partySrc: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+export function preloadParty() {
   init();
-  if (!ctx || !prefs.sfx) return;
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-  if (musicBus) musicBus.gain.setTargetAtTime(musicGain() * 0.35, ctx.currentTime, 0.2);   // the DJ takes over
-  airhorn();
+  if (partyBuf || partyLoading || !ctx) return;
+  partyLoading = (async () => { try { partyBuf = await ctx!.decodeAudioData(await (await fetch(partyUrl)).arrayBuffer()); } catch { /* offline: the synth beat */ } finally { partyLoading = null; } })();
+}
+function synthBeat() {
   const bpm = 124, beat = 60 / bpm, bass = [55, 55, 65.4, 49];
   let n = 0;
   window.clearInterval(partyT);
@@ -354,7 +357,28 @@ export function partyStart() {
     if (n % 16 === 0) airhorn(0.05);
   }, beat * 4 * 1000);
 }
+export function partyStart() {
+  init();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (prefs.sfx) airhorn();
+  const go = () => {
+    if (!ctx) return;
+    if (partyBuf && prefs.music) {   // the real track, on the music bus; the soundtrack steps aside
+      if (playing) playing.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
+      const src = ctx.createBufferSource(); src.buffer = partyBuf; src.loop = true;
+      const gain = ctx.createGain(); gain.gain.value = 1.15;
+      src.connect(gain).connect(musicBus); src.start(ctx.currentTime + 0.25);
+      partySrc = { src, gain };
+    } else if (prefs.sfx) { if (musicBus) musicBus.gain.setTargetAtTime(musicGain() * 0.35, ctx.currentTime, 0.2); synthBeat(); }
+  };
+  if (!partyBuf && partyLoading) partyLoading.then(go); else if (!partyBuf) { preloadParty(); (partyLoading ?? Promise.resolve()).then(go); } else go();
+}
 export function partyStop() {
   window.clearInterval(partyT); partyT = 0;
-  if (ctx && musicBus) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.4);
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  if (partySrc) { const p = partySrc; partySrc = null; p.gain.gain.setTargetAtTime(0, t, 0.25); p.src.stop(t + 1.5); }
+  if (playing) playing.gain.gain.setTargetAtTime(1, t + 0.3, 0.4);
+  if (musicBus) musicBus.gain.setTargetAtTime(musicGain(), t, 0.4);
 }

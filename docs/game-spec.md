@@ -136,8 +136,11 @@ transformation is skipped), and the commander name scene always plays.
 headphones at spinning decks ("EVERYBODY SCREAM FOR COMMANDER <NAME>!!!"), a dancing zombie crowd, disco lights,
 confetti, a rainbow BLOCK PARTY! title, each record listed with who it was stolen from, their old value and the
 margin ("Stolen from Arryk (195,337) · +4,804,663 (×26)", "Stolen from Arryk (46s) · 16s faster", or "First commander
-ever to beat Horde N!"), and a synthesized four-on-the-floor beat with an air horn
-(music ducks under it). The battle, auto-buy and the play clock are paused throughout; "Back to the fight" only appears
+ever to beat Horde N!"), an air horn and **King of the Arcade Floor**
+(from where its beat drops; ~50 s clip, looped, fetched the moment a record is detected; the soundtrack steps aside;
+with music muted, a synthesized beat plays instead). When a record was stolen, the dethroned leader gets a cameo: a
+zombie wearing their name tag shuffles in, your best unit type (name-tagged with yours) shoots it, it flashes, keels
+over with ✕✕ eyes, and a roast line follows ("Arryk has been demoted to zombie. Respectfully."). The battle, auto-buy and the play clock are paused throughout; "Back to the fight" only appears
 after ~9 s. It waits for a running horde to end. The first check is silent (records already held don't party), and a
 record lost and retaken parties again.
 
