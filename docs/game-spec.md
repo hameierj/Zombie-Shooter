@@ -133,8 +133,8 @@ transformation is skipped), and the commander name scene always plays.
 
 **Soundtracks.** After **Horde 3** and again after **Horde 5** (once each, kept through prestige), HQ radios in with a
 mandatory scene (same radio card as the naming scene; tap through every line, no close button, never skipped): first
-he's horrified you've been killing in silence and hands over **Iron Mandible** ("pulled from a dead DJ's van"), then,
-now that you're jamming out, **No One Rings the Bell** (from the church on 5th Street). The first is not optional: it
+he's horrified you've been killing to the default track ("elevator music", "that's psychopath behaviour") and hands over **Iron Mandible** ("pulled from a dead DJ's van"), then,
+now that you're jamming out (but one song on repeat forever is how psychopaths are made), **No One Rings the Bell** (from the church on 5th Street). The first is not optional: it
 ends with "if you prefer elevator music, go change it in your settings", a tape and "Crank it up", which turns music
 on and switches to it. Every later tape comes with ▶ Preview (plays it right away; tap again to stop) and a choice:
 Swap to it, or Keep the current soundtrack (which puts the old one back). Settings → Sound & display → **Soundtrack** picks between

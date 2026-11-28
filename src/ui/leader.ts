@@ -233,14 +233,14 @@ export function commanderScene(rename = false) {
 /** Soundtracks HQ hands over (once each, mandatory) as the hordes fall. */
 const TRACK_SCENES: { id: sfx.SoundtrackId; horde: number; tape: string; forced?: boolean; lines: (name: string) => string[] }[] = [
   { id: 'iron', horde: 3, tape: 'IRON MANDIBLE', forced: true, lines: (name) => ['*kssht* HQ again. Three hordes down, Commander ' + name + '. Impressive. But I have to ask you something.',
-    'Have you been doing all of this... in SILENCE? Mowing down the undead with no soundtrack?',
-    'That\'s not soldiering. That\'s psychopath behaviour. The squad has filed a formal complaint. Kevin is crying.',
+    'What is that... noise? Are you mowing down the undead to ELEVATOR MUSIC?',
+    'Blowing zombies apart to lobby jazz, calm as a dentist\'s waiting room. That\'s psychopath behaviour. The squad has filed a formal complaint. Kevin is crying.',
     'Rule one of the apocalypse: every massacre needs a banger. So I pulled this off a dead DJ\'s van. Don\'t ask what was left of the DJ.',
-    'It\'s called Iron Mandible. It slaps. Play it loud and never let me catch you killing in silence again.',
-    'And this one\'s not optional. If you prefer elevator music, go change it in your settings. Coward. HQ out.'] },
+    'It\'s called Iron Mandible. It slaps. Play it loud and never let me catch you killing to elevator music again.',
+    'And this one\'s not optional. If you really prefer the elevator music, go change it back in your settings, you psycho. HQ out.'] },
   { id: 'bell', horde: 5, tape: 'NO ONE RINGS THE BELL', lines: (name) => ['*kssht* HQ. Horde five, ' + name + '. FIVE. And I can hear the music from here. Now THAT\'s a rooftop.',
     'Honestly? I\'ve never seen the squad this happy. Kevin stopped crying. Kevin is headbanging. Kevin has lost an ear doing it.',
-    'But a true psychopath needs range. You can\'t rock out to one song forever. That\'s how they get you.',
+    'But one song on repeat for the entire apocalypse? Same riff, every horde, forever? THAT\'s how psychopaths are made, Commander. A sane killer needs variety.',
     'So I raided the old church on 5th Street. The bell tower\'s empty. The choir is... busy. Undead busy. But they left this behind.',
     'No One Rings the Bell. Put it on, Commander, and let\'s see who\'s still standing when it ends. HQ out.'] },
 ];
