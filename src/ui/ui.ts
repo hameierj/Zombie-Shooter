@@ -352,7 +352,7 @@ function act(d: ActionData): boolean {
     case 'scavenger': game.buyScavenger(); break;
     case 'rank-sort': rankSort = arg; try { localStorage.setItem('zombie-idle-rank-sort', arg); } catch { /* ignore */ } render(); void syncBoard(false, arg).then(() => { if (tab === 'ranks' && rankSort === arg) soft(); }); break;
     case 'rename': if (canRename()) { closeModal(); commanderScene(true); } break;
-    case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals' | 'tree'; if (!game.autoOpen(k)) break; const cfg = game.autoCfg; cfg[k] = !cfg[k]; game.save(); autoChip(); if (!$('#modal').hidden) openSettings();
+    case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals' | 'tree' | 'ults'; if (!game.autoOpen(k)) break; const cfg = game.autoCfg; cfg[k] = !cfg[k]; game.save(); autoChip(); if (!$('#modal').hidden) openSettings();
       break; }
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
     case 'treeview': treeView = arg as 'global' | ClassId; if (treeView !== 'global') unitNode = 'dmg'; render(); break;
@@ -755,7 +755,14 @@ function ultTraits(f: M.UltFx) {
  * pick a track). Waits for the title screen, tutorial tips, other pop-ups, open dialogs and a running horde. */
 function forceEvolutions() {
   if (titleUp() || overlayUp() || coachUp() || hordeRunning() || !$('#modal').hidden || document.hidden || evoUp()) return;
-  for (const c of M.CLASSES) if (game.canEvolveUnit(c.id)) { closeModal(); playEvolution({ kind: 'unit', cls: c.id }); return; }
+  for (const c of M.CLASSES) if (game.canEvolveUnit(c.id)) {
+    const pick = game.s.ultPicks?.[c.id];
+    if (game.autoLive.ults && pick !== undefined) {   // Ultimates switch: straight into the remembered weapon
+      if (game.evolveUnit(c.id, pick)) { const d = M.ULTS[c.id][pick]; toast(`<b>${esc(c.plural)}: ${esc(d.name)}</b><span>Auto-evolved into the ${esc(d.gun)} · ×${C.ultDps} DPS</span>`, d.color, gunIcon(c.id, pick), 4000); }
+      return;
+    }
+    closeModal(); playEvolution({ kind: 'unit', cls: c.id }); return;
+  }
   for (const z of M.ZOMBIE_IDS) {
     if (game.canZombieUlt(z)) { game.zombieUlt(z); return; }
     if (game.canRelease(z)) { game.release(z); return; }
@@ -922,7 +929,7 @@ function openPrestige() {
 }
 /** Lifetime kill counters (kept through prestige). */
 /** The auto-buy switches on the map (shown once Horde 10 is beaten): Zombies, Troops, Globals and Tree, each on its own. */
-const AUTO_ORDER = ['zombies', 'tree', 'globals', 'units'] as const;
+const AUTO_ORDER = ['zombies', 'tree', 'globals', 'units', 'ults'] as const;
 function autoChip() {
   const el = document.getElementById('autobuy');
   if (!el) return;
@@ -933,8 +940,8 @@ function autoChip() {
   // switches appear one by one as they unlock (Zombies 10, Tree 13, Globals 16, Troops 20)
   const open = AUTO_ORDER.filter((k) => game.autoOpen(k)), sig = open.join(',');
   if (el.dataset.sig !== sig) { el.innerHTML = ''; el.dataset.sig = sig; }
-  if (!el.firstElementChild) el.innerHTML = `<span class="ab-l">AUTO</span>${open.map((k) => `<button data-action="auto-pref" data-arg="${k}" aria-pressed="false"><i></i>${{ zombies: 'Zombies', units: 'Troops', globals: 'Globals', tree: 'Tree' }[k]}</button>`).join('')}`;
-  for (const b of el.querySelectorAll<HTMLElement>('button')) { const on = !!a[b.dataset.arg as 'zombies' | 'units' | 'globals' | 'tree']; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+  if (!el.firstElementChild) el.innerHTML = `<span class="ab-l">AUTO</span>${open.map((k) => `<button data-action="auto-pref" data-arg="${k}" aria-pressed="false"><i></i>${{ zombies: 'Zombies', units: 'Troops', globals: 'Globals', tree: 'Tree', ults: 'Ultimates' }[k]}</button>`).join('')}`;
+  for (const b of el.querySelectorAll<HTMLElement>('button')) { const on = !!a[b.dataset.arg as 'zombies' | 'units' | 'globals' | 'tree' | 'ults']; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
   el.classList.toggle('any', game.autoAny);
 }
 function killsHtml() {
@@ -1003,7 +1010,7 @@ function openSettings() {
       ${pl.renamed ? '' : '<button class="btn small" data-action="rename">Change name</button>'}</div></section>` : ''; })()}
     <section class="set-sec"><h4>Auto-buy</h4>${game.autoUnlocked ? `
       <p class="sub small">Also on the map: the AUTO switches in the top-left corner.</p>
-      ${AUTO_ORDER.map((k) => !game.autoOpen(k) ? `<div class="trow static locked"><div><b>${{ zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades', tree: 'Passive tree' }[k]}</b><span>🔒 Unlocks when you beat Horde ${Game.AUTO_AT[k]}</span></div></div>` : sw('auto-pref', { zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades', tree: 'Passive tree' }[k], { tree: 'Passives in every open region, in the tree’s own order, cheapest colour first', zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms. Holds your squad’s keep-up at ×1: whenever it’s easier than that, zombies come first. On its own (every other switch off) it has no limit', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], !!game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`
+      ${AUTO_ORDER.map((k) => !game.autoOpen(k) ? `<div class="trow static locked"><div><b>${{ zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades', tree: 'Passive tree', ults: 'Ultimates' }[k]}</b><span>🔒 Unlocks when you beat Horde ${Game.AUTO_AT[k]}</span></div></div>` : sw('auto-pref', { zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades', tree: 'Passive tree', ults: 'Ultimates' }[k], { ults: `Evolves a unit type into the weapon you chose for it last time, no menu. A type you’ve never evolved still asks once.${Object.keys(game.s.ultPicks ?? {}).length ? ` Remembered: ${Object.entries(game.s.ultPicks ?? {}).map(([c, e]) => M.ULTS[c as ClassId][e as 0 | 1].name).join(', ')}.` : ''}`, tree: 'Passives in every open region, in the tree’s own order, cheapest colour first', zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms. Holds your squad’s keep-up at ×1: whenever it’s easier than that, zombies come first. On its own (every other switch off) it has no limit', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], !!game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`
       : `<p class="sub small">🔒 Beat Horde ${Game.AUTO_HORDE} to unlock auto-buy for free.</p>`}
     </section>
     <section class="set-sec"><h4>Saves</h4>

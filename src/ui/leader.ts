@@ -267,7 +267,7 @@ export function commanderScene(rename = false) {
 
 /** Soundtracks HQ hands over (once each, mandatory) as the hordes fall. */
 /** HQ's radio check-ins: mixtapes (a tape to take) and plain talks (`talk`: just lines, then a closing button). */
-const TRACK_SCENES: { id: sfx.SoundtrackId | 'auto' | 'auto_tree' | 'auto_globals' | 'auto_units'; horde: number; tape?: string; forced?: boolean; talk?: string; auto?: 'zombies' | 'tree' | 'globals' | 'units'; lines: (name: string) => string[] }[] = [
+const TRACK_SCENES: { id: sfx.SoundtrackId | 'auto' | 'auto_tree' | 'auto_globals' | 'auto_units' | 'auto_ults'; horde: number; tape?: string; forced?: boolean; talk?: string; auto?: 'zombies' | 'tree' | 'globals' | 'units' | 'ults'; lines: (name: string) => string[] }[] = [
   { id: 'iron', horde: 3, tape: 'IRON MANDIBLE', forced: true, lines: (name) => ['*kssht* HQ again. Three hordes down, Commander ' + name + '. Impressive. But I have to ask you something.',
     'What is that... noise? Are you mowing down the undead to ELEVATOR MUSIC?',
     'Blowing zombies apart to lobby jazz, calm as a dentist\'s waiting room. That\'s psychopath behaviour. The squad has filed a formal complaint. Kevin is crying.',
@@ -300,6 +300,12 @@ const TRACK_SCENES: { id: sfx.SoundtrackId | 'auto' | 'auto_tree' | 'auto_global
     'That\'s it. All four switches. The whole thing runs itself now.',
     'You are no longer a commander. You are the proud floor manager of a fully automated meat grinder. Leaderboard grinder. I keep doing that.',
     'The top of that board is yours to take. Don\'t make me come down there. HQ out.'] },
+  { id: 'auto_ults', horde: 25, auto: 'ults', talk: 'Remember everything ›', lines: (name) => ['*kssht* HQ. Horde TWENTY-FIVE, ' + name + '. I\'m making it official: you are a problem. For the zombies. Also for us.',
+    'Kevin timed you on the ultimate weapon screen. Four seconds. Staring at two guns you\'ve picked a hundred times. Every. Single. Run.',
+    'Four seconds is a LOT of zombies, Commander. Competitive people don\'t stare. They pre-decide.',
+    'So, new switch: ULTIMATES. The squad remembers the weapon you picked for each unit, and the moment they\'re ready again, they just grab it. No menu. No staring.',
+    'A unit type you\'ve never evolved still asks you once. After that it\'s muscle memory. Kevin\'s muscle memory is mostly flinching.',
+    'I\'ve already flipped it on for you. Now go shave seconds off that leaderboard. HQ out.'] },
 ];
 /** Once the matching horde is beaten (and the player has a name), HQ's next mixtape scene plays. */
 export function maybeSoundtrackScene(blocked: boolean) {
@@ -331,7 +337,7 @@ function soundtrackScene(t: typeof TRACK_SCENES[number]) {
   const before = sfx.savedSoundtrack(), musicWas = sfx.soundPrefs().music;
   let previewing = false;
   const finish = (swap: boolean) => {
-    if (t.talk) { game.s.radio = [...new Set([...(game.s.radio ?? []), t.id])]; game.save(); }
+    if (t.talk) { game.s.radio = [...new Set([...(game.s.radio ?? []), t.id])]; if (t.id === 'auto_ults') game.autoCfg.ults = true; game.save(); }
     else if (swap) { if (!sfx.soundPrefs().music) sfx.setMusic(true); sfx.setSoundtrack(t.id as sfx.SoundtrackId); }
     else { sfx.setSoundtrack(before); if (!musicWas && sfx.soundPrefs().music) sfx.setMusic(false); }   // back to what was playing
     el.classList.add('cs-bye'); window.setTimeout(() => { el.remove(); up = false; game.emit('change'); }, 250);
