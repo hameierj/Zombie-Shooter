@@ -85,7 +85,7 @@ initTutorial();
 game.on((evt, data) => { if (evt === 'phase') music(data === 'intro' || data === 'horde' ? 'horde' : 'battle'); });
 
 // ---------- play timer (top right): TOTAL time played on this save; counts only while the app is open and visible ----------
-const timeEl = document.getElementById('hud-time')!;
+const runEl = document.getElementById('hud-run')!, totalEl = document.getElementById('hud-total')!;
 let lastTick = performance.now();
 const fmtTime = (sec: number) => {
   const t = Math.floor(sec), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
@@ -93,9 +93,10 @@ const fmtTime = (sec: number) => {
 };
 setInterval(() => {
   const now = performance.now();
-  if (!document.hidden && !titleUp() && !overlayUp() && !coachUp()) game.s.playSec = (game.s.playSec ?? 0) + Math.min(now - lastTick, 2000) / 1000;   // a long gap = the app was asleep
+  if (!document.hidden && !titleUp() && !overlayUp() && !coachUp()) { const d = Math.min(now - lastTick, 2000) / 1000; game.s.playSec = (game.s.playSec ?? 0) + d; game.s.runSec = (game.s.runSec ?? 0) + d; }   // a long gap = the app was asleep
   lastTick = now;
-  timeEl.textContent = fmtTime(game.s.playSec ?? 0);
+  runEl.textContent = fmtTime(game.s.runSec ?? 0);
+  totalEl.textContent = fmtTime(game.s.playSec ?? 0);
 }, 250);
 
 // ---------- persistence & app lifecycle ----------

@@ -28,6 +28,8 @@ export interface SaveData {
   /** Play time (s) at which this run started (−1: unknown, a run already under way when this was added), and the fastest
    * play time from a run's start to beating each horde, across runs (leaderboard). */
   runStart?: number;
+  /** Play time in the current run (since the last prestige); the top-right RUN clock. */
+  runSec?: number;
   /** Soundtracks collected (kept through prestige). */
   tracks?: string[];
   /** HQ radio talks already heard (kept through prestige). */
@@ -76,7 +78,7 @@ function freshSave(): SaveData {
   return {
     version: 6, dna: emptyDna(), strains: emptyStrains(), units,
     guns: [{ uid: 2, cls: 'pistol', rarity: 'common', ilvl: 1 }], gear: [],
-    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(), playSec: 0, runStart: 0, hordeTimes: {}, prestige: M.emptyPrestige(), econ: 2,
+    alloc: [], hordes: 0, autoHordeOn: true, autoSell: 'best', nextUid: 3, kills: 0, newItems: [], lastSeen: Date.now(), playSec: 0, runStart: 0, runSec: 0, hordeTimes: {}, prestige: M.emptyPrestige(), econ: 2,
   };
 }
 
@@ -128,6 +130,7 @@ function migrate(data: { version: number }): SaveData {
   if (out.bossKills === undefined) out.bossKills = out.hordes;
   out.bestHorde = Math.max(out.bestHorde ?? 0, out.hordes);
   out.runStart = s.runStart ?? (out.prestige?.runs ? -1 : 0);
+  out.runSec = s.runSec ?? (out.runStart >= 0 ? Math.max(0, (out.playSec ?? 0) - out.runStart) : 0);
   out.hordeTimes = s.hordeTimes ?? {};
   out.ultPicks = { ...(s.ultPicks ?? {}) };
   for (const u of Object.values(out.units)) if (u.evo !== undefined && out.ultPicks[u.cls] === undefined) out.ultPicks[u.cls] = u.evo;   // weapons already chosen count as remembered   // every horde won so far killed its boss
@@ -791,7 +794,7 @@ export class Game {
     }
     const autoEarned = this.autoUnlocked, auto = this.s.auto, playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, bestHorde = Math.max(this.s.bestHorde ?? 0, this.s.hordes), bestTier = Math.max(this.s.bestTier ?? 0, M.bestTier(this.s.strains)), hordeTimes = this.s.hordeTimes, tracks = this.s.tracks, radio = this.s.radio, ultPicks = this.s.ultPicks, player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
     this.s = freshSave();
-    this.s.prestige = p; this.s.autoEarned = autoEarned; this.s.auto = auto; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.bestHorde = bestHorde; this.s.bestTier = bestTier; this.s.hordeTimes = hordeTimes; this.s.tracks = tracks; this.s.radio = radio; this.s.ultPicks = ultPicks; this.s.runStart = playSec; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
+    this.s.prestige = p; this.s.autoEarned = autoEarned; this.s.auto = auto; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.bestHorde = bestHorde; this.s.bestTier = bestTier; this.s.hordeTimes = hordeTimes; this.s.tracks = tracks; this.s.radio = radio; this.s.runSec = 0; this.s.ultPicks = ultPicks; this.s.runStart = playSec; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
     this.applyHeadStart();
     if (this.autoOpen('drums')) { this.s.alloc = [Game.DRUMS]; this.s.freeAlloc = [Game.DRUMS]; }   // War Drums, pre-installed
     this.fxCache = null; this.syncLive();

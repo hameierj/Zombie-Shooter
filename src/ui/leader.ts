@@ -215,11 +215,20 @@ export function checkRecords() {
     held.push(k);
     label.set(k, { from: h?.name, title: `Fastest Horde ${k.slice(3)}: ${dur(t)}`, sub: h ? `Stolen from ${h.name} (${dur(was!)}) · ${dur(was! - t)} faster` : `First commander ever to beat Horde ${k.slice(3)}!` });
   }
-  let before: string[] | null = null;
-  try { before = JSON.parse(localStorage.getItem(REC_KEY) ?? 'null'); } catch { /* ignore */ }
-  try { localStorage.setItem(REC_KEY, JSON.stringify(held)); } catch { /* ignore */ }
+  // what you held last time, with its value (older devices stored just the keys)
+  let raw: unknown = null;
+  try { raw = JSON.parse(localStorage.getItem(REC_KEY) ?? 'null'); } catch { /* ignore */ }
+  const before: Record<string, number | null> | null = Array.isArray(raw) ? Object.fromEntries(raw.map((k: string) => [k, null])) : raw as Record<string, number | null> | null;
+  try { localStorage.setItem(REC_KEY, JSON.stringify(Object.fromEntries(held.map((k) => [k, me.s[k]])))); } catch { /* ignore */ }
   if (!before) return;   // first look: just note what you hold
-  const fresh = held.filter((k) => !before!.includes(k) && !pending.some((p) => p.title === label.get(k)!.title));
+  // a horde record you already held, beaten again by you: that's a new record too (your past self takes the bullet)
+  for (const k of held) {
+    const was = before[k];
+    if (!hordeKey(k) || !(k in before) || was == null || !(me.s[k] < was)) continue;
+    label.set(k, { from: `Past ${me.name}`, title: `Fastest Horde ${k.slice(3)}: ${dur(me.s[k])}`, sub: `Beat your own record (${dur(was)}) · ${dur(was - me.s[k])} faster` });
+    delete before[k];   // counts as fresh below
+  }
+  const fresh = held.filter((k) => !(k in before!) && !pending.some((p) => p.title === label.get(k)!.title));
   pending.push(...fresh.map((k) => label.get(k)!));
   owed.push(...fresh.map((k) => label.get(k)!)); saveOwed();
   if (fresh.length) sfx.preloadParty();   // the party track is ready by the time the party starts

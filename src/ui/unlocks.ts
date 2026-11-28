@@ -27,6 +27,8 @@ let up = false;
 /** The ultimate-form picker is open: the battle and auto-buy wait, so no DNA is earned or spent while you choose. */
 const ultPickerUp = () => { const m = document.getElementById('modal'); return !!m && !m.hidden && !!m.querySelector('.ult-pick'); };
 export const overlayUp = () => up || cutsceneUp() || ultPickerUp() || evoUp() || partyUp();
+/** Full-screen scenes a record party must not cover (reward cards are fine: they wait underneath, timers frozen). */
+export const scenesUp = () => cutsceneUp() || ultPickerUp() || evoUp() || partyUp();
 const queue: Card[] = [];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -87,7 +89,8 @@ export function showCards(cards: Card[], delay = 0) {
   queue.push(...cards);
   if (up) { renderDots(); return; }
   up = true;
-  window.setTimeout(open, delay);
+  const go = () => (partyUp() ? window.setTimeout(go, 500) : open());   // a record party on screen goes first; cards wait their turn
+  window.setTimeout(go, delay);
 }
 
 let el: HTMLDivElement | null = null, idx = 0, landed = 0, total = 0;
@@ -120,7 +123,7 @@ function show() {
   landed = performance.now() + 650;   // ignore stray taps until the card has landed
   // left alone, a card moves on by itself after AUTO_MS (a bar along its bottom shows the time left)
   window.clearTimeout(autoT);
-  autoT = window.setTimeout(() => { if (el) next(); }, AUTO_MS);
+  autoT = window.setTimeout(function tick() { if (partyUp()) { autoT = window.setTimeout(tick, 1000); return; } if (el) next(); }, AUTO_MS);
   const card = el.querySelector<HTMLElement>('.uk-card');
   if (card) { const bar = document.createElement('i'); bar.className = 'uk-timer'; bar.style.animationDuration = `${AUTO_MS}ms`; card.appendChild(bar); }
   sfx.unlock(idx - 1);

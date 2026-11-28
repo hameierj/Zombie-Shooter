@@ -131,7 +131,7 @@ waiting on, so it can't be starved. Soldiers keep firing through a horde's warni
 the horde reward cards and the battleground fade with short notices; a unit's weapon choice still opens (only its
 transformation is skipped), and the commander name scene always plays.
 
-**Record block party.** The game fetches everyone else's stats once a minute and compares your live stats against them every second, so the party starts the moment you break a record, even mid-horde (it pauses everything); it only waits for another full-screen scene to finish. Taking a record
+**Record block party.** The game fetches everyone else's stats once a minute and compares your live stats against them every second, so the party starts the moment you break a record, even mid-horde (it pauses everything); it only waits for another full-screen scene to finish (reward cards wait underneath it instead, timers frozen). Beating your own horde record is a record too: "Beat your own record (20s) · 5s faster", and the zombie that gets shot is tagged "Past <name>". Taking a record
 (#1 in any ranking, or the fastest time for any horde) throws a non-skippable zombie block party: a zombie DJ with
 headphones at spinning decks ("EVERYBODY SCREAM FOR COMMANDER <NAME>!!!"), a dancing zombie crowd, disco lights,
 confetti, a rainbow BLOCK PARTY! title, each record listed with who it was stolen from, their old value and the
@@ -367,7 +367,7 @@ build, device, screen, settings, a short game summary and the problem log: a rin
 warnings, frame-rate drops, quality changes, graphics-context losses, big game events and taps, kept in localStorage so
 it survives a crash. A heartbeat notices when the last session ended while on screen without closing cleanly (iOS
 killing the page), and the next launch offers to send a report. Test and dev copies never send. **Danger zone**: *Erase progress* (asks first) also keeps the current game in Backup, so it can be restored.
-A session timer at the top right of the screen shows how long you've been playing since opening the app (it pauses
+Two clocks sit at the top right: **RUN** (play time in the current run; resets to 0 at every prestige) above **TOTAL** (all play time on the save). A session timer at the top right of the screen shows how long you've been playing since opening the app (it pauses
 while the app is in the background).
 `docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).
 

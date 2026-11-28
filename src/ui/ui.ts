@@ -2,7 +2,7 @@
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import { showTitle } from './title.ts';
-import { biohazard, hordeCards, overlayUp, setCardNotice, showCards } from './unlocks.ts';
+import { biohazard, hordeCards, overlayUp, scenesUp, setCardNotice, showCards } from './unlocks.ts';
 import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
 import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, checkRecords, partyDone, recordsPending, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
@@ -210,7 +210,7 @@ export function initUI() {
   setInterval(() => {
     if (!document.hidden) checkRecords();   // your live stats against the board, every second
     // straight away, even mid-horde (the party pauses everything); it only waits for another full-screen scene to finish
-    if (!recordsPending() || titleUp() || overlayUp() || evoUp() || document.hidden) return;
+    if (!recordsPending() || titleUp() || scenesUp() || document.hidden) return;
     const best = [...M.CLASSES].reverse().find((c) => game.s.units[c.id].count > 0)?.id ?? 'pistol';   // your best unit type does the honours
     const recs = takeRecords();
     throwParty(recs, getPlayer()?.name ?? 'Commander', best, () => partyDone(recs));
