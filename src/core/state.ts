@@ -33,7 +33,7 @@ export interface SaveData {
   /** The commander's name for the leaderboard (chosen in the cutscene after Horde 1). */
   player?: { id: string; name: string; secret?: string };
   /** Auto-buy (free after Horde 10): each category is switched on or off on its own, from the map. */
-  auto?: { on?: boolean; zombies: boolean; units: boolean; globals: boolean };
+  auto?: { on?: boolean; zombies: boolean; units: boolean; globals: boolean; tree?: boolean };
   autoEarned?: boolean;   // auto-buy unlocked for good                 // bosses killed (kept through prestige, like kills)
   newItems: number[];
   lastSeen: number;
@@ -269,16 +269,17 @@ export class Game {
   // ---------- auto-buy (unlocked by beating Horde 10) ----------
   static readonly AUTO_HORDE = 10;
   /** The keep-up band auto-buy holds: above AUTO_HI the squad has it too easy, so zombies get raised first (bringing in
-   * more DNA); no zombie purchase may take it below AUTO_LO; inside the band only troops and globals are bought. */
+   * more DNA); no zombie purchase may take it below AUTO_LO; inside the band only troops, globals and passives are bought. */
   static readonly AUTO_LO = 1.05;
   static readonly AUTO_HI = 1.3;
   get autoUnlocked() { return !!(this.s.autoEarned ||= this.s.hordes >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
   get autoCfg() {
-    const a = (this.s.auto ??= { zombies: false, units: false, globals: false });
+    const a = (this.s.auto ??= { zombies: false, units: false, globals: false, tree: false });
+    a.tree ??= false;
     if (a.on !== undefined) { if (!a.on) { a.zombies = a.units = a.globals = false; } delete a.on; }   // older saves had one master switch
     return a;
   }
-  get autoAny() { const a = this.autoCfg; return a.zombies || a.units || a.globals; }
+  get autoAny() { const a = this.autoCfg; return a.zombies || a.units || a.globals || !!a.tree; }
   /** One pass: in every colour, buy the cheapest allowed thing it can afford, repeatedly, up to a few dozen buys. Raising a
    * zombie tier or spawn level only happens if the squad would still keep up ×1.3. Ultimate forms for units are left to
    * the player (a choice of tracks); zombie ultimates, evolutions, hires, unit upgrades and global upgrades are bought. */
@@ -286,11 +287,11 @@ export class Game {
   autoBuying = false;
   autoBuyTick() {
     const a = this.autoCfg;
-    if (!this.autoUnlocked || !(a.zombies || a.units || a.globals)) return 0;
+    if (!this.autoUnlocked || !this.autoAny) return 0;
     this.autoBuying = true;
     try { return this.autoBuyPass(a); } finally { this.autoBuying = false; }
   }
-  private autoBuyPass(a: { zombies: boolean; units: boolean; globals: boolean }) {
+  private autoBuyPass(a: { zombies: boolean; units: boolean; globals: boolean; tree?: boolean }) {
     let bought = 0;
     for (let guard = 0; guard < 25; guard++) {
       type Opt = { col: M.ColourId; ln: number; go: () => void; z?: () => Strains };
@@ -326,17 +327,21 @@ export class Game {
         if (M.zombieUltReady(this.s.strains[z])) held.add(M.familyOf(z));
         const u = M.strainById(z).unlock; if (u && this.releaseReady(z) && !this.s.strains[z].unlocked) held.add(M.familyOf(u.from));
       }
-      const zombiesOnly = a.zombies && !a.units && !a.globals;
+      const zombiesOnly = a.zombies && !a.units && !a.globals && !a.tree;
+      if (a.tree) {   // passives: every node in a region costs the same, so take open ones in the tree's own order
+        const seen = new Set<string>();
+        for (const n of TREE) { if (!this.canAllocate(n.id)) continue; const col = this.treeColour(n.id); if (seen.has(col)) continue; seen.add(col); opts.push({ col, ln: this.treeCost(n.id), go: () => this.allocate(n.id) }); }
+      }
       let any = false;
       for (const col of M.COLOURS) {
         if (held.has(col)) continue;
         // Keep-up is checked per purchase (an earlier colour's buy this pass may have changed it).
         const k = this.keepUp();
-        // Zombies alone (Troops and Globals off) is the player's call: no keep-up limit, the cheapest zombie buy each time.
+        // Zombies alone (every other switch off) is the player's call: no keep-up limit, the cheapest zombie buy each time.
         const zs = opts.filter((x) => x.col === col && x.z && (zombiesOnly || (k > Game.AUTO_HI && this.keepUp(x.z()) >= Game.AUTO_LO))).sort((p, q) => p.ln - q.ln);
         let o: Opt | undefined;
         if (zs.length) o = zs[0];   // too easy: zombies first; if the cheapest isn't affordable yet, this colour saves up for it
-        else o = opts.filter((x) => x.col === col && !x.z).sort((p, q) => p.ln - q.ln)[0];   // in the band (or below): troops and globals
+        else o = opts.filter((x) => x.col === col && !x.z).sort((p, q) => p.ln - q.ln)[0];   // in the band (or below): troops, globals and passives
         if (o && this.canAfford(col, o.ln)) { const before = this.dna(col); o.go(); if (this.dna(col) < before || o.ln === -Infinity) { any = true; bought++; } }
       }
       if (!any) break;
