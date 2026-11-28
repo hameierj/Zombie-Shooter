@@ -5,7 +5,7 @@ import { showTitle } from './title.ts';
 import { biohazard, hordeCards, overlayUp, setCardNotice, showCards } from './unlocks.ts';
 import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
-import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, syncBoard } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, sendReport, syncBoard } from './leader.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps, skipAnims, setSkipAnims } from '../core/prefs';
 import * as M from '../core/model.ts';
@@ -15,6 +15,7 @@ import { MASTERY, REGIONS, TREE, regionComplete, treeNode } from '../core/tree.t
 import { charmIcon, classIcon, crateIcon, gunIcon, modIcon, nodeIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import { fmtInt, fmtLn, fmtMult, fmtNum, gearDesc, gearName, gunName, RARITY_COLOR } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
+import { buildReport, clearLog, lastSessionCrashed, log } from '../core/log.ts';
 
 const C = M.CONFIG;
 type Tab = 'zombies' | 'squad' | 'tree' | 'hordes' | 'ranks';
@@ -203,6 +204,7 @@ export function initUI() {
   seedBests();
   setInterval(() => void syncBoard(), 60_000);
   setInterval(forceEvolutions, 1000);
+  offerCrashReport();
   // Skip animations: cards and evolution scenes become notices
   const strip = (h: string) => h.split('<br>')[0].replace(/<[^>]+>/g, '');
   setCardNotice((cards) => toast(`<b>${esc(cards[0].eyebrow)}${cards[0].title === 'Victory!' ? '' : `: ${esc(cards[0].title)}`}</b><span>${[strip(cards[0].body), ...cards.slice(1).map((c) => `${c.eyebrow}: ${c.title}`)].map(esc).join(' · ')}</span>`, cards[0].color, cards[0].icon, 6000));
@@ -317,6 +319,7 @@ function onClick(e: Event) {
   const el = (e.target as Element).closest<HTMLElement | SVGElement>('[data-action]');
   if (!el || (el as HTMLButtonElement).disabled) return;
   railSingle = !!el.closest('#zrail');
+  log('tap', `${el.dataset.action}${el.dataset.arg ? ` ${el.dataset.arg}` : ''}${el.dataset.cls ? ` ${el.dataset.cls}` : ''}${el.dataset.strain ? ` ${el.dataset.strain}` : ''}`);
   try { act({ ...el.dataset } as ActionData); } finally { railSingle = false; }
 }
 /** Run one UI action. Returns true if it bought something. */
@@ -399,6 +402,10 @@ function act(d: ActionData): boolean {
       if (sum && !confirm(`${slotName(arg)} already has a save. Replace it?`)) break;
       if (slotWrite(arg, c)) toast(`<b>Saved into ${slotName(arg)}</b><span>Load it from Settings whenever you like</span>`, '#5ee38c'); openSettings(); break; }
     case 'import': importSave(); break;
+    case 'report': openReport(); break;
+    case 'report-crash': openReport(true); break;
+    case 'report-send': void doSendReport(); break;
+    case 'report-copy': copyReport(); break;
     case 'reset': confirmBox('Erase all progress?', `You'll start over from the beginning. Your current game (${saveLine(Game.summary(game.s))}) is kept in Backup, so you can restore it from Settings.`, 'Erase progress', 'reset-yes', '', true); break;
     case 'reset-yes': slotWrite('backup', game.exportSave()); closeModal(); game.hardReset(); tab = null; render(); showTitle(); break;   // a fresh game starts at the title screen
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
@@ -1005,6 +1012,9 @@ function openSettings() {
       <h5>Move to another device</h5>
       <div class="row"><button class="btn ghost grow" data-action="export">Copy save code</button><button class="btn ghost grow" data-action="import">Paste save code</button></div>
     </section>
+    <section class="set-sec"><h4>Help</h4>
+      <div class="trow static"><div><b>Report a problem</b><span>Crashes, freezes, anything odd. Sends a log of what the game was doing so it can be fixed.</span></div><button class="btn small" data-action="report">Report</button></div>
+    </section>
     <section class="set-sec danger-zone"><h4>Danger zone</h4>
       <div class="trow static"><div><b>Erase progress</b><span>Start over from scratch. Your current game is kept in Backup, so you can undo this.</span></div><button class="btn danger sm" data-action="reset">Erase</button></div>
     </section>
@@ -1106,6 +1116,42 @@ function seedBests() {
   }
   game.save();
   try { localStorage.setItem('zombie-idle-bests-seeded', '1'); } catch { /* storage blocked */ }
+}
+// ---------- problem reports ----------
+function reportText() {
+  const what = (document.getElementById('report-what') as HTMLTextAreaElement | null)?.value ?? '';
+  const m = Game.summary(game.s);
+  return buildReport(what, { ...m, tier: m.best, prestiges: game.s.prestige.runs, bestHorde: game.s.bestHorde, auto: game.autoLive, tab, units: Object.values(game.s.units).filter((u) => u.count).map((u) => `${u.cls}:${u.count}${u.evo !== undefined ? '*' : ''}`).join(' ') });
+}
+function openReport(crashed = false) {
+  openModal(`<div class="set-head"><h3>Report a problem</h3><button class="xbtn" data-action="settings" aria-label="Close">✕</button></div>
+    ${crashed ? '<p class="sub"><b>The game closed unexpectedly last time.</b> Sending this report helps track it down.</p>' : ''}
+    <label class="sub small" for="report-what">What happened? (optional)</label>
+    <textarea class="code" id="report-what" placeholder="e.g. it froze right after a horde, then reloaded"></textarea>
+    <p class="sub small">The report includes your device type, game settings, a short summary of your game and a log of the last few hundred things the game did (errors, frame-rate drops, hordes, taps). No save code or personal info.</p>
+    <div class="row"><button class="btn ghost grow" data-action="report-copy">Copy report</button><button class="btn grow" data-action="report-send">Send report</button></div>`);
+}
+async function doSendReport() {
+  const btn = document.querySelector<HTMLButtonElement>('[data-action="report-send"]'); if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  const res = await sendReport(reportText());
+  if (res === 'sent') { clearLog(); log('info', 'report sent; log cleared'); closeModal(); toast('<b>Report sent</b><span>Thanks! It helps a lot.</span>', '#5ee38c'); return; }
+  if (btn) { btn.disabled = false; btn.textContent = 'Send report'; }
+  toast(res === 'local' ? '<b>Test copy: not sent</b><span>Use Copy report instead.</span>' : '<b>Couldn\'t send it</b><span>Use Copy report and paste it instead.</span>', '#ff6767');
+}
+function copyReport() {
+  const text = reportText(), done = () => toast('<b>Report copied</b><span>Paste it wherever you like.</span>', '#5ee38c');
+  const fallback = () => { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch { /* ignore */ } ta.remove(); };
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(fallback); else fallback();
+}
+/** After a crash: offer the report once the game is up and nothing else is on screen. */
+function offerCrashReport() {
+  if (!lastSessionCrashed) return;
+  const t = window.setInterval(() => {
+    if (titleUp() || overlayUp() || coachUp() || !$('#modal').hidden || tab) return;
+    window.clearInterval(t);
+    openModal(`<h3>Did the game crash?</h3><p class="sub">It closed unexpectedly last time. Want to send a report so it can be fixed? It only takes a tap.</p>
+      <div class="row"><button class="btn ghost grow" data-action="modal-close">Not now</button><button class="btn grow" data-action="report-crash">Report it</button></div>`);
+  }, 1500);
 }
 /** A volume slider row for Settings (0 = off). */
 function vol(which: 'music' | 'sfx', label: string, v: number) {

@@ -1,3 +1,4 @@
+import { log } from './core/log.ts';   // first, so it catches errors from everything below
 import Phaser from 'phaser';
 import '@fontsource/lilita-one/400.css';
 import '@fontsource/saira-condensed/800.css';
@@ -54,6 +55,12 @@ const phaser = new Phaser.Game({
   banner: false,
   scene,
 });
+// the phone throwing away the battlefield's graphics (a common cause of a frozen or blank field) goes in the problem log
+phaser.events.once(Phaser.Core.Events.READY, () => {
+  const c = phaser.canvas;
+  c?.addEventListener('webglcontextlost', () => log('error', 'WebGL context lost (graphics reset by the phone)'));
+  c?.addEventListener('webglcontextrestored', () => log('warn', 'WebGL context restored'));
+});
 
 // The canvas is rendered at device-pixel resolution so it's crisp on Retina screens, then shown at CSS size.
 function fitCanvas() {
@@ -97,14 +104,16 @@ setInterval(() => game.save(), AUTOSAVE_MS);
 // Save right after anything you do (buying, hiring, releasing, a horde won or lost), not just every 10 s:
 // iOS often skips the save on close, and an older save would undo recent purchases and hand their DNA back.
 let saveSoon = 0;
-game.on((evt) => {
+const LOGGED = new Set(['horde-start', 'horde-won', 'horde-lost', 'prestige', 'unit-evolve', 'zombie-ult', 'release', 'reset', 'phase']);
+game.on((evt, data) => {
+  if (LOGGED.has(evt)) log('event', `${evt}${data !== undefined ? ` ${typeof data === 'object' ? JSON.stringify(data).slice(0, 80) : data}` : ''}`);
   if (evt === 'horde-won' || evt === 'horde-lost') { game.save(); return; }
   if (evt === 'change' && !saveSoon) saveSoon = window.setTimeout(() => { saveSoon = 0; game.save(); }, 400);
 });
 // Adaptive quality: watch the frame rate while the battlefield is showing; if it stays under 45 FPS for 4 s, draw it at a
 // lower resolution (one step at a time, at most every 8 s). If it then runs at 55+ FPS for 15 s, try one step back up.
 {
-  let last = performance.now(), acc = 0, frames = 0, slowFor = 0, fastFor = 0, changed = 0;
+  let last = performance.now(), acc = 0, frames = 0, slowFor = 0, fastFor = 0, changed = 0, lowLogged = 0;
   const loop = (now: number) => {
     const dt = now - last; last = now;
     if (dt < 250 && !document.hidden) { acc += dt; frames++; }
@@ -114,8 +123,9 @@ game.on((evt) => {
       if (live) {
         slowFor = fps < 45 ? slowFor + 1 : 0;
         fastFor = fps >= 55 ? fastFor + 1 : 0;
-        if (slowFor >= 4 && dprStep < DPR_STEPS.length - 1 && now - changed > 8000) { dprStep++; changed = now; slowFor = 0; fitCanvas(); }
-        else if (fastFor >= 15 && dprStep > 0 && now - changed > 15000) { dprStep--; changed = now; fastFor = 0; fitCanvas(); }
+        if (slowFor >= 4 && dprStep < DPR_STEPS.length - 1 && now - changed > 8000) { dprStep++; changed = now; slowFor = 0; fitCanvas(); log('perf', `slow (${fps.toFixed(0)} fps): resolution down to ${DPR_STEPS[dprStep]}×`); }
+        else if (fastFor >= 15 && dprStep > 0 && now - changed > 15000) { dprStep--; changed = now; fastFor = 0; fitCanvas(); log('perf', `resolution back up to ${DPR_STEPS[dprStep]}×`); }
+        if (fps < 25 && now - lowLogged > 20000) { lowLogged = now; log('perf', `low frame rate: ${fps.toFixed(0)} fps`); }
       }
     }
     requestAnimationFrame(loop);

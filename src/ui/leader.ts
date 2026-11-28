@@ -119,6 +119,15 @@ export const BOARD = SUPA_URL && SUPA_KEY ? {
   },
 } : null;
 export const boardV2 = () => v2;
+/** Problem reports go to the "reports" table (docs/reports.sql): insert-only for players. Returns 'sent', 'local' (a test
+ * or dev copy, which never sends) or 'failed' (offline, or the table isn't set up yet). */
+export async function sendReport(text: string): Promise<'sent' | 'local' | 'failed'> {
+  if (!LIVE_SITE) return 'local';
+  try {
+    const r = await supa('reports', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ player: getPlayer()?.name ?? null, report: text.slice(0, 60000) }) });
+    return r.ok ? 'sent' : 'failed';
+  } catch { return 'failed'; }
+}
 const cache = new Map<string, Entry[]>();
 const loading = new Set<string>();
 let lastSubmit = 0;

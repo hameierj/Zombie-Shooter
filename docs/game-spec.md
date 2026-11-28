@@ -341,7 +341,12 @@ isn't being played (asks first). Devices that already had copies in every slot w
 "unslotted": their current game goes to Backup when they switch. The leaderboard shows the best of each stat across all
 games on the device, so a new game never lowers your row. *Copy save
 code* / *Paste save code* move a game between devices; a pasted code is checked as you paste it, then loaded or put into
-a slot. **Danger zone**: *Erase progress* (asks first) also keeps the current game in Backup, so it can be restored.
+a slot. **Help → Report a problem**: an optional description, then **Send report** (to the Supabase `reports`
+table, docs/reports.sql: players can only insert; read them in the Table Editor) or **Copy report**. A report holds the
+build, device, screen, settings, a short game summary and the problem log: a ring buffer of the last 300 errors,
+warnings, frame-rate drops, quality changes, graphics-context losses, big game events and taps, kept in localStorage so
+it survives a crash. A heartbeat notices when the last session ended while on screen without closing cleanly (iOS
+killing the page), and the next launch offers to send a report. Test and dev copies never send. **Danger zone**: *Erase progress* (asks first) also keeps the current game in Backup, so it can be restored.
 A session timer at the top right of the screen shows how long you've been playing since opening the app (it pauses
 while the app is in the background).
 `docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).
