@@ -167,6 +167,40 @@ function recordsHtml(me: Entry, list: Entry[] | undefined) {
       ${rows.slice(0, 5).map(line).join('')}${mine >= 5 ? line(rows[mine], mine) : ''}</section>`;
   }).join('')}</div>`;
 }
+// ---------- records: #1 in any ranking, or the fastest time for a horde ----------
+const REC_KEY = 'zombie-idle-records';
+let pending: string[] = [];
+/** Fresh records waiting for their party (taken by the UI once nothing else is on screen). */
+export const takeRecords = () => { const r = pending; pending = []; return r; };
+export const recordsPending = () => pending.length > 0;
+/** Compare your stats with everyone else's on the board (once a minute). The first look is silent: records you already
+ * hold don't throw a party, only ones you take from then on. */
+export async function syncRecords() {
+  const me = myEntry();
+  if (!BOARD || !me) return;
+  let all: Entry[];
+  try { v2Check(); if (!v2) return; all = await BOARD.top('best_horde', 200); } catch { return; }
+  cache.set('_all', all);
+  const others = all.filter((e) => e.id !== me.id);
+  if (!others.length) return;
+  const held: string[] = [], label = new Map<string, string>();
+  for (const d of SORTS) {
+    if (d.key === 'speed') continue;
+    const v = me.s[d.key];
+    if (v === undefined || !(v > 0)) continue;
+    if (v > Math.max(-Infinity, ...others.map((e) => e.s[d.key] ?? -Infinity))) { held.push(d.key); label.set(d.key, `#1 in ${d.label}: ${d.fmt(v)}`); }
+  }
+  for (const [k, t] of Object.entries(me.s)) {
+    if (!hordeKey(k) || !(t > 0)) continue;
+    if (t < Math.min(Infinity, ...others.map((e) => e.s[k] ?? Infinity))) { held.push(k); label.set(k, `Fastest Horde ${k.slice(3)}: ${dur(t)}`); }
+  }
+  let before: string[] | null = null;
+  try { before = JSON.parse(localStorage.getItem(REC_KEY) ?? 'null'); } catch { /* ignore */ }
+  try { localStorage.setItem(REC_KEY, JSON.stringify(held)); } catch { /* ignore */ }
+  if (!before) return;   // first look: just note what you hold
+  const fresh = held.filter((k) => !before!.includes(k) && !pending.some((p) => p === label.get(k)));
+  pending.push(...fresh.map((k) => label.get(k)!));
+}
 /** Small leaderboard teaser on the Hordes tab. */
 export function leaderboardHtml() { return ''; }
 /** The Leaderboard tab: sort chips, then the top 50 for that stat (your own row always shown and highlighted). */

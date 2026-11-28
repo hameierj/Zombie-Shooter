@@ -131,6 +131,14 @@ waiting on, so it can't be starved. Soldiers keep firing through a horde's warni
 the horde reward cards and the battleground fade with short notices; a unit's weapon choice still opens (only its
 transformation is skipped), and the commander name scene always plays.
 
+**Record block party.** Once a minute the game compares your stats with everyone else's on the board. Taking a record
+(#1 in any ranking, or the fastest time for any horde) throws a non-skippable zombie block party: a zombie DJ with
+headphones at spinning decks ("EVERYBODY SCREAM FOR COMMANDER <NAME>!!!"), a dancing zombie crowd, disco lights,
+confetti, a rainbow BLOCK PARTY! title, the records listed, and a synthesized four-on-the-floor beat with an air horn
+(music ducks under it). The battle, auto-buy and the play clock are paused throughout; "Back to the fight" only appears
+after ~9 s. It waits for a running horde to end. The first check is silent (records already held don't party), and a
+record lost and retaken parties again.
+
 **HQ radio scenes can't be skipped:** each line types out in full before Next wakes up (taps while he's talking do nothing), and the naming scene's name box only appears once HQ has finished asking.
 
 **Soundtracks.** After **Horde 3** and again after **Horde 5** (once each, kept through prestige), HQ radios in with a

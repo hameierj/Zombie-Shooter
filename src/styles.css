@@ -1390,3 +1390,56 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 @keyframes on-pulse { 0% { box-shadow: 0 0 0 0 rgba(94,227,140,.55); } 70%, 100% { box-shadow: 0 0 0 6px rgba(94,227,140,0); } }
 .on-count { color: #5ee38c; font-weight: 600; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .on-dot { animation: none; } }
+
+/* ---------- Record block party ---------- */
+#party { position: fixed; inset: 0; z-index: 95; overflow: hidden; display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: radial-gradient(ellipse at 50% 110%, #3a1250 0%, #160a24 45%, #05040a 100%); animation: uk-fade .3s ease-out; }
+#party.pt-bye { animation: uk-fade .3s ease-in reverse forwards; }
+.pt-lights { position: absolute; inset: -30%; pointer-events: none; mix-blend-mode: screen; }
+.pt-lights b { position: absolute; inset: 0; opacity: .5; animation: pt-spin 6s linear infinite;
+  background: conic-gradient(from 0deg at 50% 0%, transparent 0 8deg, rgba(255,60,200,.55) 10deg 16deg, transparent 18deg 60deg, rgba(60,220,255,.5) 62deg 68deg, transparent 70deg 120deg, rgba(255,230,60,.5) 122deg 128deg, transparent 130deg 360deg); }
+.pt-lights b:nth-child(2) { animation-duration: 4.3s; animation-direction: reverse; filter: hue-rotate(90deg); }
+.pt-lights b:nth-child(3) { animation-duration: 7.7s; filter: hue-rotate(200deg); opacity: .35; }
+@keyframes pt-spin { to { transform: rotate(360deg); } }
+.pt-confetti { position: absolute; inset: 0; pointer-events: none; }
+.pt-confetti i { position: absolute; top: -20px; left: var(--l); width: 8px; height: 14px; border-radius: 2px; background: hsl(var(--h) 90% 60%);
+  animation: pt-fall var(--t) linear var(--dl) infinite; }
+@keyframes pt-fall { to { transform: translateY(110vh) rotate(var(--r)); } }
+.pt-stage { position: relative; width: min(420px, 100%); text-align: center; color: #fff; }
+.pt-eyebrow { margin: 0; font: 800 12px Inter, system-ui, sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #ffd34d; animation: pt-blink .5s steps(2) infinite; }
+@keyframes pt-blink { 50% { opacity: .55; } }
+.pt-title { margin: 2px 0 8px; font: 400 clamp(40px, 13vw, 60px)/1 var(--display); letter-spacing: .02em;
+  background: linear-gradient(90deg, #ff4fd8, #ffd34d, #5ee38c, #4fd2ff, #ff4fd8); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: pt-rainbow 1.6s linear infinite, pt-thump .48s ease-in-out infinite; filter: drop-shadow(0 4px 0 rgba(0,0,0,.6)); }
+@keyframes pt-rainbow { to { background-position: 200% 0; } }
+@keyframes pt-thump { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.08); } }
+.pt-recs { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 6px; }
+.pt-recs li { padding: 8px 12px; border-radius: 12px; background: rgba(255,211,77,.12); border: 1px solid rgba(255,211,77,.45); font: 700 15px Inter, system-ui, sans-serif; color: #ffe9a3;
+  animation: uk-pop .5s cubic-bezier(.2,1.5,.4,1) both; }
+.pt-recs li:nth-child(2) { animation-delay: .1s; } .pt-recs li:nth-child(3) { animation-delay: .2s; } .pt-recs li:nth-child(4) { animation-delay: .3s; }
+.pt-dj { position: relative; display: grid; justify-items: center; margin-bottom: 6px; }
+.pt-bubble { position: relative; margin-bottom: 8px; padding: 8px 12px; border-radius: 14px; background: #fff; color: #1a1020; font: 800 12px/1.3 Inter, system-ui, sans-serif; letter-spacing: .04em;
+  animation: pt-thump .48s ease-in-out infinite; }
+.pt-bubble b { font-size: 15px; color: #c21f8f; }
+.pt-bubble::after { content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -8px; border: 8px solid transparent; border-top-color: #fff; border-bottom: 0; }
+.pt-booth { position: relative; display: flex; align-items: flex-end; gap: 8px; padding: 0 14px 10px; border-radius: 14px 14px 6px 6px;
+  background: linear-gradient(180deg, #2b2f38, #14161c); border: 2px solid #ff4fd8; box-shadow: 0 0 24px rgba(255,79,216,.5), inset 0 -6px 0 rgba(0,0,0,.4); }
+.pt-djz { width: 92px; height: 92px; object-fit: contain; margin-top: -40px; animation: pt-bob .48s ease-in-out infinite; filter: drop-shadow(0 0 12px rgba(94,227,140,.6)); }
+.pt-phones { position: absolute; left: 50%; top: -42px; width: 54px; height: 30px; margin-left: -27px; border: 5px solid #111; border-bottom: 0; border-radius: 30px 30px 0 0; pointer-events: none; animation: pt-bob .48s ease-in-out infinite; }
+.pt-phones::before, .pt-phones::after { content: ''; position: absolute; bottom: -10px; width: 14px; height: 18px; border-radius: 5px; background: #ff4fd8; }
+.pt-phones::before { left: -10px; } .pt-phones::after { right: -10px; }
+.pt-deck { width: 46px; height: 46px; border-radius: 50%; background: repeating-radial-gradient(circle, #111 0 2px, #2a2a2a 2px 4px); border: 3px solid #3a3a3a; position: relative; animation: pt-spin 1.2s linear infinite; }
+.pt-deck::after { content: ''; position: absolute; inset: 15px; border-radius: 50%; background: #ffd34d; }
+@keyframes pt-bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-8px) rotate(3deg); } }
+.pt-crowd { display: flex; justify-content: center; gap: 2px; margin: 4px 0 14px; }
+.pz { width: 46px; height: 46px; object-fit: contain; animation: pt-dance .48s ease-in-out var(--d) infinite alternate; transform-origin: 50% 100%; }
+.pz:nth-child(odd) { animation-name: pt-dance2; }
+@keyframes pt-dance { from { transform: translateY(0) rotate(-10deg); } to { transform: translateY(-14px) rotate(10deg) scaleX(-1); } }
+@keyframes pt-dance2 { from { transform: translateY(-10px) rotate(8deg) scaleX(-1); } to { transform: translateY(0) rotate(-8deg); } }
+.pt-foot { min-height: 50px; display: grid; place-items: center; }
+.pt-wait { font: 600 13px Inter, system-ui, sans-serif; color: #c9b3e0; animation: pt-blink 1s steps(2) infinite; }
+.pt-done { width: 100%; min-height: 48px; font-size: 16px; animation: uk-pop .4s cubic-bezier(.2,1.5,.4,1) both; }
+@media (prefers-reduced-motion: reduce) { .pt-lights b, .pt-confetti i, .pz, .pt-djz, .pt-phones, .pt-deck, .pt-title, .pt-bubble { animation: none; } }
+#party [hidden] { display: none !important; }
+.pt-bubble { margin-bottom: 52px; }

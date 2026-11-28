@@ -5,7 +5,8 @@ import { showTitle } from './title.ts';
 import { biohazard, hordeCards, overlayUp, setCardNotice, showCards } from './unlocks.ts';
 import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
-import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, sendReport, syncBoard } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, recordsPending, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
+import { throwParty } from './party.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps, skipAnims, setSkipAnims } from '../core/prefs';
 import * as M from '../core/model.ts';
@@ -203,6 +204,13 @@ export function initUI() {
   setInterval(() => { const blocked = !!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !$('#modal').hidden || evoUp(); maybeCommanderScene(blocked); maybeSoundtrackScene(blocked || overlayUp()); }, 1000);
   seedBests();
   setInterval(() => void syncBoard(), 60_000);
+  // records: checked once a minute; a fresh one throws the block party once nothing else is on screen (and no horde is on)
+  window.setTimeout(() => void syncRecords(), 8000);
+  setInterval(() => { if (!document.hidden) void syncRecords(); }, 60_000);
+  setInterval(() => {
+    if (!recordsPending() || titleUp() || overlayUp() || coachUp() || hordeRunning() || !$('#modal').hidden || evoUp() || document.hidden) return;
+    throwParty(takeRecords(), getPlayer()?.name ?? 'Commander');
+  }, 1000);
   // the Ranks page keeps itself fresh while it's open (who's playing now, new scores)
   setInterval(() => { if (tab === 'ranks' && !document.hidden) void syncBoard(false, rankSort).then(() => { if (tab === 'ranks') soft(); }); }, 30_000);
   setInterval(forceEvolutions, 1000);

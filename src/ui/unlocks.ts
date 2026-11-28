@@ -8,6 +8,7 @@ import { classIcon, crateIcon, gunIcon, vialIcon, zombieIcon } from '../game/art
 import * as sfx from '../audio/sfx.ts';
 import { cutsceneUp } from './leader.ts';
 import { evoUp } from './evolve.ts';
+import { partyUp } from './party.ts';
 import { skipAnims } from '../core/prefs.ts';
 
 export interface Card { eyebrow: string; title: string; body: string; icon: string; color: string; extra?: string; bio?: boolean }
@@ -25,7 +26,7 @@ let autoT = 0;
 let up = false;
 /** The ultimate-form picker is open: the battle and auto-buy wait, so no DNA is earned or spent while you choose. */
 const ultPickerUp = () => { const m = document.getElementById('modal'); return !!m && !m.hidden && !!m.querySelector('.ult-pick'); };
-export const overlayUp = () => up || cutsceneUp() || ultPickerUp() || evoUp();
+export const overlayUp = () => up || cutsceneUp() || ultPickerUp() || evoUp() || partyUp();
 const queue: Card[] = [];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);

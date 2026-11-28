@@ -327,3 +327,34 @@ export function evolveBlast() {
   tone(70, 0.7, { type: 'sine', to: 35, gain: 0.25 });
   [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.35, { type: 'triangle', gain: 0.05, at: 0.08 + i * 0.06 }));
 }
+
+// ---------- the record party: an air horn, then a four-on-the-floor beat until it's over ----------
+let partyT = 0;
+function airhorn(at = 0) {
+  [466, 587, 698].forEach((f) => { tone(f, 0.18, { type: 'sawtooth', gain: 0.07, at }); tone(f, 0.18, { type: 'sawtooth', gain: 0.07, at: at + 0.22 }); tone(f, 0.6, { type: 'sawtooth', gain: 0.07, at: at + 0.44 }); });
+}
+export function partyStart() {
+  init();
+  if (!ctx || !prefs.sfx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (musicBus) musicBus.gain.setTargetAtTime(musicGain() * 0.35, ctx.currentTime, 0.2);   // the DJ takes over
+  airhorn();
+  const bpm = 124, beat = 60 / bpm, bass = [55, 55, 65.4, 49];
+  let n = 0;
+  window.clearInterval(partyT);
+  partyT = window.setInterval(() => {
+    if (!ctx) return;
+    for (let i = 0; i < 4; i++, n++) {   // one bar at a time
+      const at = i * beat;
+      tone(140, 0.22, { type: 'sine', to: 40, gain: 0.32, at });                                 // kick
+      hiss(0.05, { type: 'highpass', freq: 8000, gain: 0.06, at: at + beat / 2 });                // off-beat hat
+      if (i % 2 === 1) hiss(0.14, { type: 'bandpass', freq: 1800, q: 0.8, gain: 0.12, at });       // clap
+      tone(bass[Math.floor(n / 4) % 4] * 2, beat * 0.45, { type: 'square', gain: 0.05, at: at + beat / 2 });   // bass stab
+    }
+    if (n % 16 === 0) airhorn(0.05);
+  }, beat * 4 * 1000);
+}
+export function partyStop() {
+  window.clearInterval(partyT); partyT = 0;
+  if (ctx && musicBus) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.4);
+}
