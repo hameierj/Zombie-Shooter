@@ -13,17 +13,24 @@ const KEY = 'zombie-idle-player';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 const rnd = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, '0')).join('');
+/** The commander belongs to the SAVE: every save file (a new game, a wipe, another slot) has its own name and its own
+ * leaderboard row. Older versions kept one name per device; that name is adopted once by the save that's loaded first
+ * after the update, then the device copy is dropped so new saves start nameless. */
 export function getPlayer(): Player | null {
-  let p: Player | null = null;
-  try { const q = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (q?.name) p = q; } catch { /* storage blocked */ }
-  if (!p && game.s.player?.name) p = game.s.player;
-  if (p && !p.secret) { p.secret = rnd(16); try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* storage blocked */ } game.s.player = p; }
+  if (!game.s.player?.name) {
+    try {
+      const q = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Player | null;
+      if (q?.name) { game.s.player = q; game.save(); }
+      localStorage.removeItem(KEY);
+    } catch { /* storage blocked */ }
+  }
+  const p = game.s.player?.name ? game.s.player : null;
+  if (p && !p.secret) { p.secret = rnd(16); game.save(); }
   return p;
 }
 export function setPlayer(name: string, rename = false): Player {
   const old = getPlayer();
   const p: Player = { id: old?.id ?? crypto.randomUUID(), name, secret: old?.secret ?? rnd(16), renamed: rename || old?.renamed };
-  try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* storage blocked */ }
   game.s.player = p; game.save();
   return p;
 }
@@ -64,7 +71,6 @@ export const SORTS: SortDef[] = [
 const dur = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.round(sec % 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : m ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`; };
 const hordeKey = (k: string) => /^t_h\d+$/.test(k);
 export const sortDef = (k: string): SortDef => (k === 'speed' || hordeKey(k)) ? { key: 'speed', label: 'Fastest hordes', fmt: dur, asc: true } : SORTS.find((x) => x.key === k) ?? SORTS[0];
-const BEST_KEY = 'zombie-idle-board-best';
 export function myEntry(): Entry | null {
   const p = getPlayer();
   if (!p) return null;
@@ -77,11 +83,6 @@ export function myEntry(): Entry | null {
   };
   for (const [k, t] of Object.entries(s.hordeTimes ?? {})) if (Number.isFinite(t) && t > 0) st[`t_h${k}`] = t;
   for (const c of M.COLOURS) { const v = s.earnedDna?.[c]; if (v !== undefined && Number.isFinite(v)) st[`dna_${c}`] = Math.round(v * 1000) / 1000; }
-  // The board shows your best per stat across every game on this device, so starting a new game never lowers your row.
-  let best: Record<string, number> = {};
-  try { best = JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') ?? {}; } catch { /* storage blocked */ }
-  for (const [k, v] of Object.entries(best)) if (typeof v === 'number' && Number.isFinite(v) && (hordeKey(k) ? !(st[k] <= v) : !(st[k] >= v))) st[k] = v;   // times: lowest wins
-  try { localStorage.setItem(BEST_KEY, JSON.stringify(st)); } catch { /* storage blocked */ }
   return { id: p.id, name: p.name, s: st };
 }
 /** The online board: a Supabase project set up with docs/leaderboard.sql (+ docs/leaderboard-v2.sql for the stats). The key
@@ -123,6 +124,11 @@ export const BOARD = SUPA_URL && SUPA_KEY ? {
   },
 } : null;
 export const boardV2 = () => v2;
+/** Wiping a save takes its row off the board (docs/leaderboard-v3.sql; needs the row's secret, so only its owner can). */
+export async function removeEntry(p: Player | null) {
+  if (!LIVE_SITE || !p?.secret) return;
+  try { await supa('rpc/delete_entry', { method: 'POST', body: JSON.stringify({ p_id: p.id, p_secret: p.secret }) }); } catch { /* offline: the row just stays */ }
+}
 /** Problem reports go to the "reports" table (docs/reports.sql): insert-only for players. Returns 'sent', 'local' (a test
  * or dev copy, which never sends) or 'failed' (offline, or the table isn't set up yet). */
 export async function sendReport(text: string): Promise<'sent' | 'local' | 'failed'> {
@@ -172,12 +178,15 @@ const REC_KEY = 'zombie-idle-records';
 export interface RecordWin { title: string; sub: string; from?: string }
 const OWED_KEY = 'zombie-idle-party-owed';
 /** Records waiting for their party. Kept on the device until the party has played out, so a reload doesn't skip it. */
-let pending: RecordWin[] = (() => { try { const v = JSON.parse(localStorage.getItem(OWED_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
+// records held and parties owed are kept per commander (per save)
+const recKey = () => `${REC_KEY}:${game.s.player?.id ?? 'none'}`, owedKey = () => `${OWED_KEY}:${game.s.player?.id ?? 'none'}`;
+const loadOwed = (): RecordWin[] => { try { const v = JSON.parse(localStorage.getItem(owedKey()) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+let pending: RecordWin[] = loadOwed();
 let owed: RecordWin[] = [...pending];
-const saveOwed = () => { try { localStorage.setItem(OWED_KEY, JSON.stringify(owed)); } catch { /* storage blocked */ } };
+const saveOwed = () => { try { localStorage.setItem(owedKey(), JSON.stringify(owed)); } catch { /* storage blocked */ } };
 /** The party for these records played out in full: they're no longer owed. */
 /** A wipe or a different save: parties owed for the old progress are dropped, and records are looked at afresh. */
-export function resetRecords() { pending = []; owed = []; saveOwed(); try { localStorage.removeItem(REC_KEY); } catch { /* ignore */ } }
+export function resetRecords() { pending = loadOwed(); owed = [...pending]; cache.clear(); }
 export function partyDone(recs: RecordWin[]) { owed = owed.filter((o) => !recs.some((r) => r.title === o.title)); saveOwed(); }
 /** Fresh records waiting for their party (taken by the UI once nothing else is on screen). */
 export const takeRecords = () => { const r = pending; pending = []; return r; };
@@ -219,9 +228,9 @@ export function checkRecords() {
   }
   // what you held last time, with its value (older devices stored just the keys)
   let raw: unknown = null;
-  try { raw = JSON.parse(localStorage.getItem(REC_KEY) ?? 'null'); } catch { /* ignore */ }
+  try { raw = JSON.parse(localStorage.getItem(recKey()) ?? 'null'); } catch { /* ignore */ }
   const before: Record<string, number | null> | null = Array.isArray(raw) ? Object.fromEntries(raw.map((k: string) => [k, null])) : raw as Record<string, number | null> | null;
-  try { localStorage.setItem(REC_KEY, JSON.stringify(Object.fromEntries(held.map((k) => [k, me.s[k]])))); } catch { /* ignore */ }
+  try { localStorage.setItem(recKey(), JSON.stringify(Object.fromEntries(held.map((k) => [k, me.s[k]])))); } catch { /* ignore */ }
   if (!before) return;   // first look: just note what you hold
   // a horde record you already held, beaten again by you: that's a new record too (your past self takes the bullet)
   for (const k of held) {
