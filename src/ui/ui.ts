@@ -5,7 +5,7 @@ import { showTitle } from './title.ts';
 import { biohazard, hordeCards, overlayUp, scenesUp, setCardNotice, showCards } from './unlocks.ts';
 import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
-import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, checkRecords, partyDone, recordsPending, removeEntry, resetRecords, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, checkRecords, partyDone, recordsPending, resetRecords, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
 import { throwParty } from './party.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps, skipAnims, setSkipAnims } from '../core/prefs';
@@ -430,8 +430,8 @@ function act(d: ActionData): boolean {
     case 'report-crash': openReport(true); break;
     case 'report-send': void doSendReport(); break;
     case 'report-copy': copyReport(); break;
-    case 'reset': confirmBox('Erase all progress?', `You'll start over from the beginning, with a new commander name and a fresh leaderboard entry (this save's row leaves the board). Your current game (${saveLine(Game.summary(game.s))}) is kept in Backup, so you can restore it, name and all, from Settings.`, 'Erase progress', 'reset-yes', '', true); break;
-    case 'reset-yes': { const was = getPlayer(); slotWrite('backup', game.exportSave()); closeModal(); game.hardReset(); void removeEntry(was); }   // the wiped save's row leaves the board
+    case 'reset': confirmBox('Erase all progress?', `You'll start over from the beginning, with a new commander name and a fresh leaderboard entry (this save's row stays on the board as it is, frozen). Your current game (${saveLine(Game.summary(game.s))}) is kept in Backup, so you can restore it, name and all, from Settings.`, 'Erase progress', 'reset-yes', '', true); break;
+    case 'reset-yes': { slotWrite('backup', game.exportSave()); closeModal(); game.hardReset(); }   // the old commander's row stays on the board, frozen
       tab = null; render(); showTitle(); break;
     case 'sound': { const on = !(sfx.soundPrefs().sfx || sfx.soundPrefs().music); sfx.setSfx(on); sfx.setMusic(on); refresh(); break; }
     case 'sound-sfx': sfx.setSfx(!sfx.soundPrefs().sfx); openSettings(); break;

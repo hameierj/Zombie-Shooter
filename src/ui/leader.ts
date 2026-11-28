@@ -124,11 +124,7 @@ export const BOARD = SUPA_URL && SUPA_KEY ? {
   },
 } : null;
 export const boardV2 = () => v2;
-/** Wiping a save takes its row off the board (docs/leaderboard-v3.sql; needs the row's secret, so only its owner can). */
-export async function removeEntry(p: Player | null) {
-  if (!LIVE_SITE || !p?.secret) return;
-  try { await supa('rpc/delete_entry', { method: 'POST', body: JSON.stringify({ p_id: p.id, p_secret: p.secret }) }); } catch { /* offline: the row just stays */ }
-}
+
 /** Problem reports go to the "reports" table (docs/reports.sql): insert-only for players. Returns 'sent', 'local' (a test
  * or dev copy, which never sends) or 'failed' (offline, or the table isn't set up yet). */
 export async function sendReport(text: string): Promise<'sent' | 'local' | 'failed'> {
