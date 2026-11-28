@@ -268,9 +268,10 @@ export class Game {
   }
   // ---------- auto-buy (unlocked by beating Horde 10) ----------
   static readonly AUTO_HORDE = 10;
-  /** Keep-up the auto-buyer keeps when raising zombies, so it never overruns the squad. */
-  static readonly AUTO_KEEP = 1.3;
-  /** Earned once (Horde 10 in any run, or 10+ prestige points earned before this rule) and kept through prestige. */
+  /** The keep-up band auto-buy holds: above AUTO_HI the squad has it too easy, so zombies get raised first (bringing in
+   * more DNA); no zombie purchase may take it below AUTO_LO; inside the band only troops and globals are bought. */
+  static readonly AUTO_LO = 1.05;
+  static readonly AUTO_HI = 1.3;
   get autoUnlocked() { return !!(this.s.autoEarned ||= this.s.hordes >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
   get autoCfg() {
     const a = (this.s.auto ??= { zombies: false, units: false, globals: false });
@@ -292,15 +293,19 @@ export class Game {
   private autoBuyPass(a: { zombies: boolean; units: boolean; globals: boolean }) {
     let bought = 0;
     for (let guard = 0; guard < 25; guard++) {
-      const opts: { col: M.ColourId; ln: number; go: () => void }[] = [];
+      type Opt = { col: M.ColourId; ln: number; go: () => void; z?: () => Strains };
+      const opts: Opt[] = [];
       if (a.zombies) {
         for (const z of M.activeStrains(this.s.strains)) {
-          const x = this.s.strains[z], col = M.familyOf(z);
-          if (x.tier === x.maxTier && x.maxTier < M.tierCapOf(z) && this.canAfford(col, this.tierCost(z)) && this.keepUpIf(z, 'tier') >= Game.AUTO_KEEP) opts.push({ col, ln: this.tierCost(z), go: () => this.raiseTier(z) });
-          if (x.spawn < C.spawnMax && this.canAfford(col, this.spawnCost(z)) && this.keepUpIf(z, 'spawn') >= Game.AUTO_KEEP) opts.push({ col, ln: this.spawnCost(z), go: () => this.buySpawn(z) });
-          if (M.zombieUltReady(x)) opts.push({ col, ln: this.zombieUltCost(z), go: () => this.zombieUlt(z) });
+          const x = this.s.strains[z], col = M.familyOf(z), with_ = (y: Partial<M.StrainState>) => () => ({ ...this.s.strains, [z]: { ...this.s.strains[z], ...y } });
+          if (x.tier === x.maxTier && x.maxTier < M.tierCapOf(z)) opts.push({ col, ln: this.tierCost(z), go: () => this.raiseTier(z), z: with_({ tier: x.tier + 1, maxTier: x.maxTier + 1 }) });
+          if (x.spawn < C.spawnMax) opts.push({ col, ln: this.spawnCost(z), go: () => this.buySpawn(z), z: with_({ spawn: x.spawn + 1 }) });
+          if (M.zombieUltReady(x)) opts.push({ col, ln: this.zombieUltCost(z), go: () => this.zombieUlt(z), z: with_({ ult: true }) });
         }
-        for (const z of M.ZOMBIE_IDS) { const u = M.strainById(z).unlock; if (u && this.canRelease(z)) opts.push({ col: M.familyOf(u.from), ln: this.releaseCost(z), go: () => this.release(z) }); }
+        for (const z of M.ZOMBIE_IDS) {
+          const u = M.strainById(z).unlock;
+          if (u && this.releaseReady(z) && !this.s.strains[z].unlocked) opts.push({ col: M.familyOf(u.from), ln: this.releaseCost(z), go: () => this.release(z), z: () => ({ ...this.s.strains, [z]: { ...this.s.strains[z], unlocked: true } }) });
+        }
       }
       if (a.units) {
         for (const c of M.CLASSES) {
@@ -316,7 +321,12 @@ export class Game {
       }
       let any = false;
       for (const col of M.COLOURS) {
-        const o = opts.filter((x) => x.col === col).sort((p, q) => p.ln - q.ln)[0];
+        // Keep-up is checked per purchase (an earlier colour's buy this pass may have changed it).
+        const k = this.keepUp();
+        const zs = opts.filter((x) => x.col === col && x.z && k > Game.AUTO_HI && this.keepUp(x.z()) >= Game.AUTO_LO).sort((p, q) => p.ln - q.ln);
+        let o: Opt | undefined;
+        if (zs.length) o = zs[0];   // too easy: zombies first; if the cheapest isn't affordable yet, this colour saves up for it
+        else o = opts.filter((x) => x.col === col && !x.z).sort((p, q) => p.ln - q.ln)[0];   // in the band (or below): troops and globals
         if (o && this.canAfford(col, o.ln)) { const before = this.dna(col); o.go(); if (this.dna(col) < before || o.ln === -Infinity) { any = true; bought++; } }
       }
       if (!any) break;

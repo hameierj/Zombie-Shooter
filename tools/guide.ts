@@ -332,7 +332,7 @@ function lateGame() {
     <table class="ult-t"><thead><tr><th>Unit</th><th>Track 1</th><th>Track 2</th><th>Price</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="grid2" style="margin-top:8px">
       <div class="card hl"><h4>Auto-buy (free after Horde 10)</h4><span class="small sub">Three <b>AUTO</b> switches in the top-left of the map, each on its own:
-        <b>Zombies</b> (tiers and spawn while your squad keeps up ×1.3, evolutions, zombie ultimates), <b>Troops</b> (hires and upgrades; unit ultimate forms
+        <b>Zombies</b> (tiers, spawn, evolutions and zombie ultimates, holding keep-up between ×1.05 and ×1.3: zombies come first whenever it's easier), <b>Troops</b> (hires and upgrades; unit ultimate forms
         stay your choice) and <b>Globals</b>. Once a second each buys the cheapest thing it can in every colour.</span></div>
       <div class="card"><h4>Commander &amp; leaderboard</h4><span class="small sub">After your first minute of play, HQ radios in and names you leader: pick a commander name
         (you can change it once, in Settings). The Hordes tab ranks commanders by hordes beaten, then best tier, and counts zombies killed, bosses

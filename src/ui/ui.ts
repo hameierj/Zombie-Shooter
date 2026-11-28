@@ -942,7 +942,7 @@ function openSettings() {
       ${pl.renamed ? '' : '<button class="btn small" data-action="rename">Change name</button>'}</div></section>` : ''; })()}
     <section class="set-sec"><h4>Auto-buy</h4>${game.autoUnlocked ? `
       <p class="sub small">Also on the map: the AUTO switches in the top-left corner.</p>
-      ${(['zombies', 'units', 'globals'] as const).map((k) => sw('auto-pref', { zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades' }[k], { zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms, only while your squad keeps up ×1.3', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`
+      ${(['zombies', 'units', 'globals'] as const).map((k) => sw('auto-pref', { zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades' }[k], { zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms. Keeps your squad’s keep-up between ×1.05 and ×1.3: zombies first when it’s easier than that', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`
       : `<p class="sub small">🔒 Beat Horde ${Game.AUTO_HORDE} to unlock auto-buy for free.</p>`}
     </section>
     <section class="set-sec"><h4>Saves</h4>
