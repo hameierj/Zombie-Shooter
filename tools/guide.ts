@@ -285,7 +285,7 @@ function prestige() {
         <p class="lede tight" style="margin-top:0">When a run starts to slow down, start over stronger. Prestige trades your run for points, and points buy
         <b>permanent perks that stack every time</b>.</p>
         <div class="steps">
-          <div class="step"><div><b>Earn points.</b> Every horde you clear in a run is worth <b>1 point</b> (Bounty Hunter adds more).</div></div>
+          <div class="step"><div><b>Earn points.</b> Every horde you clear in a run is worth <b>1 point</b> (Bounty Hunter adds more). Prestige opens once a run has beaten <b>Horde 5</b>.</div></div>
           <div class="step"><div><b>Choose your perks.</b> Hordes tab → <b>Prestige now</b> opens the perk picker. You can spend your saved points
             <b>plus this run's points</b>. Tap a perk to add a level; <b>Undo picks</b> starts over and <b>Cancel</b> changes nothing.</div></div>
           <div class="step"><div><b>Reset.</b> <b>Reset &amp; start run N</b> applies your picks, then zombie tiers and types, units, gear, DNA, the passive tree

@@ -747,11 +747,14 @@ export class Game {
   }
   // ---------- prestige ----------
   get prestigeGain() { return M.prestigeGain(this.s.hordes, this.s.prestige); }
+  /** Prestige opens once a run has beaten this many hordes. */
+  static readonly PRESTIGE_HORDES = 5;
+  get canPrestige() { return this.s.hordes >= Game.PRESTIGE_HORDES && this.prestigeGain >= 1; }
   /** Reset the run for points. Keeps perks, points, play time. Head Start gives DNA of every colour. */
   /** Prestige with the perks picked on the way out (levels to add per perk); unspent points are kept. */
   prestige(picks: Partial<Record<M.PerkId, number>> = {}) {
     const gain = this.prestigeGain;
-    if (gain < 1) return;
+    if (!this.canPrestige) return;
     const p: M.Prestige = { ...this.s.prestige, perks: { ...this.s.prestige.perks } };
     p.runs++; p.points += gain; p.earned += gain;
     for (const [id, n] of Object.entries(picks) as [M.PerkId, number][]) {

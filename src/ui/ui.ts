@@ -286,10 +286,13 @@ function tickCombo() {
 }
 
 /** Re-render soon, but never while a finger is down (iOS drops taps on replaced nodes). */
+// a menu that's still gliding after a swipe (iOS momentum) isn't redrawn under the finger
+let lastScroll = 0;
+document.addEventListener('scroll', (e) => { if ((e.target as Element)?.closest?.('#tab-body') || e.target === document.getElementById('tab-body')) lastScroll = performance.now(); }, true);
 function soft() {
   if (softTimer) return;
   softTimer = window.setTimeout(function again() {
-    if (pointerDown > 0 || performance.now() - lastPointer < 450) { softTimer = window.setTimeout(again, 300); return; }
+    if (pointerDown > 0 || performance.now() - lastPointer < 450 || performance.now() - lastScroll < 600) { softTimer = window.setTimeout(again, 300); return; }
     softTimer = 0;
     render();
   }, 120);
@@ -356,7 +359,7 @@ function act(d: ActionData): boolean {
     case 'nudge-x': nudgeOff.set(arg, arg.startsWith('horde') ? performance.now() + 120000 : Infinity); tickNudge(); break;
     case 'prestige': openPrestige(); break;
     case 'perk': game.buyPerk(arg as M.PerkId); openPrestige(); break;
-    case 'prestige-go': picks = {}; openPicker(); break;
+    case 'prestige-go': if (!game.canPrestige) break; picks = {}; openPicker(); break;
     case 'pick': { const d = M.perkById(arg as M.PerkId), lv = M.plv(game.s.prestige, d.id) + (picks[d.id] ?? 0); if (lv < d.max && pickPoints() >= d.cost) picks[d.id] = (picks[d.id] ?? 0) + 1; openPicker(); break; }
     case 'pick-undo': picks = {}; openPicker(); break;
     case 'prestige-yes': { const gain = game.prestigeGain, n = Object.values(picks).reduce((a, b) => a + (b ?? 0), 0); slotWrite('backup', game.exportSave()); closeModal(); game.prestige(picks); picks = {}; tab = null; render();
@@ -467,12 +470,17 @@ function render() {
   if (!tab) { refresh(); return; }
   const body = $('#tab-body');
   const key = `${tab}:${tab === 'tree' ? treeView : ''}`;
-  const scroll = body.dataset.key === key ? body.scrollTop : 0;
+  const same = body.dataset.key === key;
+  const scroll = same ? body.scrollTop : 0;
+  // sideways-scrolling rows (the leaderboard's chips) keep their place too, or every redraw would snap them back
+  const HSCROLL = '.lbp-sorts';
+  const side = same ? [...body.querySelectorAll<HTMLElement>(HSCROLL)].map((e) => e.scrollLeft) : [];
   body.dataset.key = key;
   $('#panel-title').textContent = TITLES[tab];
   body.className = '';
   body.innerHTML = tab === 'zombies' ? zombiesHtml() : tab === 'squad' ? squadHtml() : tab === 'tree' ? treeTabHtml() : tab === 'ranks' ? leaderboardPageHtml(rankSort) : hordesHtml();
   body.scrollTop = scroll;
+  body.querySelectorAll<HTMLElement>(HSCROLL).forEach((e, i) => { if (side[i]) e.scrollLeft = side[i]; });
   refresh();
 }
 
@@ -849,7 +857,7 @@ function prestigeCard() {
   const p = game.s.prestige, gain = game.prestigeGain;
   return `<div class="card pcard"><div class="pc-head"><b>Prestige</b><span class="pc-pts">◆ ${p.points} point${p.points === 1 ? '' : 's'}</span></div>
     <p class="sub small">${p.runs ? `Run ${p.runs + 1} · ${p.earned} points earned in total. ` : ''}Reset your run for <b>1 point per horde cleared</b>, then spend points on permanent perks that stack every time.</p>
-    <div class="row"><button class="btn grow" data-action="prestige">Perks</button><button class="btn ghost grow" data-action="prestige-go" ${gain ? '' : 'disabled'}>${gain ? `Prestige now · +${gain}` : 'Clear a horde first'}</button></div></div>`;
+    <div class="row"><button class="btn grow" data-action="prestige">Perks</button><button class="btn ghost grow" data-action="prestige-go" ${game.canPrestige ? '' : 'disabled'}>${game.canPrestige ? `Prestige now · +${gain}` : `Beat Horde ${Game.PRESTIGE_HORDES} first (${game.s.hordes}/${Game.PRESTIGE_HORDES})`}</button></div></div>`;
 }
 // The prestige screen: pick perks with your unspent points plus this run's points, THEN reset.
 let picks: Partial<Record<M.PerkId, number>> = {};
@@ -883,8 +891,8 @@ function openPrestige() {
     <p class="sub small">Perks are permanent and stack across every run.</p>
     <div class="perks">${rows}</div>
     <div class="set-sec danger-zone"><h4>Prestige now</h4>
-      <div class="trow static"><div><b>Reset this run for +${gain} point${gain === 1 ? '' : 's'}</b><span>${gain ? `${game.s.hordes} horde${game.s.hordes === 1 ? '' : 's'} cleared this run` : 'Clear at least one horde first'}</span></div>
-      <button class="btn danger sm" data-action="prestige-go" ${gain ? '' : 'disabled'}>Prestige</button></div></div>`);
+      <div class="trow static"><div><b>Reset this run for +${gain} point${gain === 1 ? '' : 's'}</b><span>${game.canPrestige ? `${game.s.hordes} horde${game.s.hordes === 1 ? '' : 's'} cleared this run` : `Opens once this run beats Horde ${Game.PRESTIGE_HORDES} (${game.s.hordes}/${Game.PRESTIGE_HORDES} so far)`}</span></div>
+      <button class="btn danger sm" data-action="prestige-go" ${game.canPrestige ? '' : 'disabled'}>Prestige</button></div></div>`);
 }
 /** Lifetime kill counters (kept through prestige). */
 /** The auto-buy switches on the map (shown once Horde 10 is beaten): Zombies, Troops, Globals and Tree, each on its own. */
