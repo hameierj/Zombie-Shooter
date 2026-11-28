@@ -268,10 +268,9 @@ export class Game {
   }
   // ---------- auto-buy (unlocked by beating Horde 10) ----------
   static readonly AUTO_HORDE = 10;
-  /** The keep-up band auto-buy holds: above AUTO_HI the squad has it too easy, so zombies get raised first (bringing in
-   * more DNA); no zombie purchase may take it below AUTO_LO; inside the band only troops, globals and passives are bought. */
-  static readonly AUTO_LO = 1.05;
-  static readonly AUTO_HI = 1.3;
+  /** The keep-up auto-buy holds: ×1. Whenever the squad has spare damage, zombies get raised first (bringing in more DNA),
+   * as long as each purchase leaves keep-up at AUTO_KEEP or more; otherwise troops, globals and passives are bought. */
+  static readonly AUTO_KEEP = 1;
   get autoUnlocked() { return !!(this.s.autoEarned ||= this.s.hordes >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
   get autoCfg() {
     const a = (this.s.auto ??= { zombies: false, units: false, globals: false, tree: false });
@@ -338,7 +337,7 @@ export class Game {
         // Keep-up is checked per purchase (an earlier colour's buy this pass may have changed it).
         const k = this.keepUp();
         // Zombies alone (every other switch off) is the player's call: no keep-up limit, the cheapest zombie buy each time.
-        const zs = opts.filter((x) => x.col === col && x.z && (zombiesOnly || (k > Game.AUTO_HI && this.keepUp(x.z()) >= Game.AUTO_LO))).sort((p, q) => p.ln - q.ln);
+        const zs = opts.filter((x) => x.col === col && x.z && (zombiesOnly || (k > Game.AUTO_KEEP && this.keepUp(x.z()) >= Game.AUTO_KEEP))).sort((p, q) => p.ln - q.ln);
         let o: Opt | undefined;
         if (zs.length) o = zs[0];   // too easy: zombies first; if the cheapest isn't affordable yet, this colour saves up for it
         else o = opts.filter((x) => x.col === col && !x.z).sort((p, q) => p.ln - q.ln)[0];   // in the band (or below): troops, globals and passives

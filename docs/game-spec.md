@@ -235,10 +235,10 @@ kept through prestige).
 Beating **Horde 10** unlocks auto-buy for free (an unlock card explains it). Four **AUTO** switches sit in the top-left of
 the map (also in Settings → Auto-buy), each on or off on its own: **Zombies** (tiers, spawn, evolutions, zombie ultimates), **Troops** (hires and every upgrade; unit ultimate forms stay the player's choice)
 **Global upgrades** (the five colour upgrades and Scavenger) and **Tree** (passive-tree nodes in every open region, taken in
-the tree's own order; they count with troops and globals for the keep-up band). Once a second it buys the cheapest allowed thing in each
-colour it can afford, repeatedly, holding the squad's keep-up in a band of ×1.05–×1.3: while keep-up is above
-×1.3 (too easy), zombie purchases come first in each colour (saving up for one if needed) as long as they leave keep-up
-at ×1.05 or more; at ×1.3 or below no zombie purchase is made, and troops and globals build the margin back up. With **Zombies** as the only switch on, there is no keep-up limit: it
+the tree's own order; they count with troops and globals for keep-up). Once a second it buys the cheapest allowed thing in each
+colour it can afford, repeatedly, holding the squad's keep-up at ×1: whenever keep-up is above ×1 (the squad has spare
+damage), zombie purchases come first in each colour (saving up for one if needed) as long as they leave keep-up at ×1 or
+more; when the next zombie purchase would drop it below ×1, troops, globals and passives are bought instead. With **Zombies** as the only switch on, there is no keep-up limit: it
 buys the cheapest zombie upgrade in each colour whatever the keep-up (the player's choice). Its evolutions and ultimates show a small notice instead of a pausing card.
 
 ### Commander name and leaderboard
