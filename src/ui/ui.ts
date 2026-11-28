@@ -203,6 +203,8 @@ export function initUI() {
   setInterval(() => { const blocked = !!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !$('#modal').hidden || evoUp(); maybeCommanderScene(blocked); maybeSoundtrackScene(blocked || overlayUp()); }, 1000);
   seedBests();
   setInterval(() => void syncBoard(), 60_000);
+  // the Ranks page keeps itself fresh while it's open (who's playing now, new scores)
+  setInterval(() => { if (tab === 'ranks' && !document.hidden) void syncBoard(false, rankSort).then(() => { if (tab === 'ranks') soft(); }); }, 30_000);
   setInterval(forceEvolutions, 1000);
   offerCrashReport();
   // Skip animations: cards and evolution scenes become notices

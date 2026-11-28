@@ -270,7 +270,7 @@ per horde with the furthest horde anyone has beaten at the top: the horde number
 with the least play time from the start of a run to beating it and their times; your own rank and time are added
 below when you're outside the top 5), total hordes (lifetime), kills, headshots, highest tier (the highest zombie tier reached in any single run), troop level
 (highest Damage level), play time, best combo, ultimate forms, masteries, soldiers, prestiges, or lifetime DNA earned in
-each colour. Your row is highlighted, with your rank (or "outside the top 50"). Stats are sent at most once a minute
+each colour. A pulsing green dot marks commanders playing right now (their game sent stats in the last 3 minutes; a game in the background sends nothing), with a "N playing now" count in the header, and the page refreshes itself every 30 s while open. Your row is highlighted, with your rank (or "outside the top 50"). Stats are sent at most once a minute
 through `submit_stats` (own row only, via a per-device secret; sanity-checked; 20 s rate limit). The Hordes tab keeps
 the lifetime counters: zombies killed, headshots, hordes beaten, best combo.
 

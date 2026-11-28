@@ -37,7 +37,11 @@ import { fmtLn } from '../core/format.ts';
 import { MASTERY, regionComplete } from '../core/tree.ts';
 import { vialIcon } from '../game/art.ts';
 /** A row on the board: the commander and a bag of stats (DNA totals are natural logs, like everything in the economy). */
-export interface Entry { id: string; name: string; s: Record<string, number> }
+export interface Entry { id: string; name: string; s: Record<string, number>; seen?: number }
+/** Online now: their game sent stats in the last 3 minutes (a running game sends about once a minute). */
+const ONLINE_MS = 3 * 60_000;
+const online = (e: Entry, me?: Entry) => (me && e.id === me.id) || (!!e.seen && Date.now() - e.seen < ONLINE_MS);
+const dot = (e: Entry, me?: Entry) => (online(e, me) ? '<i class="on-dot" title="Playing now" aria-label="Playing now"></i>' : '');
 export interface SortDef { key: string; label: string; fmt: (v: number) => string; icon?: string; colour?: string; asc?: boolean }
 const time = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
 export const SORTS: SortDef[] = [
@@ -111,11 +115,11 @@ export const BOARD = SUPA_URL && SUPA_KEY ? {
     const legacy = LEGACY.includes(key);
     if (!v2 && !legacy) return [];
     const order = legacy ? `${key}.desc,hordes.desc,tier.desc` : `stats->${key}.${hordeKey(key) ? 'asc' : 'desc'}.nullslast,hordes.desc`;
-    let r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs${v2 ? ',stats' : ''}&order=${order}&limit=${n}`);
-    if (!r.ok && v2) { v2Off(); if (!legacy) return []; r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs&order=${order}&limit=${n}`); }
+    let r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs,updated_at${v2 ? ',stats' : ''}&order=${order}&limit=${n}`);
+    if (!r.ok && v2) { v2Off(); if (!legacy) return []; r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs,updated_at&order=${order}&limit=${n}`); }
     if (!r.ok) throw new Error(`top ${r.status}`);
-    type Row = { id: string; name: string; hordes: number; tier: number; kills: number | string; bosses: number; runs: number; stats?: Record<string, number> };
-    return (await r.json() as Row[]).map((x) => ({ id: x.id, name: x.name, s: { ...(x.stats ?? {}), hordes: x.hordes, tier: x.tier, kills: Number(x.kills), bosses: x.bosses, runs: x.runs } }));
+    type Row = { id: string; name: string; hordes: number; tier: number; kills: number | string; bosses: number; runs: number; updated_at?: string; stats?: Record<string, number> };
+    return (await r.json() as Row[]).map((x) => ({ id: x.id, name: x.name, seen: x.updated_at ? Date.parse(x.updated_at) : undefined, s: { ...(x.stats ?? {}), hordes: x.hordes, tier: x.tier, kills: Number(x.kills), bosses: x.bosses, runs: x.runs } }));
   },
 } : null;
 export const boardV2 = () => v2;
@@ -136,7 +140,7 @@ export async function syncBoard(force = false, key = 'hordes') {
   const me = myEntry();
   if (!BOARD || !me) return;
   try {
-    if (force || Date.now() - lastSubmit > 60_000) { lastSubmit = Date.now(); await BOARD.submit(me); }
+    if (force || (Date.now() - lastSubmit > 60_000 && !document.hidden)) { lastSubmit = Date.now(); await BOARD.submit(me); }   // in the background: no updates, so the green dot fades
     loading.add(key);
     // Fastest hordes needs everyone's horde times: the whole board, furthest first
     cache.set(key, await BOARD.top(key === 'speed' || hordeKey(key) ? 'best_horde' : key, key === 'speed' || hordeKey(key) ? 200 : 50));
@@ -156,7 +160,7 @@ function recordsHtml(me: Entry, list: Entry[] | undefined) {
   const hs = [...byHorde.keys()].sort((a, b) => b - a);
   const note = BOARD && !list ? (loading.has('speed') ? '<p class="sub small">Loading the board…</p>' : '') : !BOARD ? '<p class="sub small">Showing your own record.</p>' : '';
   if (!hs.length) return `${note}<div class="lbp-empty card"><b>No horde times yet</b><span>Times count from the start of a run (or your last prestige) to beating each horde.</span></div>`;
-  const line = (r: { e: Entry; t: number }, i: number) => `<div class="rec-r ${r.e.id === me.id ? 'me' : ''} ${i < 3 ? `top${i + 1}` : ''}"><span class="rk">${i + 1}</span><b>${esc(r.e.name)}${r.e.id === me.id ? ' <i>you</i>' : ''}</b><span class="val">${dur(r.t)}</span></div>`;
+  const line = (r: { e: Entry; t: number }, i: number) => `<div class="rec-r ${r.e.id === me.id ? 'me' : ''} ${i < 3 ? `top${i + 1}` : ''}"><span class="rk">${i + 1}</span><b>${dot(r.e, me)}${esc(r.e.name)}${r.e.id === me.id ? ' <i>you</i>' : ''}</b><span class="val">${dur(r.t)}</span></div>`;
   return `<div class="lbp-head"><span>Top 5 fastest for each horde</span><span>from a run's start</span></div>${note}<div class="rec-list">${hs.map((h) => {
     const rows = byHorde.get(h)!.sort((a, b) => a.t - b.t), mine = rows.findIndex((r) => r.e.id === me.id);
     return `<section class="rec-h"><h5><span class="rec-n">${h}</span>${esc(M.hordeDef(h).name)}</h5>
@@ -185,12 +189,13 @@ export function leaderboardPageHtml(key: string) {
   const myRank = sorted.findIndex((e) => e.id === me.id);
   const row = (e: Entry, i: number | null) => { const v = e.s[d.key];
     return `<div class="lbp-r ${e.id === me.id ? 'me' : ''} ${i !== null && i < 3 ? `top${i + 1}` : ''}"><span class="rk">${i === null ? '—' : i + 1}</span>
-      <div class="who"><b>${esc(e.name)}${e.s.runs ? ` <i>P${e.s.runs}</i>` : ''}</b><span>${fmtInt(e.s.hordes ?? 0)} hordes · tier ${fmtInt(e.s.tier ?? 0)} · ${fmtInt(e.s.kills ?? 0)} kills</span></div>
+      <div class="who"><b>${dot(e, me)}${esc(e.name)}${e.s.runs ? ` <i>P${e.s.runs}</i>` : ''}</b><span>${fmtInt(e.s.hordes ?? 0)} hordes · tier ${fmtInt(e.s.tier ?? 0)} · ${fmtInt(e.s.kills ?? 0)} kills</span></div>
       <span class="val" ${d.colour ? `style="color:${d.colour}"` : ''}>${v === undefined ? '–' : esc(d.fmt(v))}</span></div>`; };
   const note = !BOARD ? '<p class="sub small">Showing your own record.</p>'
     : loading.has(d.key) && !list ? '<p class="sub small">Loading the board…</p>'
     : !v2 && !LEGACY.includes(d.key) ? '<p class="sub small">This ranking switches on once the leaderboard database gets its stats upgrade.</p>' : '';
-  return `${chips}<div class="lbp-head"><span>Ranked by <b>${esc(d.label)}</b></span><span>${myRank >= 0 ? `You: <b>#${myRank + 1}</b>` : 'You: outside the top 50'}</span></div>
+  const live = (list ?? []).filter((e) => e.id !== me.id && online(e)).length + 1;
+  return `${chips}<div class="lbp-head"><span>Ranked by <b>${esc(d.label)}</b> · <span class="on-count"><i class="on-dot"></i>${live} playing now</span></span><span>${myRank >= 0 ? `You: <b>#${myRank + 1}</b>` : 'You: outside the top 50'}</span></div>
     ${note}<div class="lbp-list">${sorted.slice(0, 50).map((e, i) => row(e, i)).join('')}${myRank < 0 ? row(me, null) : ''}</div>`;
 }
 
