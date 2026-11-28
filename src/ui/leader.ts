@@ -183,11 +183,15 @@ export const recordsPending = () => pending.length > 0;
 /** Compare your stats with everyone else's on the board (once a minute). The first look is silent: records you already
  * hold don't throw a party, only ones you take from then on. */
 export async function syncRecords() {
-  const me = myEntry();
-  if (!BOARD || !me) return;
-  let all: Entry[];
-  try { v2Check(); if (!v2) return; all = await BOARD.top('best_horde', 200); } catch { return; }
-  cache.set('_all', all);
+  if (!BOARD || !getPlayer()) return;
+  try { v2Check(); if (!v2) return; cache.set('_all', await BOARD.top('best_horde', 200)); } catch { return; }
+  checkRecords();
+}
+/** Compare your live stats with the last board snapshot: cheap and local, so it runs every second and a record throws
+ * its party the moment you break it (the snapshot of everyone else refreshes once a minute). */
+export function checkRecords() {
+  const me = myEntry(), all = cache.get('_all');
+  if (!me || !all) return;
   const others = all.filter((e) => e.id !== me.id);
   if (!others.length) return;
   const held: string[] = [], label = new Map<string, RecordWin>();
@@ -201,7 +205,7 @@ export async function syncRecords() {
     if (was !== undefined && v <= was) continue;
     held.push(d.key);
     const dna = d.key.startsWith('dna_');   // DNA totals are logs: the gain is a multiple
-    const gain = was === undefined ? '' : dna ? `×${fmtLn(v - was).replace(/^\+/, '')} more` : `+${d.fmt(v - was)} (×${(v / was).toFixed(v / was >= 10 ? 0 : 1)})`;
+    const gain = was === undefined ? '' : dna ? `×${fmtLn(v - was).replace(/^\+/, '')} more` : `+${d.fmt(v - was)}${v / was >= 1.1 ? ` (×${(v / was).toFixed(v / was >= 10 ? 0 : 1)})` : ''}`;
     label.set(d.key, { from: h?.name, title: `#1 in ${d.label}: ${d.fmt(v)}`, sub: h ? `Stolen from ${h.name} (${d.fmt(was!)}) · ${gain}` : 'First commander on the board to set it!' });
   }
   for (const [k, t] of Object.entries(me.s)) {

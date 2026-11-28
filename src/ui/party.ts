@@ -47,7 +47,9 @@ export function throwParty(records: { title: string; sub: string; from?: string 
       <div class="pt-foot"><span class="pt-wait">The party's still going…</span><button class="btn pt-done" type="button" hidden>Back to the fight ›</button></div>
     </div>`;
   document.body.appendChild(el);
-  const app = document.getElementById('app'); if (app) app.inert = true;   // nothing behind the party can be reached, not even by keyboard
+  const behind = ['app', 'modal', 'toasts'].map((id) => document.getElementById(id)).filter((x): x is HTMLElement => !!x);
+  for (const b of behind) b.inert = true;   // nothing behind the party can be reached, not even by keyboard
+  const app = { set inert(v: boolean) { for (const b of behind) b.inert = v; } };
   sfx.partyStart();
   if (victim) { window.setTimeout(() => { if (el) sfx.shot(shooter); }, 2600); window.setTimeout(() => { if (el) sfx.groan(); }, 2750); }
   const done = el.querySelector<HTMLButtonElement>('.pt-done')!, wait = el.querySelector<HTMLElement>('.pt-wait')!;

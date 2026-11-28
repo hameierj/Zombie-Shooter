@@ -5,7 +5,7 @@ import { showTitle } from './title.ts';
 import { biohazard, hordeCards, overlayUp, setCardNotice, showCards } from './unlocks.ts';
 import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
-import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, partyDone, recordsPending, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, checkRecords, partyDone, recordsPending, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
 import { throwParty } from './party.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps, skipAnims, setSkipAnims } from '../core/prefs';
@@ -208,7 +208,9 @@ export function initUI() {
   window.setTimeout(() => void syncRecords(), 8000);
   setInterval(() => { if (!document.hidden) void syncRecords(); }, 60_000);
   setInterval(() => {
-    if (!recordsPending() || titleUp() || overlayUp() || coachUp() || hordeRunning() || !$('#modal').hidden || evoUp() || document.hidden) return;
+    if (!document.hidden) checkRecords();   // your live stats against the board, every second
+    // straight away, even mid-horde (the party pauses everything); it only waits for another full-screen scene to finish
+    if (!recordsPending() || titleUp() || overlayUp() || evoUp() || document.hidden) return;
     const best = [...M.CLASSES].reverse().find((c) => game.s.units[c.id].count > 0)?.id ?? 'pistol';   // your best unit type does the honours
     const recs = takeRecords();
     throwParty(recs, getPlayer()?.name ?? 'Commander', best, () => partyDone(recs));
