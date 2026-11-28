@@ -30,6 +30,8 @@ export interface SaveData {
   runStart?: number;
   /** Soundtracks collected (kept through prestige). */
   tracks?: string[];
+  /** HQ radio talks already heard (kept through prestige). */
+  radio?: string[];
   hordeTimes?: Record<number, number>;
   bestTier?: number;
   /** Lifetime DNA earned per colour (ln), and the best combo ever: leaderboard stats, kept through prestige. */
@@ -281,20 +283,26 @@ export class Game {
    * as long as each purchase leaves keep-up at AUTO_KEEP or more; otherwise troops, globals and passives are bought. */
   static readonly AUTO_KEEP = 1;
   get autoUnlocked() { return !!(this.s.autoEarned ||= this.s.hordes >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
+  /** Auto-buy opens a switch at a time, by the furthest horde ever beaten: Zombies (Horde 10), Tree (13), Globals (16),
+   * Troops (20). Kept through prestige. */
+  static readonly AUTO_AT = { zombies: 10, tree: 13, globals: 16, units: 20 } as const;
+  autoOpen(k: keyof typeof Game.AUTO_AT) { return k === 'zombies' ? this.autoUnlocked : Math.max(this.s.hordes, this.s.bestHorde ?? 0) >= Game.AUTO_AT[k]; }
   get autoCfg() {
     const a = (this.s.auto ??= { zombies: false, units: false, globals: false, tree: false });
     a.tree ??= false;
     if (a.on !== undefined) { if (!a.on) { a.zombies = a.units = a.globals = false; } delete a.on; }   // older saves had one master switch
     return a;
   }
-  get autoAny() { const a = this.autoCfg; return a.zombies || a.units || a.globals || !!a.tree; }
+  get autoAny() { const a = this.autoLive; return a.zombies || a.units || a.globals || a.tree; }
+  /** The switches that are on AND open. */
+  get autoLive() { const a = this.autoCfg; return { zombies: a.zombies && this.autoOpen('zombies'), units: a.units && this.autoOpen('units'), globals: a.globals && this.autoOpen('globals'), tree: !!a.tree && this.autoOpen('tree') }; }
   /** One pass: in every colour, buy the cheapest allowed thing it can afford, repeatedly, up to a few dozen buys. Raising a
    * zombie tier or spawn level only happens if the squad would still keep up ×1.3. Ultimate forms for units are left to
    * the player (a choice of tracks); zombie ultimates, evolutions, hires, unit upgrades and global upgrades are bought. */
   /** True while the auto-buyer is shopping, so the UI shows a small notice instead of pausing on a reveal card. */
   autoBuying = false;
   autoBuyTick() {
-    const a = this.autoCfg;
+    const a = this.autoLive;
     if (!this.autoUnlocked || !this.autoAny) return 0;
     this.autoBuying = true;
     try { return this.autoBuyPass(a); } finally { this.autoBuying = false; }
@@ -764,9 +772,9 @@ export class Game {
       const d = M.perkById(id);
       for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
     }
-    const autoEarned = this.autoUnlocked, auto = this.s.auto, playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, bestHorde = Math.max(this.s.bestHorde ?? 0, this.s.hordes), bestTier = Math.max(this.s.bestTier ?? 0, M.bestTier(this.s.strains)), hordeTimes = this.s.hordeTimes, tracks = this.s.tracks, player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
+    const autoEarned = this.autoUnlocked, auto = this.s.auto, playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, bestHorde = Math.max(this.s.bestHorde ?? 0, this.s.hordes), bestTier = Math.max(this.s.bestTier ?? 0, M.bestTier(this.s.strains)), hordeTimes = this.s.hordeTimes, tracks = this.s.tracks, radio = this.s.radio, player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
     this.s = freshSave();
-    this.s.prestige = p; this.s.autoEarned = autoEarned; this.s.auto = auto; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.bestHorde = bestHorde; this.s.bestTier = bestTier; this.s.hordeTimes = hordeTimes; this.s.tracks = tracks; this.s.runStart = playSec; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
+    this.s.prestige = p; this.s.autoEarned = autoEarned; this.s.auto = auto; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.bestHorde = bestHorde; this.s.bestTier = bestTier; this.s.hordeTimes = hordeTimes; this.s.tracks = tracks; this.s.radio = radio; this.s.runStart = playSec; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
     this.applyHeadStart();
     this.fxCache = null; this.syncLive();
     this.save();

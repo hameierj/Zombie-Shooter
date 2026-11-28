@@ -49,9 +49,7 @@ export function hordeCards(k: number, reward: { title: string; sub: string; icon
       body: `They join the horde and drop <b style="color:${st.color}">${esc(st.dna)} DNA</b>, a whole new currency.<br><span class="uk-sub">Raise their tier to earn more of it; units and passives priced in ${esc(st.dna.toLowerCase())} use it.</span>`,
       extra: `<img class="uk-vial px" src="${vialIcon(id as M.StrainId)}" alt="">` });
   }
-  if (k === 10) cards.push({ eyebrow: 'New feature', title: 'Auto-buy', color: '#5ee38c', icon: crateIcon('epic'),
-    body: 'Your squad can now shop for itself: zombie tiers and spawn, recruits and their upgrades, global upgrades and the passive tree, always the cheapest first in each colour, and never so much that the zombies overrun you.',
-    extra: '<span class="uk-tip">Use the AUTO switches in the top-left of the map: Zombies, Troops, Globals and Tree, each on or off on its own.</span>' });
+  // Horde 10's auto-buy unlock is announced by HQ on the radio (leader.ts), not a card
   REGIONS.forEach((r, i) => {
     if (r.horde !== k || i === 0) return;
     const key = treeNode(`r${i}.k`);

@@ -251,7 +251,8 @@ export function commanderScene(rename = false) {
 }
 
 /** Soundtracks HQ hands over (once each, mandatory) as the hordes fall. */
-const TRACK_SCENES: { id: sfx.SoundtrackId; horde: number; tape: string; forced?: boolean; lines: (name: string) => string[] }[] = [
+/** HQ's radio check-ins: mixtapes (a tape to take) and plain talks (`talk`: just lines, then a closing button). */
+const TRACK_SCENES: { id: sfx.SoundtrackId | 'auto' | 'auto_tree' | 'auto_globals' | 'auto_units'; horde: number; tape?: string; forced?: boolean; talk?: string; auto?: 'zombies' | 'tree' | 'globals' | 'units'; lines: (name: string) => string[] }[] = [
   { id: 'iron', horde: 3, tape: 'IRON MANDIBLE', forced: true, lines: (name) => ['*kssht* HQ again. Three hordes down, Commander ' + name + '. Impressive. But I have to ask you something.',
     'What is that... noise? Are you mowing down the undead to ELEVATOR MUSIC?',
     'Blowing zombies apart to lobby jazz, calm as a dentist\'s waiting room. That\'s psychopath behaviour. The squad has filed a formal complaint. Kevin is crying.',
@@ -263,12 +264,33 @@ const TRACK_SCENES: { id: sfx.SoundtrackId; horde: number; tape: string; forced?
     'But one song on repeat for the entire apocalypse? Same riff, every horde, forever? THAT\'s how psychopaths are made, Commander. A sane killer needs variety.',
     'So I raided the old church on 5th Street. The bell tower\'s empty. The choir is... busy. Undead busy. But they left this behind.',
     'No One Rings the Bell. Put it on, Commander, and let\'s see who\'s still standing when it ends. HQ out.'] },
+  { id: 'auto', horde: 10, auto: 'zombies', talk: 'Let the grind begin ›', lines: (name) => ['*kssht* HQ. Horde TEN, Commander ' + name + '. TEN! I owe Kevin twenty bucks. He had you cracking at six.',
+    'Listen. The squad has been watching you tap buttons for hours. They say it\'s like watching a raccoon open a vending machine. Respectfully.',
+    'So we rigged up AUTO-BUY. First switch, top-left of the map: ZOMBIES. Flip it on and the squad raises the zombies for you, exactly as fast as you can grind them.',
+    'Your thumbs can finally start their retirement. Kevin\'s thumbs did not make it. We don\'t talk about Kevin\'s thumbs.',
+    'Because THIS is where the real meat grinder begins. I mean the LEADERBOARD grind. Freudian slip. Honestly, same thing.',
+    'Every name on that board is coming for your spot now. Keep climbing and I\'ll send more switches. HQ out.'] },
+  { id: 'auto_tree', horde: 13, auto: 'tree', talk: 'Flip it ›', lines: (name) => ['*kssht* HQ. Horde thirteen, ' + name + '. Unlucky number. Not for you. For them.',
+    'Kevin has been studying your passive tree. Kevin can\'t read. He\'s been studying the pictures. He has opinions.',
+    'You\'ve been tapping those little nodes like a pigeon pecking a button for seeds. We all saw it. We don\'t judge. We judged.',
+    'New switch: TREE. The squad picks your passives for you, in order, like a responsible adult would.',
+    'More grinding, less pecking. HQ out.'] },
+  { id: 'auto_globals', horde: 16, auto: 'globals', talk: 'Spreadsheet time ›', lines: (name) => ['*kssht* HQ. Horde SIXTEEN. Commander ' + name + ', I am genuinely a little scared of you now.',
+    'Kevin wants your autograph. On his remaining ear. Please use a marker, the last pen went badly.',
+    'New switch: GLOBALS. Firepower, Rate of Fire, all five colour mastery upgrades that make the whole squad nastier, plus Scavenger. Bought for you.',
+    'This is the mastery tier, Commander. The upgrades you get when the apocalypse stops being an emergency and becomes a lifestyle.',
+    'The leaderboard has a name for people like you: psychos with spreadsheets. Wear it with pride. HQ out.'] },
+  { id: 'auto_units', horde: 20, auto: 'units', talk: 'Run the machine ›', lines: (name) => ['*kssht* Horde TWENTY. ' + name + ', the squad held a vote about you. You won. You also lost. It was a confusing vote.',
+    'Last switch: TROOPS. Hires and every single upgrade, bought automatically. You still pick the ultimate weapons. We\'re not animals.',
+    'That\'s it. All four switches. The whole thing runs itself now.',
+    'You are no longer a commander. You are the proud floor manager of a fully automated meat grinder. Leaderboard grinder. I keep doing that.',
+    'The top of that board is yours to take. Don\'t make me come down there. HQ out.'] },
 ];
 /** Once the matching horde is beaten (and the player has a name), HQ's next mixtape scene plays. */
 export function maybeSoundtrackScene(blocked: boolean) {
   if (up || blocked || !getPlayer()) return;
   const reached = Math.max(game.s.hordes, game.s.bestHorde ?? 0);
-  const t = TRACK_SCENES.find((x) => reached >= x.horde && !game.s.tracks?.includes(x.id));
+  const t = TRACK_SCENES.find((x) => x.talk ? !!x.auto && game.autoOpen(x.auto) && !game.s.radio?.includes(x.id) : reached >= x.horde && !game.s.tracks?.includes(x.id));
   if (t) soundtrackScene(t);
 }
 function soundtrackScene(t: typeof TRACK_SCENES[number]) {
@@ -280,7 +302,7 @@ function soundtrackScene(t: typeof TRACK_SCENES[number]) {
   el.innerHTML = `<div class="cs-card">
       <div class="cs-who"><div class="cs-face"><img class="px" src="${classIcon('rifle')}" alt=""><i class="cs-wave"></i></div><div><b>HQ · Radio</b><span>Channel 1 · encrypted</span></div></div>
       <p class="cs-line" aria-live="polite"></p>
-      <div class="cs-tape" hidden><div class="tape"><i></i><i></i><b>${t.tape}</b></div>
+      <div class="cs-tape" hidden><div class="tape"><i></i><i></i><b>${t.tape ?? ''}</b></div>
         <p><b>New soundtrack collected</b><span>Switch soundtracks any time in Settings → Sound &amp; display.</span></p></div>
       <div class="cs-choose" hidden>
         <button class="btn ghost cs-prev" type="button">▶ Preview</button>
@@ -294,13 +316,14 @@ function soundtrackScene(t: typeof TRACK_SCENES[number]) {
   const before = sfx.savedSoundtrack(), musicWas = sfx.soundPrefs().music;
   let previewing = false;
   const finish = (swap: boolean) => {
-    if (swap) { if (!sfx.soundPrefs().music) sfx.setMusic(true); sfx.setSoundtrack(t.id); }
+    if (t.talk) { game.s.radio = [...new Set([...(game.s.radio ?? []), t.id])]; game.save(); }
+    else if (swap) { if (!sfx.soundPrefs().music) sfx.setMusic(true); sfx.setSoundtrack(t.id as sfx.SoundtrackId); }
     else { sfx.setSoundtrack(before); if (!musicWas && sfx.soundPrefs().music) sfx.setMusic(false); }   // back to what was playing
     el.classList.add('cs-bye'); window.setTimeout(() => { el.remove(); up = false; game.emit('change'); }, 250);
   };
   prev.addEventListener('click', () => {
     previewing = !previewing;
-    if (previewing) { if (!sfx.soundPrefs().music) sfx.setMusic(true); sfx.setSoundtrack(t.id, false); prev.textContent = '■ Stop preview'; }
+    if (previewing) { if (!sfx.soundPrefs().music) sfx.setMusic(true); sfx.setSoundtrack(t.id as sfx.SoundtrackId, false); prev.textContent = '■ Stop preview'; }
     else { sfx.setSoundtrack(before, false); if (!musicWas) sfx.setMusic(false); prev.textContent = '▶ Preview'; }
   });
   el.querySelector<HTMLButtonElement>('.cs-keep')!.textContent = `Keep ${sfx.SOUNDTRACKS.find((x) => x.id === before)?.name ?? 'current'}`;
@@ -315,7 +338,8 @@ function soundtrackScene(t: typeof TRACK_SCENES[number]) {
   next.addEventListener('click', () => {
     if (lineEl.textContent !== full) { window.clearInterval(typing); lineEl.textContent = full; return; }   // first tap finishes the line
     sfx.nextCard();
-    if (stage === 0 && i < lines.length - 1) { i++; type(lines[i]); if (i === lines.length - 1) next.textContent = 'Take the tape ›'; return; }
+    if (stage === 0 && i < lines.length - 1) { i++; type(lines[i]); if (i === lines.length - 1) next.textContent = t.talk ?? 'Take the tape ›'; return; }
+    if (t.talk) { finish(false); return; }
     if (stage === 0) {   // the tape: collected
       stage = 1; game.s.tracks = [...new Set([...(game.s.tracks ?? []), t.id])]; game.save();
       tape.hidden = false; sfx.unlock(1);

@@ -244,7 +244,9 @@ The Hordes tab shows lifetime counters: zombies killed, bosses killed, hordes be
 kept through prestige).
 
 ### Auto-buy
-Beating **Horde 10** unlocks auto-buy for free (an unlock card explains it). Four **AUTO** switches sit in the top-left of
+Auto-buy unlocks one switch at a time by the furthest horde ever beaten (kept through prestige), each announced by HQ in a
+mandatory radio scene: **Zombies** at Horde 10 ("this is where the meat grinder begins... I mean the leaderboard grind"),
+**Tree** at 13, **Globals** at 16, **Troops** at 20. The unlocked **AUTO** switches sit in the top-left of
 the map (also in Settings → Auto-buy), each on or off on its own: **Zombies** (tiers, spawn, evolutions, zombie ultimates), **Troops** (hires and every upgrade; unit ultimate forms stay the player's choice)
 **Global upgrades** (the five colour upgrades and Scavenger) and **Tree** (passive-tree nodes in every open region, taken in
 the tree's own order; they count with troops and globals for keep-up). Once a second it buys the cheapest allowed thing in each

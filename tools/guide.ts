@@ -331,7 +331,7 @@ function lateGame() {
     <h3 style="margin-top:8px">The 24 ultimate forms</h3>
     <table class="ult-t"><thead><tr><th>Unit</th><th>Track 1</th><th>Track 2</th><th>Price</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="grid2" style="margin-top:8px">
-      <div class="card hl"><h4>Auto-buy (free after Horde 10)</h4><span class="small sub">Four <b>AUTO</b> switches in the top-left of the map, each on its own:
+      <div class="card hl"><h4>Auto-buy (Hordes 10–20)</h4><span class="small sub">Up to four <b>AUTO</b> switches in the top-left of the map, unlocked one at a time (Zombies at Horde 10, Tree 13, Globals 16, Troops 20), each on its own:
         <b>Zombies</b> (tiers, spawn, evolutions and zombie ultimates, holding keep-up at ×1: zombies come first whenever it's easier; switched on alone it has no limit), <b>Troops</b> (hires and upgrades; unit ultimate forms
         stay your choice), <b>Globals</b> and <b>Tree</b> (passives, in the tree's order). Once a second each buys the cheapest thing it can in every colour.</span></div>
       <div class="card"><h4>Commander &amp; leaderboard</h4><span class="small sub">After your first minute of play, HQ radios in and names you leader: pick a commander name
