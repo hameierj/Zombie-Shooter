@@ -138,20 +138,20 @@ export async function syncBoard(force = false, key = 'hordes') {
 function recordsHtml(me: Entry, list: Entry[] | undefined) {
   const all = new Map<string, Entry>((list ?? []).map((e) => [e.id, e]));
   all.set(me.id, me);   // your freshest times
-  const recs = new Map<number, { e: Entry; t: number }>();
+  const byHorde = new Map<number, { e: Entry; t: number }[]>();
   for (const e of all.values()) for (const [k, t] of Object.entries(e.s)) {
     if (!hordeKey(k) || !(t > 0)) continue;
-    const h = Number(k.slice(3)), cur = recs.get(h);
-    if (!cur || t < cur.t) recs.set(h, { e, t });
+    const h = Number(k.slice(3));
+    (byHorde.get(h) ?? byHorde.set(h, []).get(h)!).push({ e, t });
   }
-  const hs = [...recs.keys()].sort((a, b) => b - a);
+  const hs = [...byHorde.keys()].sort((a, b) => b - a);
   const note = BOARD && !list ? (loading.has('speed') ? '<p class="sub small">Loading the board…</p>' : '') : !BOARD ? '<p class="sub small">Showing your own record.</p>' : '';
   if (!hs.length) return `${note}<div class="lbp-empty card"><b>No horde times yet</b><span>Times count from the start of a run (or your last prestige) to beating each horde.</span></div>`;
-  return `<div class="lbp-head"><span>Fastest time to beat each horde</span><span>from a run's start</span></div>${note}<div class="lbp-list">${hs.map((h) => {
-    const { e, t } = recs.get(h)!, mineT = me.s[`t_h${h}`], isMe = e.id === me.id;
-    return `<div class="lbp-r rec ${isMe ? 'me' : ''}"><span class="rk">${h}</span>
-      <div class="who"><b>${esc(M.hordeDef(h).name)}</b><span>${esc(e.name)}${isMe ? ' (you)' : ''}${!isMe && mineT ? ` · you: ${dur(mineT)}` : ''}</span></div>
-      <span class="val">${dur(t)}</span></div>`;
+  const line = (r: { e: Entry; t: number }, i: number) => `<div class="rec-r ${r.e.id === me.id ? 'me' : ''} ${i < 3 ? `top${i + 1}` : ''}"><span class="rk">${i + 1}</span><b>${esc(r.e.name)}${r.e.id === me.id ? ' <i>you</i>' : ''}</b><span class="val">${dur(r.t)}</span></div>`;
+  return `<div class="lbp-head"><span>Top 5 fastest for each horde</span><span>from a run's start</span></div>${note}<div class="rec-list">${hs.map((h) => {
+    const rows = byHorde.get(h)!.sort((a, b) => a.t - b.t), mine = rows.findIndex((r) => r.e.id === me.id);
+    return `<section class="rec-h"><h5><span class="rec-n">${h}</span>${esc(M.hordeDef(h).name)}</h5>
+      ${rows.slice(0, 5).map(line).join('')}${mine >= 5 ? line(rows[mine], mine) : ''}</section>`;
   }).join('')}</div>`;
 }
 /** Small leaderboard teaser on the Hordes tab. */
