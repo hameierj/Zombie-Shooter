@@ -305,8 +305,14 @@ icon means one of its upgrades is affordable. The list scrolls, and the rail hid
 ## 11. Settings and saves
 Settings is one screen in three sections. **Sound & display**: on/off switches for sound effects, music, range lines and
 difficulty meters. **Saves**: the current game (with when it was last saved), three slots and an automatic **Backup**,
-shown inline. *Save* copies the current game into a slot (asks first if the slot has a save); *Load* switches to a slot
-(asks first; the current game goes to Backup, so it can always be undone); ✕ deletes a slot (asks first). *Copy save
+shown inline. Each slot holds its own game and the current game lives in one of them (marked **▶ Playing**). **＋ Start a
+new game** starts a fresh game straight away in the first empty slot; the game you leave stays in its slot. *New* on a
+slot does the same there; if that slot already has a game, it first shows that game (tier, hordes, soldiers, kills, when
+saved) and asks twice before replacing it (the replaced game becomes the Backup). With every slot full, the button asks
+which one to replace. *Play* switches to a slot's game (the one you leave is kept in its slot); ✕ deletes a slot that
+isn't being played (asks first). Devices that already had copies in every slot when slots got this behaviour start
+"unslotted": their current game goes to Backup when they switch. The leaderboard shows the best of each stat across all
+games on the device, so a new game never lowers your row. *Copy save
 code* / *Paste save code* move a game between devices; a pasted code is checked as you paste it, then loaded or put into
 a slot. **Danger zone**: *Erase progress* (asks first) also keeps the current game in Backup, so it can be restored.
 A session timer at the top right of the screen shows how long you've been playing since opening the app (it pauses

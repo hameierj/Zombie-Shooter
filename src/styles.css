@@ -1272,3 +1272,7 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .uk-timer { position: absolute; left: 22px; right: 22px; bottom: 7px; height: 3px; border-radius: 2px; background: var(--c, #ffd34d); opacity: .7; transform-origin: left; animation: uk-timer linear forwards; }
 @keyframes uk-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .uk-timer { animation-timing-function: steps(10); } }
+/* Save slots: the slot you're playing, and the New game button */
+.btn.newgame { width: 100%; margin: 8px 0 2px; }
+.slotrow.playing { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, rgba(255,255,255,.03)); }
+.sl-playing { font: 600 12px Inter, system-ui, sans-serif; color: var(--accent); padding: 0 6px; white-space: nowrap; }

@@ -365,11 +365,13 @@ function act(d: ActionData): boolean {
     case 'ult-pick': if (game.evolveUnit(cls, arg === '1' ? 1 : 0)) closeModal(); else openUlt(cls); break;
     case 'export': exportSave(); break;
     case 'saves': openSettings(); break;
-    case 'slot-save': slotAction('save', arg); break;
+    case 'slot-play': playSlot(arg); break;
     case 'slot-load': slotAction('load', arg); break;
     case 'slot-clear': slotAction('clear', arg); break;
-    case 'slot-save-yes': if (slotWrite(arg, game.exportSave())) toast(`<b>Saved to ${slotName(arg)}</b><span>${saveLine(Game.summary(game.s))}</span>`, '#5ee38c'); openSettings(); break;
     case 'slot-load-yes': { const sl = slotRead(arg); if (sl) loadCode(sl.code, slotName(arg)); break; }
+    case 'new-game': newGame(arg); break;
+    case 'new-game-check': newGameCheck(arg); break;
+    case 'new-game-yes': startNewGame(arg); break;
     case 'slot-clear-yes': try { localStorage.removeItem(slotKey(arg)); } catch { /* ignore */ } openSettings(); break;
     case 'import-load': { const c = pendingImport; if (c) loadCode(c, 'the pasted save'); break; }
     case 'import-slot': { const c = pendingImport; if (!c) break;
@@ -943,8 +945,9 @@ function openSettings() {
       : `<p class="sub small">🔒 Beat Horde ${Game.AUTO_HORDE} to unlock auto-buy for free.</p>`}
     </section>
     <section class="set-sec"><h4>Saves</h4>
-      <div class="save-cur"><div><b>Current game</b><span>${saveLine(m)}</span></div><span class="ok">✓ Saved ${ago(game.s.lastSeen)}</span></div>
-      <p class="sub small">Your game saves automatically. Slots keep extra copies you can switch between.</p>
+      <div class="save-cur"><div><b>Current game${activeSlot() ? ` · ${slotName(activeSlot()!)}` : ''}</b><span>${saveLine(m)}</span></div><span class="ok">✓ Saved ${ago(game.s.lastSeen)}</span></div>
+      <button class="btn grow newgame" data-action="new-game">＋ Start a new game</button>
+      <p class="sub small">Your game saves automatically. Each slot holds its own game: switch any time, and the one you leave is kept where it was.</p>
       <div class="slots">${[...SLOTS, 'backup'].map(slotHtml).join('')}</div>
       <h5>Move to another device</h5>
       <div class="row"><button class="btn ghost grow" data-action="export">Copy save code</button><button class="btn ghost grow" data-action="import">Paste save code</button></div>
@@ -971,18 +974,74 @@ function ago(t: number) {
   const d = Math.round(s / 86400);
   return d < 14 ? `${d} day${d === 1 ? '' : 's'} ago` : new Date(t).toLocaleDateString();
 }
-function slotSummary(id: string): { line: string; when: string } | null | 'bad' {
+function slotSummary(id: string): { line: string; when: string; kills?: number } | null | 'bad' {
+  if (id === activeSlot()) { const m = Game.summary(game.s); return { line: saveLine(m), when: 'now', kills: m.kills }; }
   const sl = slotRead(id);
   if (!sl) return null;
-  try { return { line: saveLine(Game.summary(Game.decode(sl.code))), when: ago(sl.savedAt) }; } catch { return 'bad'; }
+  try { const m = Game.summary(Game.decode(sl.code)); return { line: saveLine(m), when: ago(sl.savedAt), kills: m.kills }; } catch { return 'bad'; }
 }
 function slotHtml(id: string) {
-  const sum = slotSummary(id), backup = id === 'backup';
+  const sum = slotSummary(id), backup = id === 'backup', playing = id === activeSlot();
   const info = sum === null ? `<span>${backup ? 'Made automatically before you load a save or erase' : 'Empty'}</span>`
-    : sum === 'bad' ? '<span class="bad">Damaged save</span>' : `<span>${sum.line}</span><span class="when">${backup ? 'Kept' : 'Saved'} ${sum.when}</span>`;
+    : sum === 'bad' ? '<span class="bad">Damaged save</span>' : `<span>${sum.line}</span><span class="when">${playing ? 'Playing now' : `${backup ? 'Kept' : 'Saved'} ${sum.when}`}</span>`;
   const btns = backup ? (sum && sum !== 'bad' ? `<button class="btn sm" data-action="slot-load" data-arg="${id}">Restore</button>` : '')
-    : `<button class="btn ${sum ? 'ghost' : ''} sm" data-action="slot-save" data-arg="${id}">Save</button>${sum && sum !== 'bad' ? `<button class="btn sm" data-action="slot-load" data-arg="${id}">Load</button>` : ''}${sum ? `<button class="xbtn sm" data-action="slot-clear" data-arg="${id}" aria-label="Delete ${slotName(id)}">✕</button>` : ''}`;
-  return `<div class="slotrow ${sum ? '' : 'empty'} ${backup ? 'backup' : ''}"><div class="sl-ic">${backup ? '↺' : id}</div><div class="sl-main"><b>${slotName(id)}</b>${info}</div><div class="sl-act">${btns}</div></div>`;
+    : playing ? '<span class="sl-playing">▶ Playing</span>'
+    : `${sum && sum !== 'bad' ? `<button class="btn sm" data-action="slot-play" data-arg="${id}">Play</button>` : ''}<button class="btn ghost sm" data-action="new-game" data-arg="${id}">New</button>${sum ? `<button class="xbtn sm" data-action="slot-clear" data-arg="${id}" aria-label="Delete ${slotName(id)}">✕</button>` : ''}`;
+  return `<div class="slotrow ${sum ? '' : 'empty'} ${backup ? 'backup' : ''} ${playing ? 'playing' : ''}"><div class="sl-ic">${backup ? '↺' : id}</div><div class="sl-main"><b>${slotName(id)}</b>${info}</div><div class="sl-act">${btns}</div></div>`;
+}
+/** The slot the current game lives in. Older devices that already had copies in every slot start "unslotted": the current
+ * game then goes to Backup when you leave it, like before. */
+const ACTIVE_KEY = 'zombie-idle-active-slot';
+let active: string | null | undefined;
+function activeSlot(): string | null {
+  if (active !== undefined) return active;
+  try {
+    const v = localStorage.getItem(ACTIVE_KEY);
+    if (v === null) { active = SLOTS.find((id) => !slotRead(id)) ?? null; localStorage.setItem(ACTIVE_KEY, active ?? 'none'); }
+    else active = SLOTS.includes(v) ? v : null;
+  } catch { active = null; }
+  return active;
+}
+function setActive(id: string) { active = id; try { localStorage.setItem(ACTIVE_KEY, id); } catch { /* storage blocked */ } }
+/** Put the current game away in its slot (or Backup if it has none) before switching. */
+function parkCurrent() { const a = activeSlot(); return slotWrite(a ?? 'backup', game.exportSave()); }
+function playSlot(id: string) {
+  const sl = slotRead(id); if (!sl) return;
+  try { Game.decode(sl.code); } catch { toast('<b>That save could not be loaded</b><span>It is damaged</span>', '#ff6767'); return; }
+  const from = activeSlot();
+  if (!parkCurrent()) return;
+  game.importSave(sl.code); setActive(id); closeModal(); tab = null; render();
+  toast(`<b>Playing ${slotName(id)}</b><span>${from ? `Your other game is kept in ${slotName(from)}` : 'Your other game is kept in Backup'}</span>`, '#5ee38c');
+}
+/** "New game": straight into an empty slot; a slot with a game in it asks twice first. */
+function newGame(id?: string) {
+  const a = activeSlot();
+  if (!id) id = SLOTS.find((x) => x !== a && !slotRead(x));
+  if (!id) {   // every slot is in use: pick one to replace
+    openModal(`<h3>Start a new game</h3><p class="sub">All your slots have a game in them. Pick one to replace; your current game stays in ${a ? slotName(a) : 'Backup'}.</p>
+      <div class="slots">${SLOTS.filter((x) => x !== a).map((x) => { const sum = slotSummary(x); return `<div class="slotrow"><div class="sl-ic">${x}</div><div class="sl-main"><b>${slotName(x)}</b><span>${sum && sum !== 'bad' ? sum.line : 'Damaged save'}</span></div><div class="sl-act"><button class="btn ghost sm" data-action="new-game" data-arg="${x}">Replace</button></div></div>`; }).join('')}</div>
+      <div class="row"><button class="btn ghost grow" data-action="settings">Cancel</button></div>`);
+    return;
+  }
+  if (id === a) { act({ action: 'reset' }); return; }
+  const sum = slotSummary(id);
+  if (!sum) { startNewGame(id); return; }
+  openModal(`<h3>${slotName(id)} already has a game</h3>
+    <div class="save-cur found"><div><b>${slotName(id)}</b><span>${sum === 'bad' ? 'Damaged save' : `${sum.line}${sum.kills ? ` · ${fmtInt(sum.kills)} kills` : ''}`}</span>${sum !== 'bad' ? `<span>Saved ${sum.when}</span>` : ''}</div></div>
+    <p class="sub">Starting a new game here replaces it.</p>
+    <div class="row"><button class="btn ghost grow" data-action="settings">Keep it</button><button class="btn danger grow" data-action="new-game-check" data-arg="${id}">Replace it</button></div>`);
+}
+function newGameCheck(id: string) {
+  const sum = slotSummary(id);
+  openModal(`<h3>Are you sure?</h3><p class="sub"><b>${sum && sum !== 'bad' ? sum.line : 'The save'}</b> in ${slotName(id)} will be erased and a brand-new game starts there.${activeSlot() ? ' It goes to Backup as a last safety copy, until the next time you load or erase a game.' : ''}</p>
+    <div class="row"><button class="btn ghost grow" data-action="settings">Cancel</button><button class="btn danger grow" data-action="new-game-yes" data-arg="${id}">Yes, start over in ${slotName(id)}</button></div>`);
+}
+function startNewGame(id: string) {
+  const a = activeSlot(), old = slotRead(id);
+  if (a && old) slotWrite('backup', old.code);   // the replaced game is the safety copy (an unslotted current game takes Backup instead)
+  if (!parkCurrent()) return;
+  closeModal(); game.hardReset(); setActive(id); slotWrite(id, game.exportSave()); tab = null; render(); showTitle();
+  toast(`<b>New game in ${slotName(id)}</b><span>${a ? `Your other game is kept in ${slotName(a)}` : 'Your other game is kept in Backup'}</span>`, '#5ee38c');
 }
 /** A yes/no dialog; Cancel goes back to Settings. */
 function confirmBox(title: string, body: string, yes: string, action: string, arg = '', danger = false) {
@@ -1002,10 +1061,7 @@ function loadCode(code: string, from: string) {
 }
 function slotAction(kind: string, id: string) {
   const sum = slotSummary(id), cur = saveLine(Game.summary(game.s));
-  if (kind === 'save') {
-    if (!sum) { if (slotWrite(id, game.exportSave())) toast(`<b>Saved to ${slotName(id)}</b><span>${cur}</span>`, '#5ee38c'); openSettings(); return; }
-    confirmBox(`Overwrite ${slotName(id)}?`, `${slotName(id)} has <b>${sum === 'bad' ? 'a damaged save' : sum.line}</b>. It will be replaced with your current game (${cur}).`, 'Overwrite', 'slot-save-yes', id);
-  } else if (kind === 'load' && sum && sum !== 'bad') {
+  if (kind === 'load' && sum && sum !== 'bad') {
     confirmBox(id === 'backup' ? 'Restore Backup?' : `Load ${slotName(id)}?`, `You'll switch to <b>${sum.line}</b>. Your current game (${cur}) is kept in Backup.`, id === 'backup' ? 'Restore' : 'Load', 'slot-load-yes', id);
   } else if (kind === 'clear') {
     confirmBox(`Delete ${slotName(id)}?`, `${sum && sum !== 'bad' ? `<b>${sum.line}</b> will be deleted.` : 'This save will be deleted.'} Your current game is not affected.`, 'Delete', 'slot-clear-yes', id, true);
@@ -1039,7 +1095,7 @@ function importSave() {
       box.innerHTML = `<div class="save-cur found"><div><b>Save found</b><span>${saveLine(m)} · ${fmtInt(m.kills)} kills</span></div></div>
         <div class="row"><button class="btn grow" data-action="import-load">Load it now</button></div>
         <p class="sub small">Your current game is kept in Backup. Or keep it for later:</p>
-        <div class="row">${SLOTS.map((id) => `<button class="btn ghost grow sm" data-action="import-slot" data-arg="${id}">Into ${slotName(id)}</button>`).join('')}</div>
+        <div class="row">${SLOTS.filter((id) => id !== activeSlot()).map((id) => `<button class="btn ghost grow sm" data-action="import-slot" data-arg="${id}">Into ${slotName(id)}</button>`).join('')}</div>
         <div class="row"><button class="btn ghost grow" data-action="settings">Back</button></div>`;
     } catch { pendingImport = null; box.innerHTML = '<p class="sub small bad">That doesn\'t look like a save code. Copy the whole code and try again.</p><div class="row"><button class="btn ghost grow" data-action="settings">Back</button></div>'; }
   };

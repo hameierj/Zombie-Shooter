@@ -55,6 +55,7 @@ export const SORTS: SortDef[] = [
   ...M.COLOURS.map((c) => ({ key: `dna_${c}`, label: `${M.strainById(c).dna} DNA`, fmt: (v: number) => fmtLn(v), icon: vialIcon(c), colour: M.strainById(c).color })),
 ];
 export const sortDef = (k: string) => SORTS.find((x) => x.key === k) ?? SORTS[0];
+const BEST_KEY = 'zombie-idle-board-best';
 export function myEntry(): Entry | null {
   const p = getPlayer();
   if (!p) return null;
@@ -66,6 +67,11 @@ export function myEntry(): Entry | null {
     mastery: MASTERY.filter((_, i) => regionComplete(s.alloc, i)).length, soldiers: owned.reduce((a, u) => a + u.count, 0), runs: s.prestige?.runs ?? 0,
   };
   for (const c of M.COLOURS) { const v = s.earnedDna?.[c]; if (v !== undefined && Number.isFinite(v)) st[`dna_${c}`] = Math.round(v * 1000) / 1000; }
+  // The board shows your best per stat across every game on this device, so starting a new game never lowers your row.
+  let best: Record<string, number> = {};
+  try { best = JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') ?? {}; } catch { /* storage blocked */ }
+  for (const [k, v] of Object.entries(best)) if (typeof v === 'number' && Number.isFinite(v) && !(st[k] >= v)) st[k] = v;
+  try { localStorage.setItem(BEST_KEY, JSON.stringify(st)); } catch { /* storage blocked */ }
   return { id: p.id, name: p.name, s: st };
 }
 /** The online board: a Supabase project set up with docs/leaderboard.sql (+ docs/leaderboard-v2.sql for the stats). The key
