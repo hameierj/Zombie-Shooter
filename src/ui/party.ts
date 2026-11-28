@@ -4,8 +4,10 @@
 //   2. the execution: the lights drop, everything else fades, and a spotlight shows the dethroned leader (or your future
 //      self, out of a portal) getting shot, slowly, with a caption to read;
 //   3. the party: lights up, the DJ and the crowd take over.
-// It can't be skipped: only time with the party on screen counts, everything behind it is inert, and the button only
-// appears once all three acts have played out.
+// The first party a player ever gets can't be skipped: only time with the party on screen counts, everything behind it
+// is inert, and the button only appears once all three acts have played out. After that, a record gets a quick
+// celebration instead (confetti and NEW RECORD! in the middle of the screen, the game keeps going) with a button to
+// watch the full cutscene if you want it.
 import { classIcon, zombieIcon } from '../game/art.ts';
 import * as M from '../core/model.ts';
 import * as sfx from '../audio/sfx.ts';
@@ -24,8 +26,61 @@ const SELF_ROASTS = ['Time paradox resolved. Violently.', 'You can\'t be beaten.
 // act lengths (ms of on-screen time)
 const INTRO = 4000, DUEL = 8500, DUEL_SELF = 10000, PARTY = 6500;
 
+const SEEN = 'zombie-idle-party-seen';
+/** Has this player already sat through the full cutscene once? */
+export const partySeen = () => {
+  try {
+    if (localStorage.getItem(SEEN) === '1') return true;
+    // players from before this flag existed: a party was owed on this device and has played out, so they've had one
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (k.startsWith('zombie-idle-party-owed') && localStorage.getItem(k) === '[]') { localStorage.setItem(SEEN, '1'); return true; } }
+  } catch { /* ignore */ }
+  return false;
+};
+const markSeen = () => { try { localStorage.setItem(SEEN, '1'); } catch { /* ignore */ } };
+
+/** Celebrate a record: the full cutscene the first time ever, the quick version (with an optional watch button) after. */
+export function celebrate(records: { title: string; sub: string; from?: string }[], name: string, shooter: M.ClassId = 'pistol', onDone?: () => void) {
+  if (!records.length) return;
+  if (!partySeen()) { throwParty(records, name, shooter, () => { markSeen(); onDone?.(); }); return; }
+  onDone?.();   // the quick celebration counts as celebrated; the cutscene is optional from here
+  flashRecord(records, () => throwParty(records, name, shooter));
+}
+
+// ---------- the quick celebration: no pause, no lock, gone on its own after a few seconds ----------
+let flash: HTMLDivElement | null = null, flashT = 0;
+export function flashRecord(records: { title: string; sub: string }[], onWatch: () => void) {
+  if (el) return;
+  closeFlash(true);
+  const f = document.createElement('div');
+  f.id = 'rec-flash';
+  f.setAttribute('role', 'status');
+  const confetti = Array.from({ length: 40 }, () => `<i style="--l:${Math.random() * 100}%;--t:${(1.6 + Math.random() * 1.8).toFixed(2)}s;--dl:${(Math.random() * 1.2).toFixed(2)}s;--h:${Math.floor(Math.random() * 360)};--r:${Math.floor(Math.random() * 720 - 360)}deg"></i>`).join('');
+  f.innerHTML = `<div class="pt-confetti">${confetti}</div>
+    <div class="rf-card">
+      <p class="pt-eyebrow">🏆 Leaderboard 🏆</p>
+      <h2 class="pt-title">NEW RECORD!</h2>
+      <ul class="pt-recs">${records.slice(0, 3).map((r) => `<li><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></li>`).join('')}${records.length > 3 ? `<li>+${records.length - 3} more</li>` : ''}</ul>
+      <div class="rf-btns"><button class="btn rf-watch" type="button">🎬 Watch the cutscene</button><button class="btn ghost rf-close" type="button">Nice</button></div>
+    </div>`;
+  document.body.appendChild(f);
+  flash = f;
+  sfx.recordFanfare();
+  f.querySelector('.rf-watch')!.addEventListener('click', () => { closeFlash(true); onWatch(); });
+  f.querySelector('.rf-close')!.addEventListener('click', () => closeFlash());
+  // it stays while you're away, and leaves on its own a few seconds after you've seen it
+  let left = 7000, last = performance.now();
+  flashT = window.setInterval(() => { const now = performance.now(), dt = now - last; last = now; if (document.hidden) return; left -= Math.min(dt, 250); if (left <= 0) closeFlash(); }, 100);
+}
+function closeFlash(now = false) {
+  window.clearInterval(flashT);
+  const gone = flash; flash = null;
+  if (!gone) return;
+  if (now) gone.remove(); else { gone.classList.add('rf-bye'); window.setTimeout(() => gone.remove(), 400); }
+}
+
 export function throwParty(records: { title: string; sub: string; from?: string }[], name: string, shooter: M.ClassId = 'pistol', onDone?: () => void) {
   if (el || !records.length) return;
+  closeFlash(true);
   // the dethroned leader (the one you took the most from) gets a cameo: as a zombie, with a name tag, briefly
   const tally = new Map<string, number>(); for (const r of records) if (r.from) tally.set(r.from, (tally.get(r.from) ?? 0) + 1);
   const victim = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];

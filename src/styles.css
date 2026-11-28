@@ -1571,3 +1571,15 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .wc-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 .wc-chip { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: #c9d1db; font: 600 12px Inter, system-ui, sans-serif; cursor: pointer; }
 .wc-chip.on { border-color: var(--wc, var(--accent)); background: color-mix(in srgb, var(--wc, var(--accent)) 22%, transparent); color: #fff; }
+
+/* quick record celebration (after the first full party): the game keeps running underneath */
+#rec-flash { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; pointer-events: none; padding: 16px; animation: uk-fade .25s ease-out; }
+#rec-flash.rf-bye { opacity: 0; transition: opacity .4s ease; }
+#rec-flash .pt-confetti i { animation-iteration-count: 2; }
+.rf-card { pointer-events: auto; width: min(360px, 100%); text-align: center; color: #fff; padding: 14px 16px 16px; border-radius: 18px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(58,18,80,.92), rgba(22,10,36,.92)); border: 2px solid rgba(255,211,77,.6);
+  box-shadow: 0 0 40px rgba(255,79,216,.35), 0 12px 30px rgba(0,0,0,.5); animation: uk-pop .45s cubic-bezier(.2,1.5,.4,1) both; }
+.rf-card .pt-recs { margin-bottom: 12px; }
+.rf-btns { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.rf-btns .btn { min-height: 44px; }
+@media (prefers-reduced-motion: reduce) { #rec-flash .pt-confetti i { animation: none; } }

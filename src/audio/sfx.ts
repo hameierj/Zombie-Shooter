@@ -374,6 +374,14 @@ export function partyStart() {
   };
   if (!partyBuf && partyLoading) partyLoading.then(go); else if (!partyBuf) { preloadParty(); (partyLoading ?? Promise.resolve()).then(go); } else go();
 }
+/** The quick record celebration: an air horn and a little rising fanfare, no music change. */
+export function recordFanfare() {
+  init();
+  if (!ctx || !prefs.sfx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  airhorn();
+  [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, { type: 'square', gain: 0.05, at: 0.75 + i * 0.1 }));
+}
 export function partyStop() {
   window.clearInterval(partyT); partyT = 0;
   if (!ctx) return;
