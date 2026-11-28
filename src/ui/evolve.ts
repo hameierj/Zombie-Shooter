@@ -8,6 +8,11 @@ import { game } from '../core/state.ts';
 import { gunIcon, zombieIcon } from '../game/art.ts';
 import { fmtLn, fmtMult } from '../core/format.ts';
 import * as sfx from '../audio/sfx.ts';
+import { skipAnims } from '../core/prefs.ts';
+
+/** With animations skipped, evolutions show a short notice instead of their scene (set by the UI). */
+let notice: (title: string, sub: string, color: string, icon: string) => void = () => {};
+export function setEvoNotice(fn: typeof notice) { notice = fn; }
 
 type Scene = { kind: 'unit'; cls: ClassId } | { kind: 'zult'; id: ZombieId } | { kind: 'release'; id: ZombieId };
 const queue: Scene[] = [];
@@ -20,6 +25,12 @@ const key = (s: Scene) => (s.kind === 'unit' ? `u:${s.cls}` : `${s.kind}:${s.id}
 /** Queue a scene (once per thing). */
 export function playEvolution(s: Scene) {
   if (queue.some((q) => key(q) === key(s))) return;
+  if (skipAnims() && s.kind !== 'unit') {   // zombies: no scene, just a notice (a unit still needs its weapon chosen)
+    const st = M.strainById(s.id);
+    if (s.kind === 'zult') notice(`Ultimate ${st.name}`, `×${M.CONFIG.zUltDna} ${st.dna} DNA per kill · ×${M.CONFIG.zUltHp} HP`, st.color, zombieIcon(s.id));
+    else notice(`${st.plural} evolved`, `Form ${M.stageOf(s.id) + 1} joins the stream`, st.color, zombieIcon(s.id));
+    return;
+  }
   queue.push(s);
   if (!el) open();
 }
@@ -76,6 +87,7 @@ function choose(cls: ClassId) {
     if (pick === null) return;
     if (!game.evolveUnit(cls, pick)) { go.textContent = 'Not enough DNA'; sfx.denied(); window.setTimeout(close, 900); return; }
     const d = M.ULTS[cls][pick];
+    if (skipAnims()) { notice(`${cd.plural}: ${d.name}`, `They now carry the ${d.gun} · ×${M.CONFIG.ultDps} DPS`, d.color, gunIcon(cls, pick)); close(); return; }
     transform(gunIcon(cls), gunIcon(cls, pick), d.color, `${cd.plural} · ultimate form`, d.name,
       `Your ${esc(cd.plural.toLowerCase())} now carry the <b style="color:${d.color}">${esc(d.gun)}</b>. ${esc(d.desc)}`, 'weapon');
   });

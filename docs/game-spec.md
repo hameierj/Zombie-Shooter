@@ -127,7 +127,9 @@ is up), a full-screen **evolution scene** takes over and the game pauses (battle
 pick one of their two tracks (there is no close button), then the old weapon charges up, shakes, flashes white and bursts
 into the new one with rays, sparks and a charge-and-blast sound. Zombies evolve on their own (a new form joining the
 stream, or the ultimate form) with the same transformation scene. Auto-buy saves any DNA colour a ready evolution is
-waiting on, so it can't be starved. After a unit evolves, its soldiers flare up, carry the new gun art and glow in the
+waiting on, so it can't be starved. **Settings → Skip animations** (off by default, per device) replaces the evolution scenes,
+the horde reward cards and the battleground fade with short notices; a unit's weapon choice still opens (only its
+transformation is skipped), and the commander name scene always plays. After a unit evolves, its soldiers flare up, carry the new gun art and glow in the
 track's colour.
 
 | Unit | Track 1 | Track 2 |

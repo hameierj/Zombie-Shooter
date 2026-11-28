@@ -8,6 +8,7 @@ import { classIcon, crateIcon, gunIcon, vialIcon, zombieIcon } from '../game/art
 import * as sfx from '../audio/sfx.ts';
 import { cutsceneUp } from './leader.ts';
 import { evoUp } from './evolve.ts';
+import { skipAnims } from '../core/prefs.ts';
 
 export interface Card { eyebrow: string; title: string; body: string; icon: string; color: string; extra?: string; bio?: boolean }
 /** An animated biohazard symbol (inline SVG, coloured by currentColor). */
@@ -78,8 +79,12 @@ export function zombieUltCard(id: ZombieId): Card {
     body: `Your ${esc(st.plural.toLowerCase())} mutate into their ultimate form: <b style="color:${st.color}">×${M.CONFIG.zUltDna} ${esc(st.dna)} DNA</b> per kill and <b>×${M.CONFIG.zUltHp} HP</b>.<br><span class="uk-sub">They're bigger and glow at their feet. Horde zombies are unchanged.</span>` };
 }
 
+/** With animations skipped, cards become a short notice instead (set by the UI). */
+let notice: (cards: Card[]) => void = () => {};
+export function setCardNotice(fn: (cards: Card[]) => void) { notice = fn; }
 export function showCards(cards: Card[], delay = 0) {
   if (!cards.length) return;
+  if (skipAnims()) { window.setTimeout(() => notice(cards), delay); return; }
   queue.push(...cards);
   if (up) { renderDots(); return; }
   up = true;

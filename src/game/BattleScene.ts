@@ -5,7 +5,7 @@
 // Zombies walk in endlessly at the current DNA Count tier and Spawn Rate. A horde is an optional challenge: the
 // stream pauses, 60 zombies of the horde's tier rush in and a boss follows. Kill them all before the timer runs out;
 // if the boss reaches the shredder, or 10 horde zombies break through, the horde is lost.
-import { showRanges } from '../core/prefs';
+import { showRanges, skipAnims } from '../core/prefs';
 import { titleUp } from '../ui/title.ts';
 import { overlayUp } from '../ui/unlocks.ts';
 import { coachUp } from '../ui/tutorial.ts';
@@ -326,6 +326,8 @@ export class BattleScene extends Phaser.Scene {
           // scene change: push in and fade to black, swap the battleground, then settle back out of the dark
           this.newGround = false;
           const cam = this.cameras.main, bd = M.BOSSES[M.hordeDef(game.nextHorde).boss];
+          if (skipAnims()) { this.relayout(); this.showBanner(bd.place.toUpperCase(), `NEXT BOSS: ${bd.name.toUpperCase()}`, 'info', 1600); }   // no fade: swap straight away
+          else {
           cam.zoomTo(1.12, 520, 'Quad.easeIn');
           cam.fadeOut(520, 0, 0, 0);
           cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
@@ -334,6 +336,7 @@ export class BattleScene extends Phaser.Scene {
             cam.fadeIn(700, 0, 0, 0);
             this.time.delayedCall(250, () => this.showBanner(bd.place.toUpperCase(), `NEW BATTLEGROUND · NEXT BOSS: ${bd.name.toUpperCase()}`, 'info', 2200));
           });
+          }
         }
       }
     } else if (this.phase === 'intro') {

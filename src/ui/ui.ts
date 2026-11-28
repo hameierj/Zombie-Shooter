@@ -2,12 +2,12 @@
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import { showTitle } from './title.ts';
-import { biohazard, hordeCards, overlayUp, showCards } from './unlocks.ts';
-import { evoUp, playEvolution } from './evolve.ts';
+import { biohazard, hordeCards, overlayUp, setCardNotice, showCards } from './unlocks.ts';
+import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
 import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, syncBoard } from './leader.ts';
 import { titleUp } from './title.ts';
-import { showRanges, setShowRanges, showFps, setShowFps } from '../core/prefs';
+import { showRanges, setShowRanges, showFps, setShowFps, skipAnims, setSkipAnims } from '../core/prefs';
 import * as M from '../core/model.ts';
 import type { ClassId, Gear, Gun, StrainId, Unit, UnitNodeId } from '../core/model.ts';
 import { Game, game, type AutoSell, type Loot } from '../core/state.ts';
@@ -194,6 +194,10 @@ export function initUI() {
   seedBests();
   setInterval(() => void syncBoard(), 60_000);
   setInterval(forceEvolutions, 1000);
+  // Skip animations: cards and evolution scenes become notices
+  const strip = (h: string) => h.split('<br>')[0].replace(/<[^>]+>/g, '');
+  setCardNotice((cards) => toast(`<b>${esc(cards[0].eyebrow)}${cards[0].title === 'Victory!' ? '' : `: ${esc(cards[0].title)}`}</b><span>${[strip(cards[0].body), ...cards.slice(1).map((c) => `${c.eyebrow}: ${c.title}`)].map(esc).join(' · ')}</span>`, cards[0].color, cards[0].icon, 6000));
+  setEvoNotice((title, sub, color, icon) => toast(`<b>${esc(title)}</b><span>${esc(sub)}</span>`, color, icon, 5000));
   window.setTimeout(() => void syncBoard(true), 4000);
   setInterval(() => { if (!titleUp() && !overlayUp() && !coachUp() && !document.hidden && game.autoBuyTick()) { soft(); } autoChip(); }, 1000);
   fpsMeter();
@@ -393,6 +397,7 @@ function act(d: ActionData): boolean {
     case 'ranges-pref': setShowRanges(!showRanges()); openSettings(); break;
     case 'keep-pref': setShowKeep(!showKeep()); openSettings(); render(); break;
     case 'fps-pref': setShowFps(!showFps()); fpsMeter(); openSettings(); break;
+    case 'skip-pref': setSkipAnims(!skipAnims()); openSettings(); break;
   }
   // sound feedback: purchases make a "buy" sound if DNA was actually spent
   const after = M.STRAIN_IDS.reduce((x, c) => x + Math.exp(Math.min(700, game.dna(c))), 0);
@@ -957,6 +962,7 @@ function openSettings() {
       ${sw('ranges-pref', 'Range lines', 'How far each unit type can shoot', showRanges())}
       ${sw('keep-pref', 'Difficulty meters', 'Keep-up meter, upgrade hints and horde odds', showKeep())}
       ${sw('fps-pref', 'FPS counter', 'Frames per second and the slowest frame, over the battlefield', showFps())}
+      ${sw('skip-pref', 'Skip animations', 'No evolution cutscenes, horde reward cards or battleground fades: a short notice instead. You still choose each ultimate weapon', skipAnims())}
     </section>
     ${(() => { const pl = getPlayer(); return pl ? `<section class="set-sec"><h4>Commander</h4>
       <div class="trow static"><div><b>${esc(pl.name)}</b><span>Your name on the leaderboard.${pl.renamed ? ' Your one name change has been used.' : ' You can change it once.'}</span></div>
@@ -1135,7 +1141,7 @@ function importSave() {
   ta.addEventListener('input', check);
   ta.focus();
 }
-function toast(html: string, color: string, icon?: string) {
+function toast(html: string, color: string, icon?: string, ms = 3200) {
   const box = $('#toasts');
   const el = document.createElement('div');
   el.className = 'toast';
@@ -1143,8 +1149,8 @@ function toast(html: string, color: string, icon?: string) {
   el.innerHTML = `${icon ? `<img class="px" src="${icon}" alt="">` : ''}<div>${html}</div>`;
   box.appendChild(el);
   while (box.children.length > 3) box.firstElementChild!.remove();
-  setTimeout(() => el.classList.add('out'), 3200);
-  setTimeout(() => el.remove(), 3700);
+  setTimeout(() => el.classList.add('out'), ms);
+  setTimeout(() => el.remove(), ms + 500);
 }
 function toastLoot(l: Loot, title: string) {
   if (l.alsoSold && !l.sold) toast(`<b>Upgrade kept</b><span>Sold ${l.alsoSold} older item${l.alsoSold > 1 ? 's' : ''} it replaced</span>`, '#6fdc7a');
