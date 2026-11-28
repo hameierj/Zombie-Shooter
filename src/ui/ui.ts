@@ -5,7 +5,7 @@ import { showTitle } from './title.ts';
 import { biohazard, hordeCards, overlayUp, scenesUp, setCardNotice, showCards } from './unlocks.ts';
 import { evoUp, playEvolution, setEvoNotice } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
-import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, checkRecords, partyDone, recordsPending, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
+import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, maybeSoundtrackScene, checkRecords, partyDone, recordsPending, resetRecords, sendReport, syncBoard, syncRecords, takeRecords } from './leader.ts';
 import { throwParty } from './party.ts';
 import { titleUp } from './title.ts';
 import { showRanges, setShowRanges, showFps, setShowFps, skipAnims, setSkipAnims } from '../core/prefs';
@@ -218,6 +218,15 @@ export function initUI() {
   // the Ranks page keeps itself fresh while it's open (who's playing now, new scores)
   setInterval(() => { if (tab === 'ranks' && !document.hidden) void syncBoard(false, rankSort).then(() => { if (tab === 'ranks') soft(); }); }, 30_000);
   setInterval(forceEvolutions, 1000);
+  // Progress-linked things that live on the device follow the save that's loaded: a wipe (or a save without them) turns
+  // them off at once, and loading a save that has them brings them back.
+  const syncDevice = () => {
+    const want = sfx.savedSoundtrack();
+    sfx.setSoundtrack(want === 'classic' || game.s.tracks?.includes(want) ? want : 'classic', false);   // only collected tracks play
+    autoChip();
+  };
+  game.on((evt) => { if (evt === 'reset') { syncDevice(); if (!game.s.hordes && !game.s.playSec) resetRecords(); } });
+  syncDevice();
   offerCrashReport();
   // Skip animations: cards and evolution scenes become notices
   const strip = (h: string) => h.split('<br>')[0].replace(/<[^>]+>/g, '');

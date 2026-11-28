@@ -366,7 +366,7 @@ table, docs/reports.sql: players can only insert; read them in the Table Editor)
 build, device, screen, settings, a short game summary and the problem log: a ring buffer of the last 300 errors,
 warnings, frame-rate drops, quality changes, graphics-context losses, big game events and taps, kept in localStorage so
 it survives a crash. A heartbeat notices when the last session ended while on screen without closing cleanly (iOS
-killing the page), and the next launch offers to send a report. Test and dev copies never send. **Danger zone**: *Erase progress* (asks first) also keeps the current game in Backup, so it can be restored.
+killing the page), and the next launch offers to send a report. Test and dev copies never send. Progress-linked unlocks follow the save that's loaded, immediately (no reload): after *Erase progress* or a new game, auto-buy and its switches, Ultimates, War Drums, collected soundtracks (the chiptune plays) and owed record parties are gone; restoring Backup or loading a save that has them brings them back at once.  *Erase progress* (asks first) also keeps the current game in Backup, so it can be restored.
 Two clocks sit at the top right: **RUN** (play time in the current run; resets to 0 at every prestige) above **TOTAL** (all play time on the save). A session timer at the top right of the screen shows how long you've been playing since opening the app (it pauses
 while the app is in the background).
 `docs/saves/maxed-20h.txt` is a ready-made "20 hours in" save (made by `node tools/make-save.ts`).

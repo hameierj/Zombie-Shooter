@@ -9,7 +9,7 @@ import { BattleScene } from './game/BattleScene.ts';
 import { game } from './core/state.ts';
 import { TREE } from './core/tree.ts';
 import { initUI } from './ui/ui.ts';
-import { music, pauseAudio, unlockAudio } from './audio/sfx.ts';
+import { currentSoundtrack, music, pauseAudio, unlockAudio } from './audio/sfx.ts';
 import { showTitle, titleUp } from './ui/title.ts';
 import { overlayUp } from './ui/unlocks.ts';
 import { coachUp, initTutorial } from './ui/tutorial.ts';
@@ -153,6 +153,7 @@ document.addEventListener('touchend', (e) => {
 // Debug handle for testing in the console.
 (window as unknown as { zgame: typeof game }).zgame = game;
 (window as unknown as { zscene: BattleScene }).zscene = scene;
+(window as unknown as { zsound: () => string }).zsound = currentSoundtrack;
 (window as unknown as { __TREE: string[] }).__TREE = TREE.map((n) => n.id);
 
 

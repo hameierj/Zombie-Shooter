@@ -176,6 +176,8 @@ let pending: RecordWin[] = (() => { try { const v = JSON.parse(localStorage.getI
 let owed: RecordWin[] = [...pending];
 const saveOwed = () => { try { localStorage.setItem(OWED_KEY, JSON.stringify(owed)); } catch { /* storage blocked */ } };
 /** The party for these records played out in full: they're no longer owed. */
+/** A wipe or a different save: parties owed for the old progress are dropped, and records are looked at afresh. */
+export function resetRecords() { pending = []; owed = []; saveOwed(); try { localStorage.removeItem(REC_KEY); } catch { /* ignore */ } }
 export function partyDone(recs: RecordWin[]) { owed = owed.filter((o) => !recs.some((r) => r.title === o.title)); saveOwed(); }
 /** Fresh records waiting for their party (taken by the UI once nothing else is on screen). */
 export const takeRecords = () => { const r = pending; pending = []; return r; };
