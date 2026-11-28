@@ -84,25 +84,30 @@ const supa = (path: string, init: RequestInit = {}) => fetch(`${SUPA_URL}/rest/v
 const LIVE_SITE = typeof location !== 'undefined' && location.hostname.endsWith('github.io');
 const LEGACY = ['hordes', 'tier', 'kills', 'bosses', 'runs'];
 let v2 = true;   // false if the database hasn't had the stats upgrade yet (then only the original columns exist)
+let v2Retry = 0;   // …and it's tried again every few minutes, so a game left open across the upgrade picks it up
+const v2Off = () => { v2 = false; v2Retry = Date.now() + 3 * 60_000; };
+const v2Check = () => { if (!v2 && Date.now() > v2Retry) v2 = true; };
 export const BOARD = SUPA_URL && SUPA_KEY ? {
   async submit(e: Entry) {
     if (!LIVE_SITE) return;   // test and development copies of the game never write to the real board
     const p = getPlayer(); if (!p?.secret) return;
+    v2Check();
     if (v2) {
       const r = await supa('rpc/submit_stats', { method: 'POST', body: JSON.stringify({ p_id: e.id, p_secret: p.secret, p_name: e.name, p_stats: e.s }) });
       if (r.ok) return;
       if (r.status !== 404) throw new Error(`submit ${r.status}`);
-      v2 = false;
+      v2Off();
     }
     const r = await supa('rpc/submit_score', { method: 'POST', body: JSON.stringify({ p_id: e.id, p_secret: p.secret, p_name: e.name, p_hordes: e.s.hordes, p_tier: e.s.tier, p_kills: e.s.kills, p_bosses: e.s.bosses, p_runs: e.s.runs }) });
     if (!r.ok) throw new Error(`submit ${r.status}`);
   },
   async top(key: string, n: number): Promise<Entry[]> {
+    v2Check();
     const legacy = LEGACY.includes(key);
     if (!v2 && !legacy) return [];
     const order = legacy ? `${key}.desc,hordes.desc,tier.desc` : `stats->${key}.desc.nullslast,hordes.desc`;
     let r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs${v2 ? ',stats' : ''}&order=${order}&limit=${n}`);
-    if (!r.ok && v2) { v2 = false; if (!legacy) return []; r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs&order=${order}&limit=${n}`); }
+    if (!r.ok && v2) { v2Off(); if (!legacy) return []; r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs&order=${order}&limit=${n}`); }
     if (!r.ok) throw new Error(`top ${r.status}`);
     type Row = { id: string; name: string; hordes: number; tier: number; kills: number | string; bosses: number; runs: number; stats?: Record<string, number> };
     return (await r.json() as Row[]).map((x) => ({ id: x.id, name: x.name, s: { ...(x.stats ?? {}), hordes: x.hordes, tier: x.tier, kills: Number(x.kills), bosses: x.bosses, runs: x.runs } }));
