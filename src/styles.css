@@ -1443,3 +1443,5 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 @media (prefers-reduced-motion: reduce) { .pt-lights b, .pt-confetti i, .pz, .pt-djz, .pt-phones, .pt-deck, .pt-title, .pt-bubble { animation: none; } }
 #party [hidden] { display: none !important; }
 .pt-bubble { margin-bottom: 52px; }
+.pt-recs li b { display: block; font: 700 15px Inter, system-ui, sans-serif; color: #ffe9a3; }
+.pt-recs li span { display: block; margin-top: 2px; font: 600 12.5px Inter, system-ui, sans-serif; color: #ff9fe6; }

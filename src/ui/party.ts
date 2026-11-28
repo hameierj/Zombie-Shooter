@@ -11,8 +11,8 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const PARTY_MS = 9000;
 const SHOUTS = ['THIS ONE GOES OUT TO', 'MAKE SOME NOISE FOR', 'EVERYBODY SCREAM FOR', 'BRAAAINS AND BEATS FOR'];
 
-/** Throw the party for one or more fresh records (e.g. ["Most kills", "Fastest Horde 7"]). */
-export function throwParty(records: string[], name: string) {
+/** Throw the party for one or more fresh records (title, plus who it was stolen from and by how much). */
+export function throwParty(records: { title: string; sub: string }[], name: string) {
   if (el || !records.length) return;
   el = document.createElement('div');
   el.id = 'party';
@@ -25,7 +25,7 @@ export function throwParty(records: string[], name: string) {
     <div class="pt-stage">
       <p class="pt-eyebrow">🏆 New leaderboard record 🏆</p>
       <h2 class="pt-title">BLOCK PARTY!</h2>
-      <ul class="pt-recs">${records.slice(0, 6).map((r) => `<li>${esc(r)}</li>`).join('')}${records.length > 6 ? `<li>+${records.length - 6} more</li>` : ''}</ul>
+      <ul class="pt-recs">${records.slice(0, 6).map((r) => `<li><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></li>`).join('')}${records.length > 6 ? `<li>+${records.length - 6} more</li>` : ''}</ul>
       <div class="pt-dj">
         <div class="pt-bubble">${SHOUTS[Math.floor(Math.random() * SHOUTS.length)]}<br><b>COMMANDER ${esc(name.toUpperCase())}!!!</b></div>
         <div class="pt-booth"><span class="pt-deck"></span><img class="px pt-djz" src="${zombieIcon('brute')}" alt=""><i class="pt-phones"></i><span class="pt-deck"></span></div>

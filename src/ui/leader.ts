@@ -169,7 +169,8 @@ function recordsHtml(me: Entry, list: Entry[] | undefined) {
 }
 // ---------- records: #1 in any ranking, or the fastest time for a horde ----------
 const REC_KEY = 'zombie-idle-records';
-let pending: string[] = [];
+export interface RecordWin { title: string; sub: string }
+let pending: RecordWin[] = [];
 /** Fresh records waiting for their party (taken by the UI once nothing else is on screen). */
 export const takeRecords = () => { const r = pending; pending = []; return r; };
 export const recordsPending = () => pending.length > 0;
@@ -183,22 +184,32 @@ export async function syncRecords() {
   cache.set('_all', all);
   const others = all.filter((e) => e.id !== me.id);
   if (!others.length) return;
-  const held: string[] = [], label = new Map<string, string>();
+  const held: string[] = [], label = new Map<string, RecordWin>();
+  // who held it before you, and by how much you beat them
+  const holder = (k: string, better: (a: number, b: number) => boolean) => { let b: Entry | null = null; for (const e of others) { const v = e.s[k]; if (v !== undefined && v > 0 && (!b || better(v, b.s[k]))) b = e; } return b; };
   for (const d of SORTS) {
     if (d.key === 'speed') continue;
     const v = me.s[d.key];
     if (v === undefined || !(v > 0)) continue;
-    if (v > Math.max(-Infinity, ...others.map((e) => e.s[d.key] ?? -Infinity))) { held.push(d.key); label.set(d.key, `#1 in ${d.label}: ${d.fmt(v)}`); }
+    const h = holder(d.key, (a, b) => a > b), was = h?.s[d.key];
+    if (was !== undefined && v <= was) continue;
+    held.push(d.key);
+    const dna = d.key.startsWith('dna_');   // DNA totals are logs: the gain is a multiple
+    const gain = was === undefined ? '' : dna ? `×${fmtLn(v - was).replace(/^\+/, '')} more` : `+${d.fmt(v - was)} (×${(v / was).toFixed(v / was >= 10 ? 0 : 1)})`;
+    label.set(d.key, { title: `#1 in ${d.label}: ${d.fmt(v)}`, sub: h ? `Stolen from ${h.name} (${d.fmt(was!)}) · ${gain}` : 'First commander on the board to set it!' });
   }
   for (const [k, t] of Object.entries(me.s)) {
     if (!hordeKey(k) || !(t > 0)) continue;
-    if (t < Math.min(Infinity, ...others.map((e) => e.s[k] ?? Infinity))) { held.push(k); label.set(k, `Fastest Horde ${k.slice(3)}: ${dur(t)}`); }
+    const h = holder(k, (a, b) => a < b), was = h?.s[k];
+    if (was !== undefined && t >= was) continue;
+    held.push(k);
+    label.set(k, { title: `Fastest Horde ${k.slice(3)}: ${dur(t)}`, sub: h ? `Stolen from ${h.name} (${dur(was!)}) · ${dur(was! - t)} faster` : `First commander ever to beat Horde ${k.slice(3)}!` });
   }
   let before: string[] | null = null;
   try { before = JSON.parse(localStorage.getItem(REC_KEY) ?? 'null'); } catch { /* ignore */ }
   try { localStorage.setItem(REC_KEY, JSON.stringify(held)); } catch { /* ignore */ }
   if (!before) return;   // first look: just note what you hold
-  const fresh = held.filter((k) => !before!.includes(k) && !pending.some((p) => p === label.get(k)));
+  const fresh = held.filter((k) => !before!.includes(k) && !pending.some((p) => p.title === label.get(k)!.title));
   pending.push(...fresh.map((k) => label.get(k)!));
 }
 /** Small leaderboard teaser on the Hordes tab. */

@@ -134,7 +134,9 @@ transformation is skipped), and the commander name scene always plays.
 **Record block party.** Once a minute the game compares your stats with everyone else's on the board. Taking a record
 (#1 in any ranking, or the fastest time for any horde) throws a non-skippable zombie block party: a zombie DJ with
 headphones at spinning decks ("EVERYBODY SCREAM FOR COMMANDER <NAME>!!!"), a dancing zombie crowd, disco lights,
-confetti, a rainbow BLOCK PARTY! title, the records listed, and a synthesized four-on-the-floor beat with an air horn
+confetti, a rainbow BLOCK PARTY! title, each record listed with who it was stolen from, their old value and the
+margin ("Stolen from Arryk (195,337) · +4,804,663 (×26)", "Stolen from Arryk (46s) · 16s faster", or "First commander
+ever to beat Horde N!"), and a synthesized four-on-the-floor beat with an air horn
 (music ducks under it). The battle, auto-buy and the play clock are paused throughout; "Back to the fight" only appears
 after ~9 s. It waits for a running horde to end. The first check is silent (records already held don't party), and a
 record lost and retaken parties again.
