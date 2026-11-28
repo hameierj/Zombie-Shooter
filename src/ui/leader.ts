@@ -38,10 +38,11 @@ import { MASTERY, regionComplete } from '../core/tree.ts';
 import { vialIcon } from '../game/art.ts';
 /** A row on the board: the commander and a bag of stats (DNA totals are natural logs, like everything in the economy). */
 export interface Entry { id: string; name: string; s: Record<string, number> }
-export interface SortDef { key: string; label: string; fmt: (v: number) => string; icon?: string; colour?: string }
+export interface SortDef { key: string; label: string; fmt: (v: number) => string; icon?: string; colour?: string; asc?: boolean }
 const time = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
 export const SORTS: SortDef[] = [
   { key: 'best_horde', label: 'Best horde', fmt: (v) => `Horde ${fmtInt(v)}` },
+  { key: 't_h', label: 'Fastest hordes', fmt: fmtInt },
   { key: 'hordes', label: 'Total hordes', fmt: fmtInt },
   { key: 'kills', label: 'Kills', fmt: fmtInt },
   { key: 'headshots', label: 'Headshots', fmt: fmtInt },
@@ -55,7 +56,10 @@ export const SORTS: SortDef[] = [
   { key: 'runs', label: 'Prestiges', fmt: fmtInt },
   ...M.COLOURS.map((c) => ({ key: `dna_${c}`, label: `${M.strainById(c).dna} DNA`, fmt: (v: number) => fmtLn(v), icon: vialIcon(c), colour: M.strainById(c).color })),
 ];
-export const sortDef = (k: string) => SORTS.find((x) => x.key === k) ?? SORTS[0];
+/** Horde times: play time from the start of a run to beating that horde (seconds), shown to the second. */
+const dur = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.round(sec % 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : m ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`; };
+const hordeKey = (k: string) => /^t_h\d+$/.test(k);
+export const sortDef = (k: string): SortDef => hordeKey(k) ? { key: k, label: `Horde ${k.slice(3)} time`, fmt: dur, asc: true } : SORTS.find((x) => x.key === k && x.key !== 't_h') ?? SORTS[0];
 const BEST_KEY = 'zombie-idle-board-best';
 export function myEntry(): Entry | null {
   const p = getPlayer();
@@ -67,11 +71,12 @@ export function myEntry(): Entry | null {
     ults: owned.filter((u) => u.evo !== undefined).length + Object.values(s.strains).filter((z) => z.ult).length,
     mastery: MASTERY.filter((_, i) => regionComplete(s.alloc, i)).length, soldiers: owned.reduce((a, u) => a + u.count, 0), runs: s.prestige?.runs ?? 0,
   };
+  for (const [k, t] of Object.entries(s.hordeTimes ?? {})) if (Number.isFinite(t) && t > 0) st[`t_h${k}`] = t;
   for (const c of M.COLOURS) { const v = s.earnedDna?.[c]; if (v !== undefined && Number.isFinite(v)) st[`dna_${c}`] = Math.round(v * 1000) / 1000; }
   // The board shows your best per stat across every game on this device, so starting a new game never lowers your row.
   let best: Record<string, number> = {};
   try { best = JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') ?? {}; } catch { /* storage blocked */ }
-  for (const [k, v] of Object.entries(best)) if (typeof v === 'number' && Number.isFinite(v) && !(st[k] >= v)) st[k] = v;
+  for (const [k, v] of Object.entries(best)) if (typeof v === 'number' && Number.isFinite(v) && (hordeKey(k) ? !(st[k] <= v) : !(st[k] >= v))) st[k] = v;   // times: lowest wins
   try { localStorage.setItem(BEST_KEY, JSON.stringify(st)); } catch { /* storage blocked */ }
   return { id: p.id, name: p.name, s: st };
 }
@@ -105,7 +110,7 @@ export const BOARD = SUPA_URL && SUPA_KEY ? {
     v2Check();
     const legacy = LEGACY.includes(key);
     if (!v2 && !legacy) return [];
-    const order = legacy ? `${key}.desc,hordes.desc,tier.desc` : `stats->${key}.desc.nullslast,hordes.desc`;
+    const order = legacy ? `${key}.desc,hordes.desc,tier.desc` : `stats->${key}.${hordeKey(key) ? 'asc' : 'desc'}.nullslast,hordes.desc`;
     let r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs${v2 ? ',stats' : ''}&order=${order}&limit=${n}`);
     if (!r.ok && v2) { v2Off(); if (!legacy) return []; r = await supa(`leaderboard_public?select=id,name,hordes,tier,kills,bosses,runs&order=${order}&limit=${n}`); }
     if (!r.ok) throw new Error(`top ${r.status}`);
@@ -125,6 +130,7 @@ export async function syncBoard(force = false, key = 'hordes') {
     if (force || Date.now() - lastSubmit > 60_000) { lastSubmit = Date.now(); await BOARD.submit(me); }
     loading.add(key);
     cache.set(key, await BOARD.top(key, 50));
+    if (hordeKey(key) && !cache.has('best_horde')) cache.set('best_horde', await BOARD.top('best_horde', 50));   // how far the horde picker goes
   } catch { /* offline: keep the last list */ } finally { loading.delete(key); }
 }
 /** Small leaderboard teaser on the Hordes tab. */
@@ -132,14 +138,21 @@ export function leaderboardHtml() { return ''; }
 /** The Leaderboard tab: sort chips, then the top 50 for that stat (your own row always shown and highlighted). */
 export function leaderboardPageHtml(key: string) {
   const me = myEntry(), d = sortDef(key);
-  const chips = `<div class="lbp-sorts" role="tablist" aria-label="Rank by">${SORTS.map((x) => `<button class="lbp-chip ${x.key === d.key ? 'on' : ''}" data-action="rank-sort" data-arg="${x.key}" role="tab" aria-selected="${x.key === d.key}" ${x.colour ? `style="--cc:${x.colour}"` : ''}>${x.icon ? `<img class="px" src="${x.icon}" alt="">` : ''}${esc(x.label)}</button>`).join('')}</div>`;
+  const isOn = (x: SortDef) => x.key === d.key || (x.key === 't_h' && hordeKey(d.key));
+  const arg = (x: SortDef) => (x.key === 't_h' ? (hordeKey(d.key) ? d.key : 't_h1') : x.key);
+  // Fastest hordes: a second row picks the horde (up to the furthest anyone on the board has reached)
+  const far = Math.min(60, Math.max(10, game.s.bestHorde ?? 0, ...(cache.get('best_horde') ?? []).map((e) => e.s.best_horde ?? 0)));
+  const picker = hordeKey(d.key) ? `<div class="lbp-sorts lbp-hordes" aria-label="Horde">${Array.from({ length: far }, (_, i) => `<button class="lbp-chip ${d.key === `t_h${i + 1}` ? 'on' : ''}" data-action="rank-sort" data-arg="t_h${i + 1}">${i + 1}</button>`).join('')}</div>` : '';
+  const chips = `<div class="lbp-sorts" role="tablist" aria-label="Rank by">${SORTS.map((x) => `<button class="lbp-chip ${isOn(x) ? 'on' : ''}" data-action="rank-sort" data-arg="${arg(x)}" role="tab" aria-selected="${isOn(x)}" ${x.colour ? `style="--cc:${x.colour}"` : ''}>${x.icon ? `<img class="px" src="${x.icon}" alt="">` : ''}${esc(x.label)}</button>`).join('')}</div>${picker}`;
   if (!me) return `${chips}<div class="lbp-empty card"><b>Hold the wall for a minute to take command</b><span>HQ will ask your name, and you'll join the board.</span></div>`;
   const list = BOARD ? cache.get(d.key) : undefined;
   let rows = list ? list.filter((e) => e.s[d.key] !== undefined) : [];
   if (!BOARD || !list) rows = [me];
   const mine = rows.findIndex((e) => e.id === me.id);
   if (mine >= 0) rows[mine] = me;   // your freshest numbers
-  const sorted = [...rows].sort((a, b) => (b.s[d.key] ?? -1) - (a.s[d.key] ?? -1) || (b.s.hordes ?? 0) - (a.s.hordes ?? 0));
+  else if (list && list.length < 50 && me.s[d.key] !== undefined) rows.push(me);   // the whole board is here: rank yourself in it
+  const sorted = d.asc ? [...rows].filter((e) => e.s[d.key] !== undefined).sort((a, b) => a.s[d.key] - b.s[d.key])
+    : [...rows].sort((a, b) => (b.s[d.key] ?? -1) - (a.s[d.key] ?? -1) || (b.s.hordes ?? 0) - (a.s.hordes ?? 0));
   const myRank = sorted.findIndex((e) => e.id === me.id);
   const row = (e: Entry, i: number | null) => { const v = e.s[d.key];
     return `<div class="lbp-r ${e.id === me.id ? 'me' : ''} ${i !== null && i < 3 ? `top${i + 1}` : ''}"><span class="rk">${i === null ? '—' : i + 1}</span>

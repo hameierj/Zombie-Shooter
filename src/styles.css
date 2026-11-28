@@ -1337,3 +1337,6 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .evo-anim .evo-eyebrow { animation-delay: 1.8s; } .evo-anim .evo-title { animation-delay: 1.95s; } .evo-anim .evo-body { animation-delay: 2.1s; } .evo-anim .evo-done { animation-delay: 2.4s; }
 @keyframes evo-text { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .evo-from { animation-duration: .01s; } }
+/* Fastest hordes: the horde picker under the ranking chips */
+.lbp-hordes { margin-top: -4px; }
+.lbp-hordes .lbp-chip { min-width: 38px; justify-content: center; padding-inline: 8px; }
