@@ -364,6 +364,7 @@ function act(d: ActionData): boolean {
     case 'scavenger': game.buyScavenger(); break;
     case 'rank-sort': rankSort = arg; try { localStorage.setItem('zombie-idle-rank-sort', arg); } catch { /* ignore */ } render(); void syncBoard(false, arg).then(() => { if (tab === 'ranks' && rankSort === arg) soft(); }); break;
     case 'rename': if (canRename()) { closeModal(); commanderScene(true); } break;
+    case 'ult-pref': { const picks = (game.s.ultPicks ??= {}); if (arg === 'ask') delete picks[cls]; else picks[cls] = arg === '1' ? 1 : 0; game.save(); openSettingsKeep(); break; }
     case 'auto-pref': { const k = arg as 'zombies' | 'units' | 'globals' | 'tree' | 'ults'; if (!game.autoOpen(k)) break; const cfg = game.autoCfg; cfg[k] = !cfg[k]; game.save(); autoChip(); if (!$('#modal').hidden) openSettings();
       break; }
     case 'region': { const r = Number(arg); treeOpen = treeOpen === r ? -1 : r; render(); break; }
@@ -1022,7 +1023,7 @@ function openSettings() {
       ${pl.renamed ? '' : '<button class="btn small" data-action="rename">Change name</button>'}</div></section>` : ''; })()}
     <section class="set-sec"><h4>Auto-buy</h4>${game.autoUnlocked ? `
       <p class="sub small">Also on the map: the AUTO switches in the top-left corner.</p>
-      ${AUTO_ORDER.map((k) => !game.autoOpen(k) ? `<div class="trow static locked"><div><b>${{ zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades', tree: 'Passive tree', ults: 'Ultimates' }[k]}</b><span>🔒 Unlocks when you beat Horde ${Game.AUTO_AT[k]}</span></div></div>` : sw('auto-pref', { zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades', tree: 'Passive tree', ults: 'Ultimates' }[k], { ults: `Evolves a unit type into the weapon you chose for it last time, no menu. A type you’ve never evolved still asks once.${Object.keys(game.s.ultPicks ?? {}).length ? ` Remembered: ${Object.entries(game.s.ultPicks ?? {}).map(([c, e]) => M.ULTS[c as ClassId][e as 0 | 1].name).join(', ')}.` : ''}`, tree: 'Passives in every open region, in the tree’s own order, cheapest colour first', zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms. Holds your squad’s keep-up at ×1: whenever it’s easier than that, zombies come first. On its own (every other switch off) it has no limit', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], !!game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}`
+      ${AUTO_ORDER.map((k) => !game.autoOpen(k) ? `<div class="trow static locked"><div><b>${{ zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades', tree: 'Passive tree', ults: 'Ultimates' }[k]}</b><span>🔒 Unlocks when you beat Horde ${Game.AUTO_AT[k]}</span></div></div>` : sw('auto-pref', { zombies: 'Zombies', units: 'Troops', globals: 'Global upgrades', tree: 'Passive tree', ults: 'Ultimates' }[k], { ults: `Evolves a unit type into the weapon you chose for it last time, no menu. A type you’ve never evolved still asks once.${Object.keys(game.s.ultPicks ?? {}).length ? ` Remembered: ${Object.entries(game.s.ultPicks ?? {}).map(([c, e]) => M.ULTS[c as ClassId][e as 0 | 1].name).join(', ')}.` : ''}`, tree: 'Passives in every open region, in the tree’s own order, cheapest colour first', zombies: 'DNA tiers, spawn levels, evolutions and ultimate forms. Holds your squad’s keep-up at ×1: whenever it’s easier than that, zombies come first. On its own (every other switch off) it has no limit', units: 'Hires and every upgrade (you still choose ultimate forms yourself)', globals: 'The five colour upgrades and Scavenger' }[k], !!game.autoCfg[k]).replace('data-action="auto-pref"', `data-action="auto-pref" data-arg="${k}"`)).join('')}${weaponChoicesHtml()}`
       : `<p class="sub small">🔒 Beat Horde ${Game.AUTO_HORDE} to unlock auto-buy for free.</p>`}
     </section>
     <section class="set-sec"><h4>Saves</h4>
@@ -1174,6 +1175,19 @@ function offerCrashReport() {
       <div class="row"><button class="btn ghost grow" data-action="modal-close">Not now</button><button class="btn grow" data-action="report-crash">Report it</button></div>`);
   }, 1500);
 }
+/** Settings: the weapon each unit type auto-evolves into (Ultimates switch). Change it any time for future evolutions. */
+function weaponChoicesHtml() {
+  if (!game.autoOpen('ults')) return '';
+  const rows = M.CLASSES.filter((c) => game.classUnlocked(c.id) || game.s.ultPicks?.[c.id] !== undefined).map((c) => {
+    const pick = game.s.ultPicks?.[c.id], cur = game.s.units[c.id].evo;
+    const chip = (v: '0' | '1' | 'ask', label: string, color?: string) => `<button class="wc-chip ${(v === 'ask' ? pick === undefined : pick === Number(v)) ? 'on' : ''}" data-action="ult-pref" data-cls="${c.id}" data-arg="${v}" ${color ? `style="--wc:${color}"` : ''}>${esc(label)}</button>`;
+    return `<div class="wc-row"><img class="px" src="${classIcon(c.id)}" alt=""><div class="wc-main"><b>${esc(c.plural)}</b>${cur !== undefined ? `<span>This run: ${esc(M.ULTS[c.id][cur].name)}</span>` : ''}
+      <div class="wc-chips">${chip('0', M.ULTS[c.id][0].name, M.ULTS[c.id][0].color)}${chip('1', M.ULTS[c.id][1].name, M.ULTS[c.id][1].color)}${chip('ask', 'Ask me')}</div></div></div>`;
+  }).join('');
+  return `<h5>Weapon choices</h5><p class="sub small">What each unit type evolves into with the Ultimates switch on. Change it any time: it applies to the next evolution (after your next prestige for types already evolved this run). "Ask me" brings the choice screen back.</p><div class="wc-list">${rows}</div>`;
+}
+/** Re-render Settings without jumping back to the top. */
+function openSettingsKeep() { const card = document.querySelector<HTMLElement>('#modal .modal-card'), y = card?.scrollTop ?? 0; openSettings(); const c2 = document.querySelector<HTMLElement>('#modal .modal-card'); if (c2) c2.scrollTop = y; }
 /** A volume slider row for Settings (0 = off). */
 function vol(which: 'music' | 'sfx', label: string, v: number) {
   return `<label class="vol"><span>${label}</span><input type="range" min="0" max="100" step="5" value="${v}" data-vol="${which}" style="--v:${v}%" aria-label="${label} volume"><output>${v ? `${v}%` : 'Off'}</output></label>`;

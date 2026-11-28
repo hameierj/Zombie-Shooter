@@ -293,7 +293,7 @@ export class Game {
   static readonly AUTO_KEEP = 1;
   /** Auto-buy only saves up for a zombie upgrade that's at most this many seconds of income away. */
   static readonly AUTO_SAVE_SEC = 30;
-  get autoUnlocked() { return !!(this.s.autoEarned ||= this.s.hordes >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
+  get autoUnlocked() { return !!(this.s.autoEarned ||= Math.max(this.s.hordes, this.s.bestHorde ?? 0) >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
   /** Auto-buy opens a switch at a time, by the furthest horde ever beaten: Zombies (Horde 10), Tree (13), Globals (16),
    * Troops (20), Ultimates (25: evolve into the remembered weapon). Kept through prestige. */
   static readonly AUTO_AT = { zombies: 10, tree: 13, globals: 16, units: 20, ults: 25, drums: 30 } as const;
