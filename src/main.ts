@@ -179,5 +179,25 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 // Audio can only start after a tap or key press (required by iOS and other browsers).
 document.addEventListener('pointerdown', unlockAudio, { passive: true });
+document.addEventListener('touchend', unlockAudio, { passive: true });   // iOS counts touchend as the gesture that may start audio
+document.addEventListener('click', unlockAudio);
 document.addEventListener('keydown', unlockAudio);
 document.addEventListener('visibilitychange', () => pauseAudio(document.hidden));
+
+// ---------- updates ----------
+// A tab left open keeps running the version it loaded. When the game comes back on screen (switching back from another
+// app, the moment it's least disruptive), it checks for a newer version and, if there is one, saves and reloads.
+const myBuild = [...document.scripts].map((s) => s.src.split('/').pop() ?? '').find((s) => /^index-.*\.js$/.test(s));
+let lastCheck = Date.now();
+async function newerBuild() {
+  try {
+    const html = await (await fetch(`./index.html?v=${Date.now()}`, { cache: 'no-store' })).text();
+    const live = html.match(/index-[\w-]+\.js/)?.[0];
+    return !!live && !!myBuild && live !== myBuild;
+  } catch { return false; }
+}
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden || !myBuild || Date.now() - lastCheck < 60_000) return;
+  lastCheck = Date.now();
+  if (await newerBuild() && !document.hidden) { log('info', `new version found (was ${myBuild}); reloading`); game.save(); location.reload(); }
+});

@@ -459,3 +459,5 @@ still be spent any time from Hordes tab → Perks. Perks are **permanent and sta
 Balance sim (`PERKS='{"dmg":3,"dna":3,"warchest":1}' node tools/sim.ts 3`): a first run reaches Horde 7 at ~109 min and
 8 hordes in 3 h; after 7 points, Horde 7 at ~68 min and 17 hordes in 3 h; after 30 points, 26 hordes in ~90 min.
 "Erase progress" in Settings wipes prestige too, and returns you to the title screen (NEW GAME).
+
+**Staying healthy on phones.** An error during a battle frame is logged ("Battle frame error (recovered)") and the battle keeps drawing instead of freezing. Sound comes back after switching apps (iPhone Safari leaves audio "interrupted"; the game retries when it's back on screen and on the next tap). A tab left open updates itself: when the game comes back on screen it checks for a newer version (at most once a minute) and, if there is one, saves and reloads.

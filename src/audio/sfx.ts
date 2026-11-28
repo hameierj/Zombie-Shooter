@@ -65,6 +65,7 @@ function init() {
   const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
+  ctx.addEventListener('statechange', () => { if (ctx?.state !== 'running') wake(); });   // interrupted while on screen: try to come back
   master = ctx.createGain(); master.gain.value = 0.55; master.connect(ctx.destination);
   const comp = ctx.createDynamicsCompressor();   // tames stacked gunfire
   comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.15;
@@ -76,11 +77,14 @@ function init() {
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
 
+/** iPhone Safari leaves the context 'interrupted' (not 'suspended') after switching apps or a call, and only lets it
+ * resume from a tap; so anything that isn't 'running' gets a resume attempt. */
+function wake() { if (ctx && ctx.state !== 'running' && !document.hidden) ctx.resume().catch(() => {}); }
 /** Call from the first user gesture: creates/resumes the audio context and starts the music. */
 export function unlockAudio() {
   init();
   if (!ctx) return;
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  wake();
   if (!tracksTried) loadTracks();
 }
 
@@ -116,7 +120,7 @@ export function titleMusic() {
   init();
   if (!ctx) return;
   wantTrack = 'battle';
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  wake();
   if (!tracksTried) loadTracks(); else if (tracks && !playing) playTrack('battle');
 }
 /** Switch the background music (crossfades). Before the tracks load, remembers what to play. */
@@ -141,7 +145,7 @@ function playTrack(id: TrackId, force = false) {
 export function startSting() {
   init();
   if (!ctx) return;
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  wake();
   wantSting = true;
   if (tracks) playSting(); else if (!tracksTried) loadTracks();
 }
@@ -155,7 +159,13 @@ export function setVolume(which: 'music' | 'sfx', v: number) {
   savePrefs();
   if (ctx) { musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.03); sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.03); }
 }
-export function pauseAudio(paused: boolean) { if (ctx) (paused ? ctx.suspend() : ctx.resume()).catch(() => {}); }
+export function pauseAudio(paused: boolean) {
+  if (!ctx) return;
+  if (paused) { ctx.suspend().catch(() => {}); return; }
+  wake();
+  // Safari may refuse to resume until the next tap (unlockAudio handles that); a few tries cover the ones it allows late
+  for (const ms of [300, 1000, 2500]) window.setTimeout(wake, ms);
+}
 
 /** Rate limit: returns false if this sound played less than `gap` seconds ago or too many voices are busy. */
 function gate(key: string, gap: number) {
@@ -360,7 +370,7 @@ function synthBeat() {
 export function partyStart() {
   init();
   if (!ctx) return;
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  wake();
   if (prefs.sfx) airhorn();
   const go = () => {
     if (!ctx) return;
@@ -378,7 +388,7 @@ export function partyStart() {
 export function recordFanfare() {
   init();
   if (!ctx || !prefs.sfx) return;
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  wake();
   airhorn();
   [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, { type: 'square', gain: 0.05, at: 0.75 + i * 0.1 }));
 }
