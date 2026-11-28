@@ -253,7 +253,7 @@ the map (also in Settings → Auto-buy), each on or off on its own: **Zombies** 
 **Global upgrades** (the five colour upgrades and Scavenger) and **Tree** (passive-tree nodes in every open region, taken in
 the tree's own order; they count with troops and globals for keep-up). Once a second it buys the cheapest allowed thing in each
 colour it can afford, repeatedly, holding the squad's keep-up at ×1: whenever keep-up is above ×1 (the squad has spare
-damage), zombie purchases come first in each colour (saving up for one if needed) as long as they leave keep-up at ×1 or
+damage), zombie purchases come first in each colour (saving up for one only if it's within ~30 s of that colour's income; anything further off would stall the run, so the DNA goes to troops, globals and passives meanwhile) as long as they leave keep-up at ×1 or
 more; when the next zombie purchase would drop it below ×1, troops, globals and passives are bought instead. With **Zombies** as the only switch on, there is no keep-up limit: it
 buys the cheapest zombie upgrade in each colour whatever the keep-up (the player's choice). Its evolutions and ultimates show a small notice instead of a pausing card.
 

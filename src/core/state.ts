@@ -282,6 +282,8 @@ export class Game {
   /** The keep-up auto-buy holds: ×1. Whenever the squad has spare damage, zombies get raised first (bringing in more DNA),
    * as long as each purchase leaves keep-up at AUTO_KEEP or more; otherwise troops, globals and passives are bought. */
   static readonly AUTO_KEEP = 1;
+  /** Auto-buy only saves up for a zombie upgrade that's at most this many seconds of income away. */
+  static readonly AUTO_SAVE_SEC = 30;
   get autoUnlocked() { return !!(this.s.autoEarned ||= this.s.hordes >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
   /** Auto-buy opens a switch at a time, by the furthest horde ever beaten: Zombies (Horde 10), Tree (13), Globals (16),
    * Troops (20). Kept through prestige. */
@@ -349,6 +351,7 @@ export class Game {
         for (const n of TREE) { if (!this.canAllocate(n.id)) continue; const col = this.treeColour(n.id); if (seen.has(col)) continue; seen.add(col); opts.push({ col, ln: this.treeCost(n.id), go: () => this.allocate(n.id) }); }
       }
       let any = false;
+      const rates = this.lnDnaPerSec();
       for (const col of M.COLOURS) {
         if (held.has(col)) continue;
         // Keep-up is checked per purchase (an earlier colour's buy this pass may have changed it).
@@ -356,8 +359,12 @@ export class Game {
         // Zombies alone (every other switch off) is the player's call: no keep-up limit, the cheapest zombie buy each time.
         const zs = opts.filter((x) => x.col === col && x.z && (zombiesOnly || (k > Game.AUTO_KEEP && this.keepUp(x.z()) >= Game.AUTO_KEEP))).sort((p, q) => p.ln - q.ln);
         let o: Opt | undefined;
-        if (zs.length) o = zs[0];   // too easy: zombies first; if the cheapest isn't affordable yet, this colour saves up for it
-        else o = opts.filter((x) => x.col === col && !x.z).sort((p, q) => p.ln - q.ln)[0];   // in the band (or below): troops, globals and passives
+        // Too easy: zombies first. If the cheapest one isn't affordable yet, the colour saves up for it, but only when it's
+        // within ~30 s of income; anything further off would stall the run (e.g. a pricey spawn level right after prestige),
+        // so the DNA goes to troops, globals and passives meanwhile, which is what makes the next zombie buy possible.
+        const near = (x: Opt) => this.canAfford(col, x.ln) || x.ln <= M.logAdd(this.dna(col), rates[col] + Math.log(Game.AUTO_SAVE_SEC));
+        if (zs.length && (zombiesOnly || near(zs[0]))) o = zs[0];
+        else o = opts.filter((x) => x.col === col && !x.z).sort((p, q) => p.ln - q.ln)[0] ?? zs[0];   // troops, globals and passives
         if (o && this.canAfford(col, o.ln)) { const before = this.dna(col); o.go(); if (this.dna(col) < before || o.ln === -Infinity) { any = true; bought++; } }
       }
       if (!any) break;
