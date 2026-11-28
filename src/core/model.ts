@@ -642,16 +642,18 @@ export const comboMult = (n: number, extraBonus = 0) => 1 + (C.combo.bonus + ext
 
 // ---------- Prestige: reset a run for points (1 per horde cleared), spend them on permanent perks that stack ----------
 export type PerkId = 'dna' | 'dmg' | 'spd' | 'range' | 'crit' | 'critx' | 'spawn' | 'headstart' | 'warchest' | 'barracks' | 'lucky' | 'gold' | 'combo' | 'bounty' | 'frenzy';
-export interface PerkDef { id: PerkId; name: string; icon: string; max: number; cost: number; desc: (lv: number) => string; apply?: (fx: Fx, lv: number) => void }
+/** `endless` perks have no cap: up to `max` they cost `cost`, past it 1 more point, plus 1 more every 20 levels (so
+ * prestige points always have somewhere to go and the leaderboards can keep being pushed). */
+export interface PerkDef { id: PerkId; name: string; icon: string; max: number; cost: number; endless?: boolean; desc: (lv: number) => string; apply?: (fx: Fx, lv: number) => void }
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const mult = (x: number) => (x >= 100 ? `×${Math.round(x)}` : `×${x.toFixed(x < 10 ? 2 : 1)}`);
 export const PERKS: PerkDef[] = [
-  { id: 'dna', name: 'DNA Surge', icon: 'dna', max: 20, cost: 1, desc: (l) => `${mult(1.25 ** l)} DNA from every kill`, apply: (f, l) => { f.dnaMore = (f.dnaMore ?? 1) * 1.25 ** l; } },
-  { id: 'dmg', name: 'Firepower', icon: 'dmg', max: 30, cost: 1, desc: (l) => `${mult(1.15 ** l)} damage for the whole squad`, apply: (f, l) => { f.more *= 1.15 ** l; } },
-  { id: 'spd', name: 'Trigger Discipline', icon: 'spd', max: 10, cost: 1, desc: (l) => `+${pct(0.05 * l)} attack speed`, apply: (f, l) => { f.spd += 0.05 * l; } },
+  { id: 'dna', name: 'DNA Surge', icon: 'dna', max: 20, cost: 1, endless: true, desc: (l) => `${mult(1.25 ** l)} DNA from every kill`, apply: (f, l) => { f.dnaMore = (f.dnaMore ?? 1) * 1.25 ** l; } },
+  { id: 'dmg', name: 'Firepower', icon: 'dmg', max: 30, cost: 1, endless: true, desc: (l) => `${mult(1.15 ** l)} damage for the whole squad`, apply: (f, l) => { f.more *= 1.15 ** l; } },
+  { id: 'spd', name: 'Trigger Discipline', icon: 'spd', max: 10, cost: 1, endless: true, desc: (l) => `+${pct(0.05 * l)} attack speed`, apply: (f, l) => { f.spd += 0.05 * l; } },
   { id: 'range', name: 'Long Range', icon: 'range', max: 5, cost: 1, desc: (l) => `+${pct(0.02 * l)} range`, apply: (f, l) => { f.range += 0.02 * l; } },
   { id: 'crit', name: 'Deadeye', icon: 'crit', max: 10, cost: 1, desc: (l) => `+${pct(0.02 * l)} crit chance`, apply: (f, l) => { f.crit += 0.02 * l; } },
-  { id: 'critx', name: 'Heavy Hitter', icon: 'critdmg', max: 10, cost: 1, desc: (l) => `+${pct(0.2 * l)} crit damage`, apply: (f, l) => { f.critDmg += 0.2 * l; } },
+  { id: 'critx', name: 'Heavy Hitter', icon: 'critdmg', max: 10, cost: 1, endless: true, desc: (l) => `+${pct(0.2 * l)} crit damage`, apply: (f, l) => { f.critDmg += 0.2 * l; } },
   { id: 'spawn', name: 'Spawn Surge', icon: 'spawn', max: 10, cost: 1, desc: (l) => `+${pct(0.1 * l)} spawn rate on every zombie type` },
   { id: 'headstart', name: 'Head Start', icon: 'dna', max: 5, cost: 1, desc: (l) => (l ? `start each run with ${Math.round(500 * 4 ** l).toLocaleString('en-US')} DNA of every colour` : 'start each run with DNA of every colour') },
   { id: 'warchest', name: 'War Chest', icon: 'dmg', max: 10, cost: 1, desc: (l) => `Damage upgrades ${pct(0.05 * l)} cheaper`, apply: (f, l) => { f.trainDiscount = Math.min(0.6, f.trainDiscount + 0.05 * l); } },
@@ -659,9 +661,16 @@ export const PERKS: PerkDef[] = [
   { id: 'lucky', name: 'Lucky Finds', icon: 'luck', max: 10, cost: 1, desc: (l) => `+${pct(0.15 * l)} item drop chance`, apply: (f, l) => { f.drop += 0.15 * l; } },
   { id: 'gold', name: 'Gold Rush', icon: 'loot', max: 4, cost: 2, desc: (l) => `special zombies ${mult(1 + 0.5 * l)} as common` },
   { id: 'combo', name: 'Combo Master', icon: 'fast', max: 5, cost: 2, desc: (l) => `combo bonus up to ×${(1 + C.combo.bonus + 0.1 * l).toFixed(1)} (from ×${1 + C.combo.bonus})` },
-  { id: 'frenzy', name: 'Frenzy', icon: 'fast', max: 100, cost: 1, desc: (l) => `zombies ${pct(0.05 * l)} faster, ${mult(1.1 ** l)} DNA from every kill`, apply: (f, l) => { f.dnaMore = (f.dnaMore ?? 1) * 1.1 ** l; } },
+  { id: 'frenzy', name: 'Frenzy', icon: 'fast', max: 100, cost: 1, endless: true, desc: (l) => `zombies ${pct(frenzySpeed(l) - 1)} faster, ${mult(1.1 ** l)} DNA from every kill`, apply: (f, l) => { f.dnaMore = (f.dnaMore ?? 1) * 1.1 ** l; } },
   { id: 'bounty', name: 'Bounty Hunter', icon: 'auto', max: 3, cost: 3, desc: (l) => `+${l} extra point${l === 1 ? '' : 's'} for every 5 hordes cleared in a run` },
 ];
+/** Frenzy's zombie speed: +5% a level up to level 100 (×6), then +1% a level, so it keeps climbing without going silly. */
+export const frenzySpeed = (l: number) => 1 + 0.05 * Math.min(l, 100) + 0.01 * Math.max(0, l - 100);
+/** Points to take a perk from level `lv` to `lv + 1`. */
+export const perkCost = (d: PerkDef, lv: number) => (d.endless && lv >= d.max ? d.cost + 1 + Math.floor((lv - d.max) / 20) : d.cost);
+export const perkMaxed = (d: PerkDef, lv: number) => !d.endless && lv >= d.max;
+/** Points for `n` more levels starting at `lv`. */
+export const perkSpend = (d: PerkDef, lv: number, n: number) => { let t = 0; for (let i = 0; i < n; i++) t += perkCost(d, lv + i); return t; };
 export const perkById = (id: PerkId) => PERKS.find((p) => p.id === id)!;
 export interface Prestige { runs: number; points: number; earned: number; perks: Partial<Record<PerkId, number>> }
 export const emptyPrestige = (): Prestige => ({ runs: 0, points: 0, earned: 0, perks: {} });

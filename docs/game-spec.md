@@ -440,12 +440,12 @@ still be spent any time from Hordes tab → Perks. Perks are **permanent and sta
 
 | Perk | Per level | Max | Cost |
 |---|---|---|---|
-| DNA Surge | ×1.25 DNA from every kill | 20 | 1 |
-| Firepower | ×1.15 damage, whole squad | 30 | 1 |
-| Trigger Discipline | +5% attack speed | 10 | 1 |
+| DNA Surge | ×1.25 DNA from every kill | ∞ | 1 (to 20) |
+| Firepower | ×1.15 damage, whole squad | ∞ | 1 (to 30) |
+| Trigger Discipline | +5% attack speed | ∞ | 1 (to 10) |
 | Long Range | +2% range | 5 | 1 |
 | Deadeye | +2% crit chance | 10 | 1 |
-| Heavy Hitter | +20% crit damage | 10 | 1 |
+| Heavy Hitter | +20% crit damage | ∞ | 1 (to 10) |
 | Spawn Surge | +10% spawn rate of every zombie type | 10 | 1 |
 | Head Start | start each run with 500 × 4^level DNA of every colour | 5 | 1 |
 | War Chest | Damage upgrades 5% cheaper | 10 | 1 |
@@ -454,7 +454,13 @@ still be spent any time from Hordes tab → Perks. Perks are **permanent and sta
 | Gold Rush | special zombies +50% as common | 4 | 2 |
 | Combo Master | +0.1 to the combo's top multiplier | 5 | 2 |
 | Bounty Hunter | +1 extra point per 5 hordes cleared in a run | 3 | 3 |
-| Frenzy | zombies +5% faster and ×1.1 DNA from every kill, per level (stacks; a challenge you can keep raising) | 100 | 1 |
+| Frenzy | ×1.1 DNA from every kill, and zombies faster: +5% a level to level 100 (×6), then +1% a level | ∞ | 1 (to 100) |
+
+**Endless perks (∞)** never cap, so prestige points always have somewhere to go and every leaderboard can keep being
+pushed: Firepower, DNA Surge, Trigger Discipline, Heavy Hitter and Frenzy. Up to their old cap (in brackets) they cost
+the normal price; past it, base + 1 point a level, +1 more every 20 levels (Firepower 30–49: ◆2, 50–69: ◆3, …). Drawn
+shots are capped per unit type, so endless attack speed adds damage, not clutter. Sim with endless levels
+(`PERKS='{"dmg":200,"dna":120,"spd":100,"critx":100}'`): Horde 59 inside an hour, still a horde a minute.
 
 Balance sim (`PERKS='{"dmg":3,"dna":3,"warchest":1}' node tools/sim.ts 3`): a first run reaches Horde 7 at ~109 min and
 8 hordes in 3 h; after 7 points, Horde 7 at ~68 min and 17 hordes in 3 h; after 30 points, 26 hordes in ~90 min.

@@ -400,7 +400,7 @@ function act(d: ActionData): boolean {
     case 'prestige': closeModal(); openPrestige(); break;
     case 'perk': game.buyPerk(arg as M.PerkId); openPrestige(); break;
     case 'prestige-go': if (!game.canPrestige) break; closeModal(); picks = {}; openPicker(); break;
-    case 'pick': { const d = M.perkById(arg as M.PerkId), lv = M.plv(game.s.prestige, d.id) + (picks[d.id] ?? 0); if (lv < d.max && pickPoints() >= d.cost) picks[d.id] = (picks[d.id] ?? 0) + 1; openPicker(); break; }
+    case 'pick': { const d = M.perkById(arg as M.PerkId), lv = M.plv(game.s.prestige, d.id) + (picks[d.id] ?? 0); if (!M.perkMaxed(d, lv) && pickPoints() >= M.perkCost(d, lv)) picks[d.id] = (picks[d.id] ?? 0) + 1; openPicker(); break; }
     case 'pick-undo': picks = {}; openPicker(); break;
     case 'pick-minus': { const n = picks[arg as M.PerkId] ?? 0; if (n > 1) picks[arg as M.PerkId] = n - 1; else delete picks[arg as M.PerkId]; openPicker(); break; }
     case 'prestige-yes': { const gain = game.prestigeGain, n = Object.values(picks).reduce((a, b) => a + (b ?? 0), 0); slotWrite('backup', game.exportSave()); closeModal(); game.prestige(picks); picks = {}; tab = null; render();
@@ -481,7 +481,7 @@ function refresh() {
     const badge = b.dataset.arg === 'tree' ? game.allocatableCount() > 0
       : b.dataset.arg === 'squad' ? game.keyUpgradeAffordable
       : b.dataset.arg === 'zombies' ? game.canReleaseAny
-      : b.dataset.arg === 'hordes' ? (showKeep() && game.hordeOdds() >= C.hordeWinOdds) || M.PERKS.some((d) => M.plv(game.s.prestige, d.id) < d.max && game.s.prestige.points >= d.cost) : false;
+      : b.dataset.arg === 'hordes' ? (showKeep() && game.hordeOdds() >= C.hordeWinOdds) || M.PERKS.some((d) => { const l = M.plv(game.s.prestige, d.id); return !M.perkMaxed(d, l) && game.s.prestige.points >= M.perkCost(d, l); }) : false;
     b.classList.toggle('badge', badge);
   }
   for (const b of document.querySelectorAll<HTMLElement>('#zrail [data-action="rail-pick"]')) b.classList.toggle('can', railCan(b.dataset.arg as M.ZombieId));
@@ -914,21 +914,23 @@ function prestigeCard() {
     <p class="sub small">${p.runs ? `Run ${p.runs + 1} · ${p.earned} points earned in total. ` : ''}Reset your run for <b>1 point per horde cleared</b>, then spend points on permanent perks that stack every time.</p>
     <div class="row"><button class="btn grow" data-action="prestige">Perks</button><button class="btn ghost grow" data-action="prestige-go" ${game.canPrestige ? '' : 'disabled'}>${game.canPrestige ? `Prestige now · +${gain}` : `Beat Horde ${Game.PRESTIGE_HORDES} first (${game.s.hordes}/${Game.PRESTIGE_HORDES})`}</button></div></div>`;
 }
+/** "12/30", or for an endless perk "34/∞". */
+const perkLv = (d: M.PerkDef, lv: number) => (d.endless ? `${lv}/<span class="pk-inf" title="No cap">∞</span>` : `${lv}/${d.max}`);
 // The prestige screen: pick perks with your unspent points plus this run's points, THEN reset.
 let picks: Partial<Record<M.PerkId, number>> = {};
-const pickPoints = () => game.s.prestige.points + game.prestigeGain - Object.entries(picks).reduce((a, [id, n]) => a + (n ?? 0) * M.perkById(id as M.PerkId).cost, 0);
+const pickPoints = () => game.s.prestige.points + game.prestigeGain - Object.entries(picks).reduce((a, [id, n]) => { const d = M.perkById(id as M.PerkId); return a + M.perkSpend(d, M.plv(game.s.prestige, d.id), n ?? 0); }, 0);
 function openPicker() {
   const p = game.s.prestige, gain = game.prestigeGain, left = pickPoints(), taken = Object.values(picks).reduce((a, b) => a + (b ?? 0), 0);
   const rows = M.PERKS.map((d) => {
-    const base = M.plv(p, d.id), add = picks[d.id] ?? 0, lv = base + add, maxed = lv >= d.max, can = !maxed && left >= d.cost;
-    return `<div class="perk ${maxed ? 'maxed' : ''} ${add ? 'picked' : ''}"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div class="pk-main"><b>${d.name} <small>${lv}/${d.max}${add ? ` <i>+${add}</i>` : ''}</small></b>
+    const base = M.plv(p, d.id), add = picks[d.id] ?? 0, lv = base + add, maxed = M.perkMaxed(d, lv), cost = M.perkCost(d, lv), can = !maxed && left >= cost;
+    return `<div class="perk ${maxed ? 'maxed' : ''} ${add ? 'picked' : ''}"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div class="pk-main"><b>${d.name} <small>${perkLv(d, lv)}${add ? ` <i>+${add}</i>` : ''}</small></b>
       <span>${lv ? d.desc(lv) : 'Not taken yet'}${maxed ? '' : `<em> → ${d.desc(lv + 1)}</em>`}</span></div>
       <div class="pk-step"><button class="btn sm ghost pk-minus" data-action="pick-minus" data-arg="${d.id}" ${add ? '' : 'disabled'} aria-label="Remove a point from ${d.name}">−</button>
-        ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'} pk-plus" data-action="pick" data-arg="${d.id}" ${can ? '' : 'disabled'} aria-label="Add a point to ${d.name}">+ <small>◆${d.cost}</small></button>`}</div></div>`;
+        ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'} pk-plus" data-action="pick" data-arg="${d.id}" ${can ? '' : 'disabled'} aria-label="Add a point to ${d.name}">+ <small>◆${cost}</small></button>`}</div></div>`;
   }).join('');
   openModalKeepScroll(`<div class="set-head"><h3>Prestige: choose your perks</h3><button class="xbtn" data-action="modal-close" aria-label="Cancel">✕</button></div>
     <div class="pk-top"><span class="pc-pts big">◆ ${left}</span><span class="sub small">to spend: ${p.points ? `${p.points} saved + ` : ''}${gain} from this run (${game.s.hordes} horde${game.s.hordes === 1 ? '' : 's'})</span></div>
-    <p class="sub small">Pick perks first, then reset. Perks are permanent and stack across every run; points you don't spend are kept.</p>
+    <p class="sub small">Pick perks first, then reset. Perks are permanent and stack across every run; points you don't spend are kept. Perks marked ∞ never cap, so there's always more to push for (they cost a little more past their usual cap).</p>
     <div class="perks">${rows}</div>
     <div class="set-sec danger-zone"><h4>Reset</h4>
       <p class="sub small">Zombie tiers and types, units, gear, DNA, the passive tree and hordes reset. You keep your perks, points and play time; this run is copied to the Backup save slot first.</p>
@@ -937,14 +939,14 @@ function openPicker() {
 function openPrestige() {
   const p = game.s.prestige, gain = game.prestigeGain;
   const rows = M.PERKS.map((d) => {
-    const lv = M.plv(p, d.id), maxed = lv >= d.max, can = !maxed && p.points >= d.cost;
-    return `<div class="perk ${maxed ? 'maxed' : ''}"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div class="pk-main"><b>${d.name} <small>${lv}/${d.max}</small></b>
+    const lv = M.plv(p, d.id), maxed = M.perkMaxed(d, lv), cost = M.perkCost(d, lv), can = !maxed && p.points >= cost;
+    return `<div class="perk ${maxed ? 'maxed' : ''}"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div class="pk-main"><b>${d.name} <small>${perkLv(d, lv)}</small></b>
       <span>${lv ? d.desc(lv) : 'Not taken yet'}${maxed ? '' : `<em> → ${d.desc(lv + 1)}</em>`}</span></div>
-      ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'}" data-action="perk" data-arg="${d.id}" ${can ? '' : 'disabled'}>◆ ${d.cost}</button>`}</div>`;
+      ${maxed ? '<span class="pk-max">Max</span>' : `<button class="btn sm ${can ? '' : 'ghost'}" data-action="perk" data-arg="${d.id}" ${can ? '' : 'disabled'}>◆ ${cost}</button>`}</div>`;
   }).join('');
   openModalKeepScroll(`<div class="set-head"><h3>Prestige</h3><button class="xbtn" data-action="modal-close" aria-label="Close">✕</button></div>
     <div class="pk-top"><span class="pc-pts big">◆ ${p.points}</span><span class="sub small">points to spend · ${p.earned} earned over ${p.runs} prestige${p.runs === 1 ? '' : 's'}</span></div>
-    <p class="sub small">Perks are permanent and stack across every run.</p>
+    <p class="sub small">Perks are permanent and stack across every run. Perks marked ∞ never cap (they cost a little more past their usual cap).</p>
     <div class="perks">${rows}</div>
     <div class="set-sec danger-zone"><h4>Prestige now</h4>
       <div class="trow static"><div><b>Reset this run for +${gain} point${gain === 1 ? '' : 's'}</b><span>${game.canPrestige ? `${game.s.hordes} horde${game.s.hordes === 1 ? '' : 's'} cleared this run` : `Opens once this run beats Horde ${Game.PRESTIGE_HORDES} (${game.s.hordes}/${Game.PRESTIGE_HORDES} so far)`}</span></div>

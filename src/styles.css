@@ -1583,3 +1583,5 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
 .rf-btns { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .rf-btns .btn { min-height: 44px; }
 @media (prefers-reduced-motion: reduce) { #rec-flash .pt-confetti i { animation: none; } }
+
+.perk .pk-main span.pk-inf { display: inline; margin: 0; font: inherit; color: #ffd34d; font-weight: 800; }

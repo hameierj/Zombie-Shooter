@@ -178,7 +178,7 @@ export class Game {
   /** Perk effects that aren't part of the squad's modifiers: spawn rate and special-zombie chance. */
   syncLive() {
     M.live.spawnMult = 1 + 0.1 * M.plv(this.s.prestige, 'spawn');
-    M.live.speedMult = 1 + 0.05 * M.plv(this.s.prestige, 'frenzy');
+    M.live.speedMult = M.frenzySpeed(M.plv(this.s.prestige, 'frenzy'));
     M.live.specialMult = 1 + 0.5 * M.plv(this.s.prestige, 'gold');
   }
   dna(c: StrainId) { return this.s.dna[c] ?? -Infinity; }
@@ -790,7 +790,7 @@ export class Game {
     p.runs++; p.points += gain; p.earned += gain;
     for (const [id, n] of Object.entries(picks) as [M.PerkId, number][]) {
       const d = M.perkById(id);
-      for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
+      for (let i = 0; i < n; i++) { const lv = M.plv(p, id), c = M.perkCost(d, lv); if (M.perkMaxed(d, lv) || p.points < c) break; p.points -= c; p.perks[id] = lv + 1; }
     }
     const autoEarned = this.autoUnlocked, auto = this.s.auto, playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, bestHorde = Math.max(this.s.bestHorde ?? 0, this.s.hordes), bestTier = Math.max(this.s.bestTier ?? 0, M.bestTier(this.s.strains)), hordeTimes = this.s.hordeTimes, tracks = this.s.tracks, radio = this.s.radio, ultPicks = this.s.ultPicks, player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
     this.s = freshSave();
@@ -807,8 +807,9 @@ export class Game {
   }
   buyPerk(id: M.PerkId) {
     const d = M.perkById(id), p = this.s.prestige, lv = M.plv(p, id);
-    if (lv >= d.max || p.points < d.cost) return;
-    p.points -= d.cost; p.perks[id] = lv + 1;
+    const c = M.perkCost(d, lv);
+    if (M.perkMaxed(d, lv) || p.points < c) return;
+    p.points -= c; p.perks[id] = lv + 1;
     if (id === 'headstart') this.setDna('shambler', M.logAdd(this.dna('shambler'), Math.log(500 * 4 ** (lv + 1))));   // a taste right away
     this.fxCache = null; this.syncLive();
     this.emit('change');

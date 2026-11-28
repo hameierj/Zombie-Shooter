@@ -276,7 +276,7 @@ function tree() {
 // ---------- 8. prestige ----------
 function prestige() {
   const perks = M.PERKS.map((d) => `<div class="pk"><img class="px" src="${nodeIcon(d.icon)}" alt=""><div><div class="pk-t"><b>${d.name}</b><span class="pk-c">◆ ${d.cost}${d.cost > 1 ? ' per level' : ''}</span></div>
-    <span class="pk-d">Level 1: ${d.desc(1)}</span><span class="pk-d">Max (${d.max}): ${d.desc(d.max)}</span></div></div>`).join('');
+    <span class="pk-d">Level 1: ${d.desc(1)}</span><span class="pk-d">${d.endless ? `No cap. Level ${d.max}: ${d.desc(d.max)}; after that it keeps going (◆${d.cost + 1}+ a level)` : `Max (${d.max}): ${d.desc(d.max)}`}</span></div></div>`).join('');
   return page('Prestige', `
     <h1 class="title"><small>Chapter 8</small>Prestige</h1>
     <div class="shotcol narrow" style="grid-template-columns: 1.7in 1fr">
