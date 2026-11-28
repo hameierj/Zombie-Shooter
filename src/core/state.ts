@@ -23,6 +23,9 @@ export interface SaveData {
   nextUid: number;
   kills: number;
   bossKills?: number;
+  /** Highest horde beaten and highest zombie tier reached in any single run (leaderboard; kept through prestige). */
+  bestHorde?: number;
+  bestTier?: number;
   /** Lifetime DNA earned per colour (ln), and the best combo ever: leaderboard stats, kept through prestige. */
   earnedDna?: Partial<Record<StrainId, number>>;
   bestCombo?: number;
@@ -110,7 +113,8 @@ function migrate(data: { version: number }): SaveData {
   if (s.econ !== 2) out.strains = toEcon2(out.strains);
   out.econ = 2;
   // saves from before the tutorial existed: don't teach the basics to someone well into a run
-  if (out.bossKills === undefined) out.bossKills = out.hordes;   // every horde won so far killed its boss
+  if (out.bossKills === undefined) out.bossKills = out.hordes;
+  out.bestHorde = Math.max(out.bestHorde ?? 0, out.hordes);   // every horde won so far killed its boss
   if (!out.tut && out.kills > 300) out.tut = ['welcome', 'shredder', 'range', 'tier', 'squad', 'combo', ...(out.hordes > 0 ? ['horde', 'colour', 'tree'] : [])];
   // colours are horde rewards: make sure every colour you've earned is out
   for (const [id, k] of Object.entries(M.COLOUR_HORDE) as [M.ZombieId, number][]) if (out.hordes >= k) out.strains[id].unlocked = true;
@@ -610,6 +614,7 @@ export class Game {
     if (k !== this.nextHorde) return;
     const h = M.hordeDef(k);
     this.s.hordes = k;
+    this.s.bestHorde = Math.max(this.s.bestHorde ?? 0, k);
     this.hordeFailOdds = 0;
     // a new colour joins the stream
     for (const [id, hk] of Object.entries(M.COLOUR_HORDE) as [M.ZombieId, number][]) if (hk === k && !this.s.strains[id].unlocked) { this.s.strains[id].unlocked = true; this.emit('release', id); }
@@ -722,9 +727,9 @@ export class Game {
       const d = M.perkById(id);
       for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
     }
-    const autoEarned = this.autoUnlocked, auto = this.s.auto, playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
+    const autoEarned = this.autoUnlocked, auto = this.s.auto, playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, bestHorde = Math.max(this.s.bestHorde ?? 0, this.s.hordes), bestTier = Math.max(this.s.bestTier ?? 0, M.bestTier(this.s.strains)), player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
     this.s = freshSave();
-    this.s.prestige = p; this.s.autoEarned = autoEarned; this.s.auto = auto; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
+    this.s.prestige = p; this.s.autoEarned = autoEarned; this.s.auto = auto; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.bestHorde = bestHorde; this.s.bestTier = bestTier; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
     this.applyHeadStart();
     this.fxCache = null; this.syncLive();
     this.save();

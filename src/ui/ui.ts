@@ -147,7 +147,7 @@ const hordeRunning = () => battlePhase === 'intro' || battlePhase === 'horde';
 let tab: Tab | null = null;
 const TITLES: Record<Tab, string> = { zombies: 'Zombies', squad: 'Squad', tree: 'Passive Tree', hordes: 'Hordes', ranks: 'Leaderboard' };
 /** The Leaderboard tab's current ranking. */
-let rankSort = (() => { try { return localStorage.getItem('zombie-idle-rank-sort') ?? 'hordes'; } catch { return 'hordes'; } })();
+let rankSort = (() => { try { return localStorage.getItem('zombie-idle-rank-sort') ?? 'best_horde'; } catch { return 'best_horde'; } })();
 
 let unitNode: UnitNodeId = 'dmg';
 /** Which tree the Tree tab shows: the global passive web or one unit type's own tree. */
@@ -190,6 +190,7 @@ export function initUI() {
   setInterval(tickNudge, 500);
   setInterval(tickCombo, 100);
   setInterval(() => maybeCommanderScene(!!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !$('#modal').hidden), 1000);
+  seedBests();
   setInterval(() => void syncBoard(), 60_000);
   window.setTimeout(() => void syncBoard(true), 4000);
   setInterval(() => { if (!titleUp() && !overlayUp() && !coachUp() && !document.hidden && game.autoBuyTick()) { soft(); } autoChip(); }, 1000);
@@ -1042,6 +1043,17 @@ function startNewGame(id: string) {
   if (!parkCurrent()) return;
   closeModal(); game.hardReset(); setActive(id); slotWrite(id, game.exportSave()); tab = null; render(); showTitle();
   toast(`<b>New game in ${slotName(id)}</b><span>${a ? `Your other game is kept in ${slotName(a)}` : 'Your other game is kept in Backup'}</span>`, '#5ee38c');
+}
+/** Best horde / highest tier records came after prestige did: fill them in once from every saved copy on this device
+ * (slots and Backup, which holds the game from just before your last prestige). */
+function seedBests() {
+  try { if (localStorage.getItem('zombie-idle-bests-seeded')) return; } catch { return; }
+  for (const id of [...SLOTS, 'backup']) {
+    const sl = slotRead(id); if (!sl) continue;
+    try { const d = Game.decode(sl.code); game.s.bestHorde = Math.max(game.s.bestHorde ?? 0, d.bestHorde ?? 0, d.hordes); game.s.bestTier = Math.max(game.s.bestTier ?? 0, d.bestTier ?? 0, M.bestTier(d.strains)); } catch { /* damaged copy */ }
+  }
+  game.save();
+  try { localStorage.setItem('zombie-idle-bests-seeded', '1'); } catch { /* storage blocked */ }
 }
 /** A yes/no dialog; Cancel goes back to Settings. */
 function confirmBox(title: string, body: string, yes: string, action: string, arg = '', danger = false) {

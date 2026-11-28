@@ -41,10 +41,11 @@ export interface Entry { id: string; name: string; s: Record<string, number> }
 export interface SortDef { key: string; label: string; fmt: (v: number) => string; icon?: string; colour?: string }
 const time = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
 export const SORTS: SortDef[] = [
-  { key: 'hordes', label: 'Hordes', fmt: fmtInt },
+  { key: 'best_horde', label: 'Best horde', fmt: (v) => `Horde ${fmtInt(v)}` },
+  { key: 'hordes', label: 'Total hordes', fmt: fmtInt },
   { key: 'kills', label: 'Kills', fmt: fmtInt },
   { key: 'headshots', label: 'Headshots', fmt: fmtInt },
-  { key: 'tier', label: 'Zombie tier', fmt: fmtInt },
+  { key: 'tier', label: 'Highest tier', fmt: (v) => `Tier ${fmtInt(v)}` },
   { key: 'unit_lv', label: 'Troop level', fmt: (v) => `Lv ${fmtInt(v)}` },
   { key: 'play', label: 'Play time', fmt: time },
   { key: 'combo', label: 'Best combo', fmt: fmtInt },
@@ -61,7 +62,7 @@ export function myEntry(): Entry | null {
   if (!p) return null;
   const s = game.s, owned = Object.values(s.units).filter((u) => u.count > 0);
   const st: Record<string, number> = {
-    hordes: s.hordes + (s.prestige?.earned ?? 0), kills: s.kills, bosses: s.bossKills ?? 0, headshots: s.headshots ?? 0, tier: M.bestTier(s.strains),
+    hordes: s.hordes + (s.prestige?.earned ?? 0), kills: s.kills, bosses: s.bossKills ?? 0, headshots: s.headshots ?? 0, tier: (s.bestTier = Math.max(s.bestTier ?? 0, M.bestTier(s.strains))), best_horde: (s.bestHorde = Math.max(s.bestHorde ?? 0, s.hordes)),
     unit_lv: Math.max(0, ...owned.map((u) => M.nlv(u, 'dmg'))), play: Math.floor(s.playSec ?? 0), combo: s.bestCombo ?? 0,
     ults: owned.filter((u) => u.evo !== undefined).length + Object.values(s.strains).filter((z) => z.ult).length,
     mastery: MASTERY.filter((_, i) => regionComplete(s.alloc, i)).length, soldiers: owned.reduce((a, u) => a + u.count, 0), runs: s.prestige?.runs ?? 0,

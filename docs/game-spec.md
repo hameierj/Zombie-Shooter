@@ -239,7 +239,7 @@ through prestige); the ✎ button on the leaderboard changes it. The **Leaderboa
 by hordes beaten (lifetime), then best tier, then kills, and shows bosses killed and prestige runs. The name can be changed **once per lifetime** from Settings → Commander (the leaderboard only shows it). After the
 first naming the player closes HQ's sign-off themselves, then a faint line drifts over the map: "You feel an eerie,
 unknown presence watching you… watching… always watching…". The board is online (Supabase: `docs/leaderboard.sql`, then `docs/leaderboard-v2.sql` for the stats). It has its own
-**Ranks** tab (Leaderboard page): chips rank the top 50 by hordes (lifetime), kills, headshots, zombie tier, troop level
+**Ranks** tab (Leaderboard page): chips rank the top 50 by best horde (the highest horde beaten in any single run; the default), total hordes (lifetime), kills, headshots, highest tier (the highest zombie tier reached in any single run), troop level
 (highest Damage level), play time, best combo, ultimate forms, masteries, soldiers, prestiges, or lifetime DNA earned in
 each colour. Your row is highlighted, with your rank (or "outside the top 50"). Stats are sent at most once a minute
 through `submit_stats` (own row only, via a per-device secret; sanity-checked; 20 s rate limit). The Hordes tab keeps
