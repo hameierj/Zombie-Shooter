@@ -120,8 +120,15 @@ When every upgrade of a unit type except Damage is maxed (Speed, Range, Crit, Cr
 slots), it can take an **ultimate form**: a choice of two tracks, permanent for the run. Both multiply its DPS by **×2**
 (fire rate × damage per shot = 2) and Damage ranks keep scaling it; they differ in play style. The fee is 2× everything
 those maxed upgrades cost together, in the unit's colour. An Evolve button appears on the unit card and its rail pop-over
-(cards show progress toward it before that), a prompt pops up when it's affordable, and choosing opens a side-by-side pick,
-then a reveal card; the soldiers flare up, carry the new gun art and glow in the track's colour.
+(cards show progress toward it before that).
+
+**Evolutions are mandatory.** As soon as one is ready and affordable (and no horde, tutorial tip, dialog or other pop-up
+is up), a full-screen **evolution scene** takes over and the game pauses (battle, auto-buy, play timer). Recruits must
+pick one of their two tracks (there is no close button), then the old weapon charges up, shakes, flashes white and bursts
+into the new one with rays, sparks and a charge-and-blast sound. Zombies evolve on their own (a new form joining the
+stream, or the ultimate form) with the same transformation scene. Auto-buy saves any DNA colour a ready evolution is
+waiting on, so it can't be starved. After a unit evolves, its soldiers flare up, carry the new gun art and glow in the
+track's colour.
 
 | Unit | Track 1 | Track 2 |
 |---|---|---|

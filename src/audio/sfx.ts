@@ -261,3 +261,17 @@ export function unlock(step = 0) {
 }
 /** Soft click for turning to the next card. */
 export function nextCard() { if (gate('ncard', 0.08)) { tone(880, 0.05, { type: 'triangle', gain: 0.06 }); tone(1320, 0.07, { type: 'triangle', gain: 0.05, at: 0.04 }); } }
+/** Evolution scene: a rising charge-up hum (1.5 s) ... */
+export function evolveCharge() {
+  if (!gate('evoc', 0.5)) return;
+  tone(110, 1.5, { type: 'sawtooth', to: 880, gain: 0.05 });
+  tone(220, 1.5, { type: 'square', to: 1760, gain: 0.025 });
+  hiss(1.5, { type: 'bandpass', freq: 400, sweepTo: 5000, q: 2, gain: 0.08 });
+}
+/** ... then the blast as the new form appears. */
+export function evolveBlast() {
+  if (!gate('evob', 0.5)) return;
+  hiss(0.9, { freq: 1800, sweepTo: 120, gain: 0.35 });
+  tone(70, 0.7, { type: 'sine', to: 35, gain: 0.25 });
+  [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.35, { type: 'triangle', gain: 0.05, at: 0.08 + i * 0.06 }));
+}

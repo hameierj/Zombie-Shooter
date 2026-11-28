@@ -2,7 +2,8 @@
 // per unit type (its own upgrade tree, gear and ability), the pan/zoom passive tree, toasts and modals.
 // Clicks go through one delegated listener using data-action attributes, so re-rendering never loses a tap on iOS.
 import { showTitle } from './title.ts';
-import { biohazard, evolveCard, hordeCards, overlayUp, showCards, ultCard, zombieUltCard } from './unlocks.ts';
+import { biohazard, hordeCards, overlayUp, showCards } from './unlocks.ts';
+import { evoUp, playEvolution } from './evolve.ts';
 import { coachUp } from './tutorial.ts';
 import { canRename, commanderScene, getPlayer, leaderboardHtml, leaderboardPageHtml, maybeCommanderScene, syncBoard } from './leader.ts';
 import { titleUp } from './title.ts';
@@ -177,9 +178,9 @@ export function initUI() {
     }
     if (evt === 'stuck') offerRollBack();
     if (evt === 'horde-lost') toast('<b>The horde was too strong</b><span>Upgrade your units and try again.</span>', '#ff6b6b');
-    if (evt === 'release' && !M.COLOUR_HORDE[data as M.ZombieId]) { if (game.autoBuying) toast(`<b>Auto-buy: ${esc(M.strainById(data as M.ZombieId).plural)} evolved</b><span>A new form joins the stream.</span>`, M.strainById(data as M.ZombieId).color); else showCards([evolveCard(data as M.ZombieId)]); }   // new colours get their card with the horde's
-    if (evt === 'zombie-ult') { if (game.autoBuying) toast(`<b>Auto-buy: Ultimate ${esc(M.strainById(data as M.ZombieId).name)}</b><span>×${C.zUltDna} DNA and ×${C.zUltHp} HP.</span>`, M.strainById(data as M.ZombieId).color); else showCards([zombieUltCard(data as M.ZombieId)]); }
-    if (evt === 'unit-evolve') showCards([ultCard(data as ClassId, game.unit(data as ClassId).evo ?? 0)]);
+    // every evolution gets its full-screen scene (new colours get their card with the horde's; a unit's scene is already up)
+    if (evt === 'release' && !M.COLOUR_HORDE[data as M.ZombieId]) { closeModal(); playEvolution({ kind: 'release', id: data as M.ZombieId }); }
+    if (evt === 'zombie-ult') { closeModal(); playEvolution({ kind: 'zult', id: data as M.ZombieId }); }
     if (evt === 'phase') battlePhase = data as string;
     if (evt === 'horde-start') battlePhase = 'intro';
     if (['change', 'reset', 'hire', 'allocate', 'release', 'horde-won', 'horde-lost', 'phase', 'horde-start', 'unit-evolve', 'zombie-ult'].includes(evt)) soft();
@@ -192,6 +193,7 @@ export function initUI() {
   setInterval(() => maybeCommanderScene(!!tab || overlayUp() || coachUp() || titleUp() || hordeRunning() || !$('#modal').hidden), 1000);
   seedBests();
   setInterval(() => void syncBoard(), 60_000);
+  setInterval(forceEvolutions, 1000);
   window.setTimeout(() => void syncBoard(true), 4000);
   setInterval(() => { if (!titleUp() && !overlayUp() && !coachUp() && !document.hidden && game.autoBuyTick()) { soft(); } autoChip(); }, 1000);
   fpsMeter();
@@ -716,9 +718,20 @@ function ultTraits(f: M.UltFx) {
   if (f.slow) t.push(`${Math.round(f.slow * 100)}% slow`);
   return t;
 }
+/** Evolutions are mandatory: once one is ready and affordable it happens (zombies) or its scene opens (recruits, who must
+ * pick a track). Waits for the title screen, tutorial tips, other pop-ups, open dialogs and a running horde. */
+function forceEvolutions() {
+  if (titleUp() || overlayUp() || coachUp() || hordeRunning() || !$('#modal').hidden || document.hidden || evoUp()) return;
+  for (const c of M.CLASSES) if (game.canEvolveUnit(c.id)) { closeModal(); playEvolution({ kind: 'unit', cls: c.id }); return; }
+  for (const z of M.ZOMBIE_IDS) {
+    if (game.canZombieUlt(z)) { game.zombieUlt(z); return; }
+    if (game.canRelease(z)) { game.release(z); return; }
+  }
+}
 function openUlt(c: ClassId) {
   const cd = M.classById(c), u = game.unit(c);
   if (u.evo !== undefined || !M.ultReady(u)) return;
+  if (game.canEvolveUnit(c)) { closeModal(); playEvolution({ kind: 'unit', cls: c }); return; }   // affordable: straight to the scene
   const ln = game.ultCost(c), col = cd.primary, ok = game.canAfford(col, ln);
   const cards = M.ULTS[c].map((d, i) => `<div class="ult-card" style="--uc:${d.color}">
       <div class="ult-art"><img class="px" src="${gunIcon(c, i as 0 | 1)}" alt=""></div>

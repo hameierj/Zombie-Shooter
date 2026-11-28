@@ -319,8 +319,16 @@ export class Game {
         for (const c of M.COLOURS) if (M.globalOpen(this.s.strains, c) && !this.globalMaxed(c)) opts.push({ col: c, ln: this.globalCost(c), go: () => this.buyGlobal(c, 1) });
         if (this.canBuyScavenger()) { const l = this.scavengerLevel(); opts.push({ col: 'shambler', ln: M.lnScavengerCost('shambler', l), go: () => this.buyScavenger() }); }
       }
+      // Evolutions are mandatory and happen on their own (see the UI); a colour one of them is waiting on is saved for it.
+      const held = new Set<M.ColourId>();
+      for (const c of M.CLASSES) if (this.ultReady(c.id)) held.add(c.primary);
+      for (const z of M.ZOMBIE_IDS) {
+        if (M.zombieUltReady(this.s.strains[z])) held.add(M.familyOf(z));
+        const u = M.strainById(z).unlock; if (u && this.releaseReady(z) && !this.s.strains[z].unlocked) held.add(M.familyOf(u.from));
+      }
       let any = false;
       for (const col of M.COLOURS) {
+        if (held.has(col)) continue;
         // Keep-up is checked per purchase (an earlier colour's buy this pass may have changed it).
         const k = this.keepUp();
         const zs = opts.filter((x) => x.col === col && x.z && k > Game.AUTO_HI && this.keepUp(x.z()) >= Game.AUTO_LO).sort((p, q) => p.ln - q.ln);

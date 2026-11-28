@@ -7,6 +7,7 @@ import { REGIONS, treeNode } from '../core/tree.ts';
 import { classIcon, crateIcon, gunIcon, vialIcon, zombieIcon } from '../game/art.ts';
 import * as sfx from '../audio/sfx.ts';
 import { cutsceneUp } from './leader.ts';
+import { evoUp } from './evolve.ts';
 
 export interface Card { eyebrow: string; title: string; body: string; icon: string; color: string; extra?: string; bio?: boolean }
 /** An animated biohazard symbol (inline SVG, coloured by currentColor). */
@@ -23,7 +24,7 @@ let autoT = 0;
 let up = false;
 /** The ultimate-form picker is open: the battle and auto-buy wait, so no DNA is earned or spent while you choose. */
 const ultPickerUp = () => { const m = document.getElementById('modal'); return !!m && !m.hidden && !!m.querySelector('.ult-pick'); };
-export const overlayUp = () => up || cutsceneUp() || ultPickerUp();
+export const overlayUp = () => up || cutsceneUp() || ultPickerUp() || evoUp();
 const queue: Card[] = [];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
