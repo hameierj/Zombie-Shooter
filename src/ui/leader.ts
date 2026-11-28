@@ -313,7 +313,7 @@ export function commanderScene(rename = false) {
 
 /** Soundtracks HQ hands over (once each, mandatory) as the hordes fall. */
 /** HQ's radio check-ins: mixtapes (a tape to take) and plain talks (`talk`: just lines, then a closing button). */
-const TRACK_SCENES: { id: sfx.SoundtrackId | 'auto' | 'auto_tree' | 'auto_globals' | 'auto_units' | 'auto_ults'; horde: number; tape?: string; forced?: boolean; talk?: string; auto?: 'zombies' | 'tree' | 'globals' | 'units' | 'ults'; lines: (name: string) => string[] }[] = [
+const TRACK_SCENES: { id: sfx.SoundtrackId | 'auto' | 'auto_tree' | 'auto_globals' | 'auto_units' | 'auto_ults' | 'drums'; horde: number; tape?: string; forced?: boolean; talk?: string; auto?: 'zombies' | 'tree' | 'globals' | 'units' | 'ults' | 'drums'; lines: (name: string) => string[] }[] = [
   { id: 'iron', horde: 3, tape: 'IRON MANDIBLE', forced: true, lines: (name) => ['*kssht* HQ again. Three hordes down, Commander ' + name + '. Impressive. But I have to ask you something.',
     'What is that... noise? Are you mowing down the undead to ELEVATOR MUSIC?',
     'Blowing zombies apart to lobby jazz, calm as a dentist\'s waiting room. That\'s psychopath behaviour. The squad has filed a formal complaint. Kevin is crying.',
@@ -352,6 +352,11 @@ const TRACK_SCENES: { id: sfx.SoundtrackId | 'auto' | 'auto_tree' | 'auto_global
     'So, new switch: ULTIMATES. The squad remembers the weapon you picked for each unit, and the moment they\'re ready again, they just grab it. No menu. No staring.',
     'A unit type you\'ve never evolved still asks you once. After that it\'s muscle memory. Kevin\'s muscle memory is mostly flinching.',
     'I\'ve already flipped it on for you. Now go shave seconds off that leaderboard. HQ out.'] },
+  { id: 'drums', horde: 30, auto: 'drums', talk: 'Bang the drums ›', lines: (name) => ['*kssht* HQ. Horde THIRTY. ' + name + ', the zombies have a group chat about you now. It\'s mostly screaming.',
+    'Every prestige you march back to the tree and buy War Drums first. Same node. Every run. Like brushing your teeth, but louder.',
+    'So the squad chipped in. From now on War Drums comes pre-installed at the start of every run. Free. Already on the tree. Doesn\'t even bump your prices.',
+    'Hordes start themselves the second you can win them. Kevin is on drums. Kevin cannot play drums. It\'s fine. It\'s mostly just hitting things.',
+    'Thirty hordes, Commander. The leaderboard is starting to look nervous. HQ out.'] },
 ];
 /** Once the matching horde is beaten (and the player has a name), HQ's next mixtape scene plays. */
 export function maybeSoundtrackScene(blocked: boolean) {
@@ -383,7 +388,7 @@ function soundtrackScene(t: typeof TRACK_SCENES[number]) {
   const before = sfx.savedSoundtrack(), musicWas = sfx.soundPrefs().music;
   let previewing = false;
   const finish = (swap: boolean) => {
-    if (t.talk) { game.s.radio = [...new Set([...(game.s.radio ?? []), t.id])]; if (t.id === 'auto_ults') game.autoCfg.ults = true; game.save(); }
+    if (t.talk) { game.s.radio = [...new Set([...(game.s.radio ?? []), t.id])]; if (t.id === 'auto_ults') game.autoCfg.ults = true; if (t.id === 'drums') game.grantDrums(); game.save(); }
     else if (swap) { if (!sfx.soundPrefs().music) sfx.setMusic(true); sfx.setSoundtrack(t.id as sfx.SoundtrackId); }
     else { sfx.setSoundtrack(before); if (!musicWas && sfx.soundPrefs().music) sfx.setMusic(false); }   // back to what was playing
     el.classList.add('cs-bye'); window.setTimeout(() => { el.remove(); up = false; game.emit('change'); }, 250);

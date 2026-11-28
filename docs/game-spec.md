@@ -264,7 +264,9 @@ mandatory radio scene: **Zombies** at Horde 10 ("this is where the meat grinder 
 **Tree** at 13, **Globals** at 16, **Troops** at 20, and **Ultimates** at 25 (HQ: "competitive people don't stare, they
 pre-decide"; switched on for you): the weapon you chose for each unit type is remembered (kept through prestige; units
 already evolved count), and a unit that's ready and affordable evolves straight into it with a short notice instead of
-the choice screen. A type you've never evolved still asks once. The unlocked **AUTO** switches sit in the top-left of
+the choice screen. A type you've never evolved still asks once. At **Horde 30** HQ installs **War Drums** for good ("Kevin is on drums. Kevin cannot play drums."):
+from then on it comes pre-bought on the passive tree, free, at the start of every run (it doesn't raise Basic Training's
+prices, and still counts towards its mastery), so hordes start themselves from the first minute. The unlocked **AUTO** switches sit in the top-left of
 the map (also in Settings → Auto-buy), each on or off on its own: **Zombies** (tiers, spawn, evolutions, zombie ultimates), **Troops** (hires and every upgrade; unit ultimate forms stay the player's choice)
 **Global upgrades** (the five colour upgrades and Scavenger) and **Tree** (passive-tree nodes in every open region, taken in
 the tree's own order; they count with troops and globals for keep-up). Once a second it buys the cheapest allowed thing in each

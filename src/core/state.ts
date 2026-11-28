@@ -32,6 +32,8 @@ export interface SaveData {
   tracks?: string[];
   /** HQ radio talks already heard (kept through prestige). */
   radio?: string[];
+  /** Passives given free this run (War Drums from Horde 30 on): they don't raise their region's prices. */
+  freeAlloc?: string[];
   hordeTimes?: Record<number, number>;
   bestTier?: number;
   /** Lifetime DNA earned per colour (ln), and the best combo ever: leaderboard stats, kept through prestige. */
@@ -291,7 +293,10 @@ export class Game {
   get autoUnlocked() { return !!(this.s.autoEarned ||= this.s.hordes >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
   /** Auto-buy opens a switch at a time, by the furthest horde ever beaten: Zombies (Horde 10), Tree (13), Globals (16),
    * Troops (20), Ultimates (25: evolve into the remembered weapon). Kept through prestige. */
-  static readonly AUTO_AT = { zombies: 10, tree: 13, globals: 16, units: 20, ults: 25 } as const;
+  static readonly AUTO_AT = { zombies: 10, tree: 13, globals: 16, units: 20, ults: 25, drums: 30 } as const;
+  /** From Horde 30 on (any run), War Drums comes pre-bought on the tree, free, at the start of every run. */
+  static readonly DRUMS = 'r0.na';
+  grantDrums() { if (!this.autoOpen('drums') || this.s.alloc.includes(Game.DRUMS)) return false; this.s.alloc.push(Game.DRUMS); (this.s.freeAlloc ??= []).push(Game.DRUMS); this.emit('allocate', Game.DRUMS); this.emit('change'); return true; }
   autoOpen(k: keyof typeof Game.AUTO_AT) { return k === 'zombies' ? this.autoUnlocked : Math.max(this.s.hordes, this.s.bestHorde ?? 0) >= Game.AUTO_AT[k]; }
   get autoCfg() {
     const a = (this.s.auto ??= { zombies: false, units: false, globals: false, tree: false });
@@ -686,7 +691,7 @@ export class Game {
 
   // ---------- passive tree ----------
   /** Passives already taken in a region (each region prices its own passives). */
-  regionAlloc(region: number) { return this.s.alloc.filter((a) => treeNode(a)?.region === region).length; }
+  regionAlloc(region: number) { return this.s.alloc.filter((a) => treeNode(a)?.region === region && !this.s.freeAlloc?.includes(a)).length; }
   treeCost(id: string) { const n = treeNode(id); return n && n.region >= 0 ? M.lnTreeCost(this.regionAlloc(n.region), REGIONS[n.region]) : M.lnTreeCost(0); }
   treeColour(id: string): StrainId { const n = treeNode(id); return n && n.region >= 0 ? REGIONS[n.region].dna : 'shambler'; }
   regionOpen(region: number) { return region < 0 || REGIONS[region].horde <= this.s.hordes; }
@@ -788,6 +793,7 @@ export class Game {
     this.s = freshSave();
     this.s.prestige = p; this.s.autoEarned = autoEarned; this.s.auto = auto; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.bestHorde = bestHorde; this.s.bestTier = bestTier; this.s.hordeTimes = hordeTimes; this.s.tracks = tracks; this.s.radio = radio; this.s.ultPicks = ultPicks; this.s.runStart = playSec; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
     this.applyHeadStart();
+    if (this.autoOpen('drums')) { this.s.alloc = [Game.DRUMS]; this.s.freeAlloc = [Game.DRUMS]; }   // War Drums, pre-installed
     this.fxCache = null; this.syncLive();
     this.save();
     this.emit('reset'); this.emit('prestige', gain); this.emit('change');
