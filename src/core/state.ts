@@ -30,7 +30,8 @@ export interface SaveData {
   /** The commander's name for the leaderboard (chosen in the cutscene after Horde 1). */
   player?: { id: string; name: string; secret?: string };
   /** Auto-buy (free after Horde 10): each category is switched on or off on its own, from the map. */
-  auto?: { on?: boolean; zombies: boolean; units: boolean; globals: boolean };                 // bosses killed (kept through prestige, like kills)
+  auto?: { on?: boolean; zombies: boolean; units: boolean; globals: boolean };
+  autoEarned?: boolean;   // auto-buy unlocked for good                 // bosses killed (kept through prestige, like kills)
   newItems: number[];
   lastSeen: number;
   /** Total time actually played (seconds, only while the app is open and visible). */
@@ -265,7 +266,8 @@ export class Game {
   static readonly AUTO_HORDE = 10;
   /** Keep-up the auto-buyer keeps when raising zombies, so it never overruns the squad. */
   static readonly AUTO_KEEP = 1.3;
-  get autoUnlocked() { return this.s.hordes >= Game.AUTO_HORDE; }
+  /** Earned once (Horde 10 in any run, or 10+ prestige points earned before this rule) and kept through prestige. */
+  get autoUnlocked() { return !!(this.s.autoEarned ||= this.s.hordes >= Game.AUTO_HORDE || (this.s.prestige?.earned ?? 0) >= Game.AUTO_HORDE); }
   get autoCfg() {
     const a = (this.s.auto ??= { zombies: false, units: false, globals: false });
     if (a.on !== undefined) { if (!a.on) { a.zombies = a.units = a.globals = false; } delete a.on; }   // older saves had one master switch
@@ -720,9 +722,9 @@ export class Game {
       const d = M.perkById(id);
       for (let i = 0; i < n; i++) { const lv = M.plv(p, id); if (lv >= d.max || p.points < d.cost) break; p.points -= d.cost; p.perks[id] = lv + 1; }
     }
-    const playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
+    const autoEarned = this.autoUnlocked, auto = this.s.auto, playSec = this.s.playSec, tut = this.s.tut, kills = this.s.kills, bossKills = this.s.bossKills, player = this.s.player, earnedDna = this.s.earnedDna, bestCombo = this.s.bestCombo, headshots = this.s.headshots;
     this.s = freshSave();
-    this.s.prestige = p; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
+    this.s.prestige = p; this.s.autoEarned = autoEarned; this.s.auto = auto; this.s.playSec = playSec; this.s.tut = tut; this.s.kills = kills; this.s.bossKills = bossKills; this.s.player = player; this.s.earnedDna = earnedDna; this.s.bestCombo = bestCombo; this.s.headshots = headshots;
     this.applyHeadStart();
     this.fxCache = null; this.syncLive();
     this.save();
