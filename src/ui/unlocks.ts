@@ -21,7 +21,9 @@ export function biohazard(cls = 'bio') {
 const AUTO_MS = 10_000;
 let autoT = 0;
 let up = false;
-export const overlayUp = () => up || cutsceneUp();
+/** The ultimate-form picker is open: the battle and auto-buy wait, so no DNA is earned or spent while you choose. */
+const ultPickerUp = () => { const m = document.getElementById('modal'); return !!m && !m.hidden && !!m.querySelector('.ult-pick'); };
+export const overlayUp = () => up || cutsceneUp() || ultPickerUp();
 const queue: Card[] = [];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
