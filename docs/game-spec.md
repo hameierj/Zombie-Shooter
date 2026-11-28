@@ -327,7 +327,7 @@ Gear, Ability), or just Hire for a type you haven't hired. Rail buttons always b
 icon means one of its upgrades is affordable. The list scrolls, and the rail hides while a menu is open.
 
 ## 11. Settings and saves
-Settings is one screen in three sections. **Sound & display**: on/off switches for sound effects, music, range lines and
+Settings is one screen in three sections. **Sound & display**: volume sliders for music and sound effects (0–100%, 0 = off; default 80%; music mixed well above gunfire, which runs through a compressor), range lines and
 difficulty meters. **Saves**: the current game (with when it was last saved), three slots and an automatic **Backup**,
 shown inline. Each slot holds its own game and the current game lives in one of them (marked **▶ Playing**). **＋ Start a
 new game** starts a fresh game straight away in the first empty slot; the game you leave stays in its slot. *New* on a

@@ -163,6 +163,15 @@ let softTimer = 0;
 // ---------- init ----------
 export function initUI() {
   document.addEventListener('click', onClick);
+  // volume sliders: applied live while dragging (no redraw, so the drag isn't interrupted)
+  document.addEventListener('input', (e) => {
+    const el = e.target as HTMLInputElement;
+    if (!el.dataset?.vol) return;
+    sfx.setVolume(el.dataset.vol as 'music' | 'sfx', Number(el.value));
+    const out = el.parentElement?.querySelector('output'); if (out) out.textContent = el.value === '0' ? 'Off' : `${el.value}%`;
+    el.style.setProperty('--v', `${el.value}%`);
+  });
+  document.addEventListener('change', (e) => { const el = e.target as HTMLInputElement; if (el.dataset?.vol === 'sfx') sfx.buy(); });   // a sample at the new level
   document.addEventListener('pointerdown', (e) => { lastPointer = performance.now(); pointerDown++; if (railPick && !(e.target as Element).closest?.('#zrail')) { railPick = null; railRender(); } if (urailPick && !(e.target as Element).closest?.('#zrail')) { urailPick = null; urailRender(); } }, { passive: true, capture: true });
   const release = () => { lastPointer = performance.now(); pointerDown = Math.max(0, pointerDown - 1); };
   document.addEventListener('pointerup', release, { passive: true });
@@ -966,8 +975,8 @@ function openSettings() {
   const m = Game.summary(game.s);
   openModal(`<div class="set-head"><h3>Settings</h3><button class="xbtn" data-action="modal-close" aria-label="Close">✕</button></div>
     <section class="set-sec"><h4>Sound &amp; display</h4>
-      ${sw('sound-sfx', 'Sound effects', 'Shots, hits and alerts', snd.sfx)}
-      ${sw('sound-music', 'Music', 'Background soundtrack', snd.music)}
+      ${vol('music', 'Music', snd.music ? snd.musicVol : 0)}
+      ${vol('sfx', 'Sound effects', snd.sfx ? snd.sfxVol : 0)}
       ${(() => { const have = sfx.SOUNDTRACKS.filter((t) => t.id === 'classic' || game.s.tracks?.includes(t.id)); const cur = sfx.currentSoundtrack();
         return have.length > 1 ? `<h5>Soundtrack</h5><div class="st-pick">${have.map((t) => `<button class="trow ${t.id === cur ? 'on' : ''}" data-action="soundtrack" data-arg="${t.id}"><div><b>${esc(t.name)}</b><span>${esc(t.by)}</span></div><i class="st-dot"></i></button>`).join('')}</div>`
           : '<p class="sub small">🔒 More soundtracks are out there. Keep beating hordes.</p>'; })()}
@@ -1093,6 +1102,10 @@ function seedBests() {
   }
   game.save();
   try { localStorage.setItem('zombie-idle-bests-seeded', '1'); } catch { /* storage blocked */ }
+}
+/** A volume slider row for Settings (0 = off). */
+function vol(which: 'music' | 'sfx', label: string, v: number) {
+  return `<label class="vol"><span>${label}</span><input type="range" min="0" max="100" step="5" value="${v}" data-vol="${which}" style="--v:${v}%" aria-label="${label} volume"><output>${v ? `${v}%` : 'Off'}</output></label>`;
 }
 /** A yes/no dialog; Cancel goes back to Settings. */
 function confirmBox(title: string, body: string, yes: string, action: string, arg = '', danger = false) {

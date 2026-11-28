@@ -40,14 +40,19 @@ export function setSoundtrack(id: SoundtrackId, save = true) {
 }
 
 const PREFS_KEY = 'zombie-idle-sound';
-type Prefs = { sfx: boolean; music: boolean };
+type Prefs = { sfx: boolean; music: boolean; musicVol: number; sfxVol: number };
 
 let ctx: AudioContext | null = null;
 let master: GainNode;
 let sfxBus: GainNode;
 let musicBus: GainNode;
 let noise: AudioBuffer;
-let prefs: Prefs = { sfx: true, music: true };
+let prefs: Prefs = { sfx: true, music: true, musicVol: 80, sfxVol: 80 };
+// Levels (at the default 80% sliders): music sits well above the old mix and gunfire a little below it, and the effects
+// run through a compressor so a big firefight can't bury the soundtrack. Sliders are 0–100, applied on a curve (v²).
+const MUSIC_BASE = 1.0, SFX_BASE = 1.05;
+const musicGain = () => (prefs.music ? MUSIC_BASE * (prefs.musicVol / 100) ** 2 : 0);
+const sfxGain = () => (prefs.sfx ? SFX_BASE * (prefs.sfxVol / 100) ** 2 : 0);
 const last = new Map<string, number>();
 let voices = 0;
 
@@ -60,8 +65,11 @@ function init() {
   if (!AC) return;
   ctx = new AC();
   master = ctx.createGain(); master.gain.value = 0.55; master.connect(ctx.destination);
-  sfxBus = ctx.createGain(); sfxBus.gain.value = prefs.sfx ? 1 : 0; sfxBus.connect(master);
-  musicBus = ctx.createGain(); musicBus.gain.value = prefs.music ? 0.32 : 0; musicBus.connect(master);
+  const comp = ctx.createDynamicsCompressor();   // tames stacked gunfire
+  comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.15;
+  comp.connect(master);
+  sfxBus = ctx.createGain(); sfxBus.gain.value = sfxGain(); sfxBus.connect(comp);
+  musicBus = ctx.createGain(); musicBus.gain.value = musicGain(); musicBus.connect(master);
   noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noise.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -137,8 +145,15 @@ export function startSting() {
   if (tracks) playSting(); else if (!tracksTried) loadTracks();
 }
 export const soundPrefs = () => ({ ...prefs });
-export function setSfx(on: boolean) { prefs.sfx = on; savePrefs(); if (ctx) sfxBus.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.02); }
-export function setMusic(on: boolean) { prefs.music = on; savePrefs(); if (ctx) musicBus.gain.setTargetAtTime(on ? 0.32 : 0, ctx.currentTime, 0.05); }
+export function setSfx(on: boolean) { prefs.sfx = on; if (on && !prefs.sfxVol) prefs.sfxVol = 80; savePrefs(); if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.02); }
+export function setMusic(on: boolean) { prefs.music = on; if (on && !prefs.musicVol) prefs.musicVol = 80; savePrefs(); if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05); }
+/** Volume sliders (0–100). Dragging to 0 is the same as switching that sound off; raising it from 0 switches it back on. */
+export function setVolume(which: 'music' | 'sfx', v: number) {
+  v = Math.max(0, Math.min(100, Math.round(v)));
+  if (which === 'music') { prefs.musicVol = v; prefs.music = v > 0; } else { prefs.sfxVol = v; prefs.sfx = v > 0; }
+  savePrefs();
+  if (ctx) { musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.03); sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.03); }
+}
 export function pauseAudio(paused: boolean) { if (ctx) (paused ? ctx.suspend() : ctx.resume()).catch(() => {}); }
 
 /** Rate limit: returns false if this sound played less than `gap` seconds ago or too many voices are busy. */
