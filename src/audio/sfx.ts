@@ -389,3 +389,10 @@ export function portal() {
   tone(90, 1.4, { type: 'sine', to: 420, gain: 0.12 });
   tone(1200, 0.9, { type: 'triangle', to: 300, gain: 0.04, at: 0.3 });
 }
+/** During the party's execution the music dips, so the moment lands; it comes back up for the party. */
+export function partyDuck(on: boolean) {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  if (partySrc) partySrc.gain.gain.setTargetAtTime(on ? 0.3 : 1.15, t, on ? 0.3 : 0.5);
+  else if (musicBus && partyT) musicBus.gain.setTargetAtTime(musicGain() * (on ? 0.1 : 0.35), t, 0.3);
+}

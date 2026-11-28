@@ -1509,3 +1509,55 @@ html, body, #app, #unlock, #coach, #title, #modal, #panel, #toasts { touch-actio
   text-shadow: 0 3px 0 #c21f8f, 0 0 18px #ff7b2c; animation: pt-boom .7s cubic-bezier(.2,1.6,.4,1) 3.05s forwards; }
 @keyframes pt-boom { 0% { opacity: 0; transform: scale(.2) rotate(-12deg); } 30% { opacity: 1; transform: scale(1.4) rotate(6deg); } 100% { opacity: 0; transform: scale(1) rotate(0) translateY(-20px); } }
 .pt-duel.self ~ .pt-roast { animation-delay: 3.9s; }
+
+/* ---------- party acts: 1 the record, 2 the execution (spotlight), 3 the party ---------- */
+#party .pt-dj, #party .pt-crowd, #party .pt-foot { transition: opacity .8s ease, transform .8s ease; }
+#party.act-intro .pt-dj, #party.act-intro .pt-crowd, #party.act-intro .pt-foot { opacity: 0; transform: translateY(24px); }
+#party .pt-stage, #party .pt-lights, #party .pt-confetti { transition: opacity .7s ease, filter .7s ease; }
+#party.act-duel .pt-stage { opacity: .1; filter: blur(2px); }
+#party.act-duel .pt-lights { opacity: .08; }
+#party.act-duel .pt-confetti { opacity: .12; }
+#party.act-intro .pt-recs li { font-size: 1.05em; }
+/* the spotlight */
+.pt-spot { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 0 16px; pointer-events: none;
+  background: radial-gradient(ellipse 60% 34% at 50% 52%, rgba(255,240,200,.16), rgba(0,0,0,.55) 60%, rgba(0,0,0,.8)); animation: uk-fade .6s ease-out both; }
+.pt-spot.gone { animation: pt-spotout .7s ease-in forwards; }
+@keyframes pt-spotout { to { opacity: 0; } }
+.pt-cap { margin: 0; font: 800 13px Inter, system-ui, sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #ffd34d; opacity: 0; animation: pt-xxin .6s ease-out .3s forwards; }
+.pt-spot .pt-duel { transform: scale(1.3); transform-origin: 50% 100%; margin: 34px 0 18px; gap: 90px; width: 260px; justify-content: space-between; }
+.pt-spot .pt-tracer { left: 70px; width: 120px; right: auto; }
+.pt-spot .pt-roast { margin: 6px 0 0; max-width: 30ch; text-align: center; font-size: 16px; }
+.pt-spot .pt-portal { right: -6px; }
+.pt-spot .pt-boom { right: -6px; }
+
+/* the other commander: walks in slowly, a beat, the shot, a slow fall */
+.pt-spot .pt-duel .pt-shooter { animation: uk-fade .4s ease-out reverse both, pt-aim2 .5s ease-in-out 3.4s both; }
+@keyframes pt-aim2 { 0% { transform: none; } 60% { transform: translateX(3px) rotate(2deg); } 100% { transform: none; } }
+.pt-spot .pt-duel .pt-victim { animation: pt-walk2 2.4s linear .6s both, pt-down2 1.2s cubic-bezier(.5,-.3,.7,1) 3.95s forwards; }
+@keyframes pt-walk2 { from { transform: translateX(110px); opacity: 0; } 15% { opacity: 1; } to { transform: none; opacity: 1; } }
+@keyframes pt-down2 { 0% { transform: none; filter: none; } 12% { transform: translateX(6px); filter: brightness(2.5) sepia(1) hue-rotate(-50deg) saturate(6); }
+  40% { transform: translateX(10px) rotate(-10deg); filter: none; } 100% { transform: translateX(12px) rotate(82deg); filter: grayscale(.6); } }
+.pt-spot .pt-duel .pt-victim img { animation: pt-shamble .5s ease-in-out .6s 6 alternate; }
+.pt-spot .pt-duel .pt-flash { animation: pt-flashk .3s ease-out 3.9s; }
+.pt-spot .pt-duel .pt-tracer { animation: pt-shot .3s ease-out 3.9s; }
+.pt-spot .pt-duel .pt-xx { animation: pt-xxin .25s ease-out 5s forwards; }
+.pt-spot .pt-roast { opacity: 0; animation: pt-xxin .6s ease-out 5.5s forwards; }
+
+/* your future self: the portal, the warning, the pause, the BOOM */
+.pt-spot .pt-duel.self .pt-victim { animation: pt-step 0.8s ease-out 1.3s both, pt-down2 1.2s cubic-bezier(.5,-.3,.7,1) 5.3s forwards; }
+.pt-spot .pt-duel.self .pt-portal { animation: pt-portal-in .8s ease-out .3s forwards, pt-spin .7s linear infinite, pt-portal-out .6s ease-in 6.4s forwards; }
+.pt-spot .pt-duel.self .pt-say { animation: pt-xxin .15s linear 2.4s forwards, pt-saygone .15s linear 5.25s forwards; }
+.pt-spot .pt-duel.self .pt-say span { animation: pt-type 2.1s steps(28, end) 2.5s forwards; }
+.pt-spot .pt-duel.self .pt-shooter { animation: uk-fade .4s ease-out reverse both, pt-aim2 .5s ease-in-out 4.7s both; }
+.pt-spot .pt-duel.self .pt-flash { animation: pt-flashk .3s ease-out 5.2s; }
+.pt-spot .pt-duel.self .pt-tracer { animation: pt-shot .3s ease-out 5.2s; }
+.pt-spot .pt-duel.self .pt-boom { animation: pt-boom .9s cubic-bezier(.2,1.6,.4,1) 5.25s forwards; }
+.pt-spot .pt-duel.self .pt-xx { animation: pt-xxin .25s ease-out 6.5s forwards; }
+.pt-spot.self .pt-roast { animation-delay: 7s; }
+.pt-spot.self .pt-cap { animation: pt-xxin .6s ease-out 1.6s forwards; }
+#party.pt-paused .pt-spot, #party.pt-paused .pt-spot * { animation-play-state: paused !important; }
+@keyframes pt-fadein { from { opacity: 0; } to { opacity: 1; } }
+.pt-spot .pt-duel .pt-shooter { animation: pt-fadein .4s ease-out both, pt-aim2 .5s ease-in-out 3.4s both; }
+.pt-spot .pt-duel.self .pt-shooter { animation: pt-fadein .4s ease-out both, pt-aim2 .5s ease-in-out 4.7s both; }
+.pt-spot .pt-duel { transform: scale(1.15); width: 220px; gap: 60px; }
+.pt-spot .pt-tracer { left: 64px; width: 92px; }
